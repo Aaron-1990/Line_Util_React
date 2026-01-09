@@ -3,7 +3,7 @@
   "productName": "Line Optimizer",
   "version": "0.1.0",
   "description": "Sistema de optimizacion de lineas de produccion - Desktop App",
-  "main": ".vite/build/main.js",
+  "main": ".vite/build/index.js",
   "author": {
     "name": "Aaron Zapata Trejo",
     "email": "aaronzapata90@hotmail.com"

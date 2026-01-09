@@ -173,3 +173,17 @@ export interface AreaCatalogItem {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ============================================
+// CATALOG MANAGEMENT
+// ============================================
+
+export interface AreaCatalogItem {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
