@@ -10,13 +10,20 @@
   * {
     @apply border-gray-200;
   }
-  
+
   body {
     @apply bg-gray-50 text-gray-900;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
-  
-  h1, h2, h3, h4, h5, h6 {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-semibold tracking-tight;
   }
 }
@@ -27,11 +34,11 @@
            transition-colors focus-visible:outline-none focus-visible:ring-2 
            focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50;
   }
-  
+
   .btn-primary {
     @apply btn bg-primary-600 text-white hover:bg-primary-700;
   }
-  
+
   .card {
     @apply rounded-lg border bg-white p-6 shadow-sm;
   }
@@ -52,4 +59,18 @@
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-gray-500;
+}
+
+/* Animacion para panel lateral */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
 }

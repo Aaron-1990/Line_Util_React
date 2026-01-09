@@ -8,15 +8,8 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { DB_CONFIG } from '@shared/constants';
+import { seedDatabase } from './seed-data';
 
-/**
- * Database Connection Manager
- * 
- * Principios:
- * - Singleton: Una sola conexion para toda la app
- * - Lazy initialization: Se crea solo cuando se necesita
- * - Auto-migration: Ejecuta migraciones al inicializar
- */
 class DatabaseConnection {
   private static instance: Database.Database | null = null;
   private static dbPath: string | null = null;
@@ -27,6 +20,11 @@ class DatabaseConnection {
     if (!DatabaseConnection.instance) {
       DatabaseConnection.instance = DatabaseConnection.createConnection();
       DatabaseConnection.runMigrations();
+      
+      // Seed solo en desarrollo
+      if (process.env.NODE_ENV === 'development') {
+        seedDatabase(DatabaseConnection.instance);
+      }
     }
     return DatabaseConnection.instance;
   }
