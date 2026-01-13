@@ -8,11 +8,14 @@ import { useCanvasStore } from '../store/useCanvasStore';
 import { ProductionLine } from '@shared/types';
 
 export function useLoadLines() {
-  const { addNode } = useCanvasStore();
+  const { addNode, setNodes } = useCanvasStore();
 
   useEffect(() => {
     const loadLines = async () => {
       try {
+        // MEJORA: Limpiar store antes de cargar para evitar estados mezclados
+        setNodes([]);
+
         const response = await window.electronAPI.invoke<ProductionLine[]>('lines:get-all');
         
         if (response.success && response.data) {
@@ -38,5 +41,5 @@ export function useLoadLines() {
     };
 
     loadLines();
-  }, [addNode]);
+  }, [addNode, setNodes]);
 }

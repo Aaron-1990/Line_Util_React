@@ -18,7 +18,8 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_GET_ALL,
     async (): Promise<ApiResponse<IProductionLine[]>> => {
       try {
-        const lines = await repository.findAll();
+        // FIX: Usar findActive() en lugar de findAll() para excluir lineas eliminadas
+        const lines = await repository.findActive();
         return {
           success: true,
           data: lines.map(line => line.toJSON()),

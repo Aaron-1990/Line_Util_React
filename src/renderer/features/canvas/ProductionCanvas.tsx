@@ -39,7 +39,6 @@ export const ProductionCanvas = () => {
     setSelectedNode,
   } = useCanvasStore();
 
-  // Cargar lineas al montar
   useLoadLines();
 
   const onNodesChange = useCallback(
@@ -48,13 +47,18 @@ export const ProductionCanvas = () => {
       setNodes(updatedNodes);
 
       changes.forEach((change) => {
-        if (
-          change.type === 'position' &&
-          change.position &&
-          !change.dragging &&
-          change.id
-        ) {
-          updateNodePosition(change.id, change.position.x, change.position.y);
+        if (change.type === 'position' && !change.dragging && change.id) {
+          const updatedNode = updatedNodes.find(n => n.id === change.id);
+          
+          if (updatedNode) {
+            updateNodePosition(change.id, updatedNode.position.x, updatedNode.position.y);
+
+            window.electronAPI
+              .invoke('lines:update-position', change.id, updatedNode.position.x, updatedNode.position.y)
+              .catch((error) => {
+                console.error('[ProductionCanvas] Error updating line position:', error);
+              });
+          }
         }
       });
     },

@@ -1,27 +1,30 @@
 // ============================================
 // LINE PROPERTIES PANEL
 // Panel lateral con propiedades de linea seleccionada
+// Incluye edicion y eliminacion
 // ============================================
 
-import { X } from 'lucide-react';
+import { X, Edit2, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
+import { LineForm } from '../forms/LineForm';
+import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 
-/**
- * LinePropertiesPanel
- * 
- * Panel lateral que muestra informacion de la linea seleccionada
- * 
- * Principios:
- * - Conditional Rendering: Solo visible si hay seleccion
- * - Read-only: Version inicial solo muestra info
- * - Slide animation: Entrada/salida suave
- */
 export const LinePropertiesPanel = () => {
-  const { nodes, selectedNode, setSelectedNode } = useCanvasStore((state) => ({
-    nodes: state.nodes,
-    selectedNode: state.selectedNode,
-    setSelectedNode: state.setSelectedNode,
-  }));
+  const { nodes, selectedNode, setSelectedNode, updateNode, deleteNode } = useCanvasStore(
+    (state) => ({
+      nodes: state.nodes,
+      selectedNode: state.selectedNode,
+      setSelectedNode: state.setSelectedNode,
+      updateNode: state.updateNode,
+      deleteNode: state.deleteNode,
+    })
+  );
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!selectedNode) return null;
 
@@ -29,100 +32,229 @@ export const LinePropertiesPanel = () => {
   if (!node) return null;
 
   const data = node.data;
-  const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(1);
-  const efficiencyPercent = (data.efficiency * 100).toFixed(0);
 
   const handleClose = () => {
     setSelectedNode(null);
+    setIsEditing(false);
+    setShowDeleteModal(false);
+  };
+
+  const handleEditClick = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleSave = async (formData: {
+    name: string;
+    area: string;
+    timeAvailableDaily: number;
+    efficiency: number;
+  }) => {
+    setIsLoading(true);
+
+    try {
+      const response = await window.electronAPI.invoke('lines:update', data.id, formData);
+
+      if (response.success && response.data) {
+        updateNode(data.id, {
+          name: response.data.name,
+          area: response.data.area,
+          timeAvailableDaily: response.data.timeAvailableDaily,
+          efficiency: response.data.efficiency,
+        });
+
+        setIsEditing(false);
+      } else {
+        alert(`Error: ${response.error || 'Failed to update line'}`);
+      }
+    } catch (error) {
+      console.error('Error updating line:', error);
+      alert('Failed to update line. Check console for details.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+
+    try {
+      const response = await window.electronAPI.invoke('lines:delete', data.id);
+
+      if (response.success) {
+        deleteNode(data.id);
+        setSelectedNode(null);
+        setShowDeleteModal(false);
+      } else {
+        alert(`Error: ${response.error || 'Failed to delete line'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting line:', error);
+      alert('Failed to delete line. Check console for details.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
   };
 
   return (
-    <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg z-20 animate-slide-in">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Line Properties</h2>
-        <button
-          onClick={handleClose}
-          className="p-1 hover:bg-gray-100 rounded transition-colors"
-          title="Cerrar"
-        >
-          <X className="w-5 h-5 text-gray-500" />
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="p-4 space-y-4">
-        {/* Name */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Name
-          </label>
-          <p className="mt-1 text-sm text-gray-900 font-medium">{data.name}</p>
-        </div>
-
-        {/* Area */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Area
-          </label>
-          <p className="mt-1 text-sm text-gray-900">{data.area}</p>
-        </div>
-
-        {/* Time Available */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Time Available
-          </label>
-          <p className="mt-1 text-sm text-gray-900">
-            {hoursAvailable} hours/day
-            <span className="text-xs text-gray-500 ml-1">
-              ({data.timeAvailableDaily} seconds)
-            </span>
-          </p>
-        </div>
-
-        {/* Efficiency */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Efficiency (OEE)
-          </label>
-          <p className="mt-1 text-sm text-gray-900">{efficiencyPercent}%</p>
-          <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-primary-500 h-2 rounded-full transition-all"
-              style={{ width: `${efficiencyPercent}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Assigned Models */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Assigned Models
-          </label>
-          <p className="mt-1 text-sm text-gray-900">
-            {data.assignedModelsCount || 0} models
-          </p>
-        </div>
-
-        {/* Status */}
-        <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-            Status
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-sm text-gray-900">Active</span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="pt-4 border-t border-gray-200 space-y-2">
-          <button className="w-full btn-primary py-2">Edit Line</button>
-          <button className="w-full btn bg-gray-200 text-gray-700 hover:bg-gray-300 py-2">
-            Assign Models
+    <>
+      <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg z-20 animate-slide-in">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {isEditing ? 'Edit Line' : 'Line Properties'}
+          </h2>
+          <button
+            onClick={handleClose}
+            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            title="Close"
+          >
+            <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
+
+        {/* Content */}
+        <div className="p-4">
+          {isEditing ? (
+            <LineForm
+              initialData={{
+                name: data.name,
+                area: data.area,
+                timeAvailableDaily: data.timeAvailableDaily,
+                efficiency: data.efficiency,
+              }}
+              onSubmit={handleSave}
+              onCancel={handleCancelEdit}
+              submitLabel="Save Changes"
+              isLoading={isLoading}
+            />
+          ) : (
+            <ReadOnlyView data={data} onEdit={handleEditClick} onDelete={handleDeleteClick} />
+          )}
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <ConfirmDeleteModal
+          lineName={data.name}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+          isDeleting={isDeleting}
+        />
+      )}
+    </>
+  );
+};
+
+// ============================================
+// READ-ONLY VIEW COMPONENT
+// ============================================
+
+interface ReadOnlyViewProps {
+  data: {
+    name: string;
+    area: string;
+    timeAvailableDaily: number;
+    efficiency: number;
+    assignedModelsCount?: number;
+  };
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
+  const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(2);
+  const efficiencyPercent = (data.efficiency * 100).toFixed(0);
+
+  return (
+    <div className="space-y-4">
+      {/* Name */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
+        <p className="mt-1 text-sm text-gray-900 font-medium">{data.name}</p>
+      </div>
+
+      {/* Area */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Area</label>
+        <p className="mt-1 text-sm text-gray-900">{data.area}</p>
+      </div>
+
+      {/* Time Available */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          Time Available
+        </label>
+        <p className="mt-1 text-sm text-gray-900">
+          {hoursAvailable} hours/day
+          <span className="text-xs text-gray-500 ml-1">({data.timeAvailableDaily} seconds)</span>
+        </p>
+      </div>
+
+      {/* Efficiency */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          Efficiency (OEE)
+        </label>
+        <p className="mt-1 text-sm text-gray-900">{efficiencyPercent}%</p>
+        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+          <div
+            className="bg-primary-500 h-2 rounded-full transition-all"
+            style={{ width: `${efficiencyPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Assigned Models */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          Assigned Models
+        </label>
+        <p className="mt-1 text-sm text-gray-900">{data.assignedModelsCount || 0} models</p>
+      </div>
+
+      {/* Status */}
+      <div>
+        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          Status
+        </label>
+        <div className="mt-1 flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-green-500" />
+          <span className="text-sm text-gray-900">Active</span>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="pt-4 border-t border-gray-200 space-y-2">
+        <button
+          onClick={onEdit}
+          className="w-full btn-primary py-2 flex items-center justify-center gap-2"
+        >
+          <Edit2 className="w-4 h-4" />
+          Edit Line
+        </button>
+        <button className="w-full btn bg-gray-200 text-gray-700 hover:bg-gray-300 py-2">
+          Assign Models
+        </button>
+        <button
+          onClick={onDelete}
+          className="w-full btn bg-red-50 text-red-600 hover:bg-red-100 py-2 flex items-center justify-center gap-2 border border-red-200"
+        >
+          <Trash2 className="w-4 h-4" />
+          Delete Line
+        </button>
       </div>
     </div>
   );
