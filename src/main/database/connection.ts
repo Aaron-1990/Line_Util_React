@@ -21,7 +21,6 @@ class DatabaseConnection {
       DatabaseConnection.instance = DatabaseConnection.createConnection();
       DatabaseConnection.runMigrations();
       
-      // Seed solo en desarrollo
       if (process.env.NODE_ENV === 'development') {
         seedDatabase(DatabaseConnection.instance);
       }
@@ -36,7 +35,8 @@ class DatabaseConnection {
     console.log('Database path:', DatabaseConnection.dbPath);
 
     const db = new Database(DatabaseConnection.dbPath, {
-      verbose: process.env.NODE_ENV === 'development' ? console.log : undefined,
+      // verbose: Solo descomentar cuando debuggees queries SQL
+      // verbose: console.log,
     });
 
     db.pragma('foreign_keys = ON');
