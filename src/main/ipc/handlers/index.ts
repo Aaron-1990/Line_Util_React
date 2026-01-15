@@ -8,6 +8,7 @@ import { registerProductModelsHandlers } from './product-models.handler';
 import { registerModelProcessesHandlers } from './model-processes.handler';
 import { registerProductionVolumesHandlers } from './production-volumes.handler';
 import { registerAreaCatalogHandlers } from './area-catalog.handler';
+import { registerExcelHandlers } from './excel.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -17,6 +18,7 @@ export function registerAllHandlers(): void {
   registerModelProcessesHandlers();
   registerProductionVolumesHandlers();
   registerAreaCatalogHandlers();
+  registerExcelHandlers();
 
   console.log('IPC handlers registered successfully');
 }

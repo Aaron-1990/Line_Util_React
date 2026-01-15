@@ -142,17 +142,145 @@ export interface CanvasConfig {
 }
 
 // ============================================
-// EXCEL IMPORT/EXPORT
+// CATALOG MANAGEMENT
 // ============================================
 
-export interface ExcelImportData {
-  lines: ProductionLine[];
-  models: ProductModel[];
-  processes: ModelProcess[];
-  volumes: ProductionVolume[];
-  assignments: LineModelAssignment[];
+export interface AreaCatalogItem {
+  id: string;
+  code: string;
+  name: string;
+  color: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
+// ============================================
+// EXCEL IMPORT/EXPORT - TIPOS COMPLETOS
+// ============================================
+
+/**
+ * Modo de importacion
+ * - create: Solo crear nuevas lineas, skip duplicados
+ * - update: Solo actualizar existentes, skip nuevas
+ * - merge: Actualizar si existe, crear si no (default)
+ */
+export type ImportMode = 'create' | 'update' | 'merge';
+
+/**
+ * Fila individual parseada de Excel
+ */
+export interface ExcelRow {
+  __rowNum__?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Mapeo de columnas Excel a campos del sistema
+ */
+export interface ColumnMapping {
+  name: string;
+  area: string;
+  timeAvailableHours: string;
+  efficiencyPercent: string;
+}
+
+/**
+ * Resultado del parseo de archivo Excel
+ */
+export interface ParsedExcelData {
+  rows: ExcelRow[];
+  headers: string[];
+  sheetName: string;
+  suggestedMapping: {
+    name: string | null;
+    area: string | null;
+    timeAvailableHours: string | null;
+    efficiencyPercent: string | null;
+  };
+}
+
+/**
+ * Error de validacion en una fila
+ */
+export interface ValidationError {
+  row: number;
+  field: string;
+  message: string;
+  value: unknown;
+}
+
+/**
+ * Linea validada lista para importar
+ */
+export interface ValidatedLine {
+  name: string;
+  area: string;
+  timeAvailableDaily: number;
+  efficiency: number;
+  row: number;
+}
+
+/**
+ * Resultado de validacion de batch
+ */
+export interface ValidationResult {
+  stats: {
+    total: number;
+    valid: number;
+    invalid: number;
+    duplicates: number;
+  };
+  validLines: ValidatedLine[];
+  errors: ValidationError[];
+  duplicates: string[];
+}
+
+/**
+ * Opciones de importacion
+ */
+export interface ExcelImportOptions {
+  mode: ImportMode;
+  validateDuplicates: boolean;
+}
+
+/**
+ * Linea que fue skipped durante import
+ */
+export interface SkippedLine {
+  row: number;
+  name: string;
+  reason: 'duplicate' | 'not_found' | 'validation_error';
+  message: string;
+}
+
+/**
+ * Resultado de importacion
+ */
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{
+    row: number;
+    name: string;
+    error: string;
+  }>;
+  skippedLines: SkippedLine[];
+}
+
+/**
+ * Archivo seleccionado para import
+ */
+export interface SelectedFile {
+  file: File;
+  name: string;
+  size: number;
+}
+
+/**
+ * Opciones de export Excel
+ */
 export interface ExcelExportOptions {
   includeResults: boolean;
   includeCharts: boolean;
@@ -160,30 +288,13 @@ export interface ExcelExportOptions {
   fileName: string;
 }
 
-// ============================================
-// CATALOG MANAGEMENT
-// ============================================
-
-export interface AreaCatalogItem {
-  id: string;
-  code: string;
-  name: string;
-  color: string;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// ============================================
-// CATALOG MANAGEMENT
-// ============================================
-
-export interface AreaCatalogItem {
-  id: string;
-  code: string;
-  name: string;
-  color: string;
-  active: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+/**
+ * Data completa de import Excel (todos los tipos de entidades)
+ */
+export interface ExcelImportData {
+  lines: ProductionLine[];
+  models: ProductModel[];
+  processes: ModelProcess[];
+  volumes: ProductionVolume[];
+  assignments: LineModelAssignment[];
 }

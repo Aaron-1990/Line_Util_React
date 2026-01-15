@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { LineForm } from '../forms/LineForm';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
+import { ProductionLine } from '@shared/types';
 
 export const LinePropertiesPanel = () => {
   const { nodes, selectedNode, setSelectedNode, updateNode, deleteNode } = useCanvasStore(
@@ -56,7 +57,7 @@ export const LinePropertiesPanel = () => {
     setIsLoading(true);
 
     try {
-      const response = await window.electronAPI.invoke('lines:update', data.id, formData);
+      const response = await window.electronAPI.invoke<ProductionLine>('lines:update', data.id, formData);
 
       if (response.success && response.data) {
         updateNode(data.id, {
@@ -110,7 +111,6 @@ export const LinePropertiesPanel = () => {
   return (
     <>
       <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg z-20 animate-slide-in">
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             {isEditing ? 'Edit Line' : 'Line Properties'}
@@ -124,7 +124,6 @@ export const LinePropertiesPanel = () => {
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-4">
           {isEditing ? (
             <LineForm
@@ -145,7 +144,6 @@ export const LinePropertiesPanel = () => {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <ConfirmDeleteModal
           lineName={data.name}
@@ -157,10 +155,6 @@ export const LinePropertiesPanel = () => {
     </>
   );
 };
-
-// ============================================
-// READ-ONLY VIEW COMPONENT
-// ============================================
 
 interface ReadOnlyViewProps {
   data: {
@@ -180,19 +174,16 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
 
   return (
     <div className="space-y-4">
-      {/* Name */}
       <div>
         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
         <p className="mt-1 text-sm text-gray-900 font-medium">{data.name}</p>
       </div>
 
-      {/* Area */}
       <div>
         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Area</label>
         <p className="mt-1 text-sm text-gray-900">{data.area}</p>
       </div>
 
-      {/* Time Available */}
       <div>
         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
           Time Available
@@ -203,7 +194,6 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
         </p>
       </div>
 
-      {/* Efficiency */}
       <div>
         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
           Efficiency (OEE)
@@ -217,7 +207,6 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
         </div>
       </div>
 
-      {/* Assigned Models */}
       <div>
         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
           Assigned Models
@@ -225,7 +214,6 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
         <p className="mt-1 text-sm text-gray-900">{data.assignedModelsCount || 0} models</p>
       </div>
 
-      {/* Status */}
       <div>
         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
           Status
@@ -236,7 +224,6 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
         </div>
       </div>
 
-      {/* Actions */}
       <div className="pt-4 border-t border-gray-200 space-y-2">
         <button
           onClick={onEdit}

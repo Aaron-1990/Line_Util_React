@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import { LineForm } from '../forms/LineForm';
 import { useCanvasStore } from '../../store/useCanvasStore';
+import { ProductionLine } from '@shared/types';
 
 interface AddLineModalProps {
   isOpen: boolean;
@@ -27,7 +28,6 @@ export const AddLineModal = ({ isOpen, onClose }: AddLineModalProps) => {
       return { x: 100, y: 100 };
     }
 
-    // Encontrar el nodo mas a la derecha y abajo
     let maxX = 0;
     let maxY = 0;
 
@@ -36,16 +36,13 @@ export const AddLineModal = ({ isOpen, onClose }: AddLineModalProps) => {
       if (node.position.y > maxY) maxY = node.position.y;
     });
 
-    // Offset pequeño con variacion aleatoria para evitar superposicion exacta
     const offsetX = 50 + Math.random() * 50;
     const offsetY = 50 + Math.random() * 50;
 
-    // Si hay espacio a la derecha, colocar ahi
     if (maxX < 1000) {
       return { x: maxX + 250, y: Math.max(100, maxY - 100) };
     }
 
-    // Si no, colocar debajo
     return { x: 100 + offsetX, y: maxY + 200 + offsetY };
   };
 
@@ -58,7 +55,7 @@ export const AddLineModal = ({ isOpen, onClose }: AddLineModalProps) => {
     setIsLoading(true);
 
     try {
-      const response = await window.electronAPI.invoke('lines:create', data);
+      const response = await window.electronAPI.invoke<ProductionLine>('lines:create', data);
 
       if (response.success && response.data) {
         const position = calculateInitialPosition();

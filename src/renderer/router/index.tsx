@@ -7,6 +7,7 @@ import { createHashRouter, Navigate } from 'react-router-dom';
 import { HomePage } from '../pages/HomePage';
 import { CanvasPage } from '../pages/CanvasPage';
 import { DashboardPage } from '../pages/DashboardPage';
+import { ExcelImportPage } from '../pages/ExcelImportPage';
 
 /**
  * Router principal de la aplicacion
@@ -26,6 +27,10 @@ export const router = createHashRouter([
   {
     path: '/dashboard',
     element: <DashboardPage />,
+  },
+  {
+    path: '/excel/import',
+    element: <ExcelImportPage />,
   },
   {
     path: '*',

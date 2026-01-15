@@ -1,0 +1,6 @@
+Name,Area,Time Available (h),Efficiency (%)
+Test Line 1,SMT,23,85
+Test Line 2,ICT,22.5,90
+Test Line 3,WAVE,21,75
+Duplicate Line,SMT,23,80
+Test Line 4,ASSEMBLY,20,70

@@ -3,17 +3,23 @@
 // Barra de herramientas superior del canvas
 // ============================================
 
-import { Plus, ZoomIn, ZoomOut, Maximize2, Trash2 } from 'lucide-react';
+import { Plus, ZoomIn, ZoomOut, Maximize2, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { AddLineModal } from '../modals/AddLineModal';
 
 export const CanvasToolbar = () => {
   const reset = useCanvasStore((state) => state.reset);
+  const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const handleAddLine = () => {
     setIsAddModalOpen(true);
+  };
+
+  const handleImport = () => {
+    navigate('/excel/import');
   };
 
   const handleZoomIn = () => {
@@ -43,6 +49,14 @@ export const CanvasToolbar = () => {
           title="Agregar linea de produccion"
         >
           <Plus className="w-5 h-5 text-gray-700" />
+        </button>
+
+        <button
+          onClick={handleImport}
+          className="p-2 hover:bg-green-50 rounded transition-colors"
+          title="Importar desde Excel"
+        >
+          <Upload className="w-5 h-5 text-green-600" />
         </button>
 
         <div className="w-px h-6 bg-gray-300" />

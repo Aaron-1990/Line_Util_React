@@ -31,13 +31,7 @@ export const DEFAULT_PRODUCTION_AREAS = [
   { code: 'TEST', name: 'Testing', color: '#a78bfa' },
 ] as const;
 
-export const DEFAULT_PROCESS_TYPES = [
-  'Top',
-  'Bottom',
-  'HVDC',
-  'HVAC',
-  'GDB Subassy',
-] as const;
+export const DEFAULT_PROCESS_TYPES = ['Top', 'Bottom', 'HVDC', 'HVAC', 'GDB Subassy'] as const;
 
 // ============================================
 // CANALES IPC (ELECTRON)
@@ -51,55 +45,57 @@ export const IPC_CHANNELS = {
   LINES_UPDATE: 'lines:update',
   LINES_DELETE: 'lines:delete',
   LINES_UPDATE_POSITION: 'lines:update-position',
-  
+
   // Models
   MODELS_GET_ALL: 'models:get-all',
   MODELS_GET_BY_ID: 'models:get-by-id',
   MODELS_CREATE: 'models:create',
   MODELS_UPDATE: 'models:update',
   MODELS_DELETE: 'models:delete',
-  
+
   // Model Processes
   PROCESSES_GET_BY_MODEL: 'processes:get-by-model',
   PROCESSES_CREATE: 'processes:create',
   PROCESSES_UPDATE: 'processes:update',
   PROCESSES_DELETE: 'processes:delete',
-  
+
   // Volumes
   VOLUMES_GET_ALL: 'volumes:get-all',
   VOLUMES_GET_BY_YEAR: 'volumes:get-by-year',
   VOLUMES_CREATE: 'volumes:create',
   VOLUMES_UPDATE: 'volumes:update',
   VOLUMES_DELETE: 'volumes:delete',
-  
+
   // Line-Model Assignments
   ASSIGNMENTS_GET_BY_LINE: 'assignments:get-by-line',
   ASSIGNMENTS_GET_BY_MODEL: 'assignments:get-by-model',
   ASSIGNMENTS_CREATE: 'assignments:create',
   ASSIGNMENTS_DELETE: 'assignments:delete',
-  
+
   // Canvas Areas
   AREAS_GET_ALL: 'areas:get-all',
   AREAS_CREATE: 'areas:create',
   AREAS_UPDATE: 'areas:update',
   AREAS_DELETE: 'areas:delete',
-  
+
   // Area Catalog (NEW - para gestion de catalogo)
   CATALOG_AREAS_GET_ALL: 'catalog:areas:get-all',
   CATALOG_AREAS_CREATE: 'catalog:areas:create',
   CATALOG_AREAS_UPDATE: 'catalog:areas:update',
   CATALOG_AREAS_DELETE: 'catalog:areas:delete',
-  
+
   // Analysis
   ANALYSIS_RUN: 'analysis:run',
   ANALYSIS_GET_HISTORY: 'analysis:get-history',
   ANALYSIS_GET_BY_ID: 'analysis:get-by-id',
-  
+
   // Excel Import/Export
   EXCEL_IMPORT: 'excel:import',
   EXCEL_EXPORT: 'excel:export',
   EXCEL_SELECT_FILE: 'excel:select-file',
-  
+  EXCEL_PARSE_FILE: 'excel:parse-file',
+  EXCEL_VALIDATE_DATA: 'excel:validate-data',
+
   // Python Bridge
   PYTHON_RUN_DISTRIBUTION: 'python:run-distribution',
   PYTHON_CHECK_STATUS: 'python:check-status',
@@ -118,7 +114,7 @@ export const ROUTES = {
   VOLUMES: '/volumes',
   ANALYSIS: '/analysis',
   SETTINGS: '/settings',
-  CATALOG: '/catalog',  // NEW - para gestion de catalogos
+  CATALOG: '/catalog', // NEW - para gestion de catalogos
 } as const;
 
 // ============================================
@@ -188,4 +184,14 @@ export const MESSAGES = {
     DUPLICATE_NAME: 'Ya existe un elemento con ese nombre',
     DUPLICATE_CODE: 'Ya existe un area con ese codigo',
   },
+} as const;
+
+// Excel Import/Export (agregado en FASE 3)
+export const EXCEL_CHANNELS = {
+  SELECT_FILE: 'excel:select-file',
+  PARSE_FILE: 'excel:parse-file',
+  GET_SHEET_NAMES: 'excel:get-sheet-names',
+  VALIDATE_DATA: 'excel:validate-data',
+  IMPORT: 'excel:import',
+  EXPORT: 'excel:export',
 } as const;
