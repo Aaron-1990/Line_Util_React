@@ -7,6 +7,7 @@ import { CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
 
 interface ImportResult {
   imported: string[];
+  updated: string[];
   skipped: string[];
   errors: Array<{ row: number; name: string; error: string }>;
 }
@@ -26,12 +27,14 @@ export const ProgressTracker = ({
   const hasErrors = importResult?.errors && importResult.errors.length > 0;
   const hasSkipped = importResult?.skipped && importResult.skipped.length > 0;
   const importedCount = importResult?.imported?.length || 0;
+  const updatedCount = importResult?.updated?.length || 0;
   const skippedCount = importResult?.skipped?.length || 0;
   const errorCount = importResult?.errors?.length || 0;
 
-  const isSuccess = isComplete && importedCount > 0 && !hasErrors;
-  const isPartialSuccess = isComplete && importedCount > 0 && (hasErrors || hasSkipped);
-  const isFailure = isComplete && importedCount === 0;
+  const totalProcessed = importedCount + updatedCount;
+  const isSuccess = isComplete && totalProcessed > 0 && !hasErrors;
+  const isPartialSuccess = isComplete && totalProcessed > 0 && (hasErrors || hasSkipped);
+  const isFailure = isComplete && totalProcessed === 0;
 
   return (
     <div className="space-y-6">
@@ -66,8 +69,15 @@ export const ProgressTracker = ({
             Import Successful!
           </h3>
           <p className="text-green-800">
-            Successfully imported {importedCount} production line
-            {importedCount !== 1 ? 's' : ''}
+            {importedCount > 0 && updatedCount > 0 && (
+              <>Created {importedCount} and updated {updatedCount} production lines</>
+            )}
+            {importedCount > 0 && updatedCount === 0 && (
+              <>Successfully imported {importedCount} production line{importedCount !== 1 ? 's' : ''}</>
+            )}
+            {importedCount === 0 && updatedCount > 0 && (
+              <>Successfully updated {updatedCount} production line{updatedCount !== 1 ? 's' : ''}</>
+            )}
           </p>
         </div>
       )}
@@ -81,7 +91,9 @@ export const ProgressTracker = ({
               Import Completed with Warnings
             </h3>
             <p className="text-yellow-800">
-              Imported {importedCount} line{importedCount !== 1 ? 's' : ''}
+              {importedCount > 0 && `Created ${importedCount}`}
+              {importedCount > 0 && updatedCount > 0 && ', '}
+              {updatedCount > 0 && `updated ${updatedCount}`}
               {hasSkipped && `, skipped ${skippedCount}`}
               {hasErrors && `, ${errorCount} error${errorCount !== 1 ? 's' : ''}`}
             </p>
@@ -151,7 +163,7 @@ export const ProgressTracker = ({
           <AlertTriangle className="w-16 h-16 text-red-600 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-red-900 mb-2">Import Failed</h3>
           <p className="text-red-800">
-            No lines were imported. Please check the errors and try again.
+            No lines were imported or updated. Please check the errors and try again.
           </p>
 
           {hasErrors && (
@@ -183,10 +195,14 @@ export const ProgressTracker = ({
 
       {/* Summary Stats */}
       {isComplete && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-green-900">{importedCount}</p>
-            <p className="text-sm text-green-700">Imported</p>
+            <p className="text-sm text-green-700">Created</p>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+            <p className="text-2xl font-bold text-blue-900">{updatedCount}</p>
+            <p className="text-sm text-blue-700">Updated</p>
           </div>
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-yellow-900">{skippedCount}</p>

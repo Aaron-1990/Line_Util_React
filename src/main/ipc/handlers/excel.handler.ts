@@ -11,6 +11,7 @@ import {
   ParsedExcelData,
   ColumnMapping,
   ValidationResult,
+  ImportMode,
 } from '@shared/types';
 import { ExcelImporter } from '../../services/excel/ExcelImporter';
 import { ExcelValidator } from '../../services/excel/ExcelValidator';
@@ -20,6 +21,7 @@ import { ProductionLine } from '@domain/entities';
 
 interface ImportResult {
   imported: string[];
+  updated: string[];
   skipped: string[];
   errors: Array<{
     row: number;
@@ -40,7 +42,7 @@ export function registerExcelHandlers(): void {
         const result = await dialog.showOpenDialog({
           properties: ['openFile'],
           filters: [
-            { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
+            { name: 'Spreadsheet Files', extensions: ['xlsx', 'xls', 'csv'] },
             { name: 'All Files', extensions: ['*'] },
           ],
         });
@@ -180,17 +182,60 @@ export function registerExcelHandlers(): void {
     }
   );
 
+  // ===== CHECK EXISTING LINES IN DB =====
+  ipcMain.handle(
+    IPC_CHANNELS.EXCEL_CHECK_EXISTING,
+    async (_event, lineNames: string[]): Promise<ApiResponse<{
+      existing: string[];
+      new: string[];
+    }>> => {
+      try {
+        console.log('[Excel Handler] Checking existing lines:', lineNames.length);
+
+        const existing: string[] = [];
+        const newLines: string[] = [];
+
+        for (const name of lineNames) {
+          const exists = await lineRepository.findByName(name);
+          if (exists) {
+            existing.push(name);
+          } else {
+            newLines.push(name);
+          }
+        }
+
+        console.log('[Excel Handler] Check complete:', {
+          existing: existing.length,
+          new: newLines.length,
+        });
+
+        return {
+          success: true,
+          data: { existing, new: newLines },
+        };
+      } catch (error) {
+        console.error('[Excel Handler] Check existing error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
   // ===== IMPORT DATA =====
   ipcMain.handle(
     IPC_CHANNELS.EXCEL_IMPORT,
     async (
       _event,
       filePath: string,
-      mapping: ColumnMapping
+      mapping: ColumnMapping,
+      mode: ImportMode = 'merge'
     ): Promise<ApiResponse<ImportResult>> => {
       try {
         console.log('[Excel Handler] Starting import from:', filePath);
         console.log('[Excel Handler] Using mapping:', mapping);
+        console.log('[Excel Handler] Import mode:', mode);
 
         const parseResult = ExcelImporter.parseFile(filePath);
         const validationResult = ExcelValidator.validateBatch(parseResult.rows as ExcelRow[], mapping);
@@ -202,40 +247,110 @@ export function registerExcelHandlers(): void {
 
         const importResult: ImportResult = {
           imported: [],
+          updated: [],
           skipped: [],
           errors: [],
         };
 
-        // Importar lineas validas
+        // Importar lineas validas segun modo
         for (const validLine of validationResult.validLines) {
           try {
-            // Verificar si ya existe (por nombre)
-            const exists = await lineRepository.existsByName(validLine.name);
-            if (exists) {
-              importResult.skipped.push(validLine.name);
-              console.log(`[Excel Handler] Skipping duplicate: ${validLine.name}`);
-              continue;
+            const existingLine = await lineRepository.findByName(validLine.name);
+            const exists = existingLine !== null;
+
+            // MODO CREATE: Solo crear nuevas, skip si existe
+            if (mode === 'create') {
+              if (exists) {
+                importResult.skipped.push(validLine.name);
+                console.log(`[Excel Handler] [CREATE] Skipping existing: ${validLine.name}`);
+                continue;
+              }
+              
+              const existingLines = await lineRepository.findAll();
+              const xPosition = 100 + (existingLines.length * 250) % 1000;
+              const yPosition = 100 + Math.floor((existingLines.length * 250) / 1000) * 200;
+
+              const line = ProductionLine.create({
+                name: validLine.name,
+                area: validLine.area,
+                timeAvailableDaily: validLine.timeAvailableDaily,
+                efficiency: validLine.efficiency,
+                xPosition,
+                yPosition,
+              });
+
+              await lineRepository.save(line);
+              importResult.imported.push(validLine.name);
+              console.log(`[Excel Handler] [CREATE] Created: ${validLine.name}`);
             }
+            
+            // MODO UPDATE: Solo actualizar existentes, skip si no existe
+            else if (mode === 'update') {
+              if (!exists || !existingLine) {
+                importResult.skipped.push(validLine.name);
+                console.log(`[Excel Handler] [UPDATE] Skipping new: ${validLine.name}`);
+                continue;
+              }
 
-            // Calcular posicion inicial
-            const existingLines = await lineRepository.findAll();
-            const xPosition = 100 + (existingLines.length * 250) % 1000;
-            const yPosition = 100 + Math.floor((existingLines.length * 250) / 1000) * 200;
+              // Actualizar datos manteniendo posicion
+              const updatedLine = ProductionLine.fromDatabase({
+                id: existingLine.id,
+                name: existingLine.name,
+                area: validLine.area,
+                timeAvailableDaily: validLine.timeAvailableDaily,
+                efficiency: validLine.efficiency,
+                active: existingLine.active,
+                xPosition: existingLine.xPosition,
+                yPosition: existingLine.yPosition,
+                createdAt: existingLine.createdAt,
+                updatedAt: new Date(),
+              });
 
-            // Crear entity
-            const line = ProductionLine.create({
-              name: validLine.name,
-              area: validLine.area,
-              timeAvailableDaily: validLine.timeAvailableDaily,
-              efficiency: validLine.efficiency,
-              xPosition,
-              yPosition,
-            });
+              await lineRepository.save(updatedLine);
+              importResult.updated.push(validLine.name);
+              console.log(`[Excel Handler] [UPDATE] Updated: ${validLine.name}`);
+            }
+            
+            // MODO MERGE: Actualizar si existe, crear si no
+            else if (mode === 'merge') {
+              if (exists && existingLine) {
+                // Actualizar existente
+                const updatedLine = ProductionLine.fromDatabase({
+                  id: existingLine.id,
+                  name: existingLine.name,
+                  area: validLine.area,
+                  timeAvailableDaily: validLine.timeAvailableDaily,
+                  efficiency: validLine.efficiency,
+                  active: existingLine.active,
+                  xPosition: existingLine.xPosition,
+                  yPosition: existingLine.yPosition,
+                  createdAt: existingLine.createdAt,
+                  updatedAt: new Date(),
+                });
 
-            // Guardar en DB
-            await lineRepository.save(line);
-            importResult.imported.push(validLine.name);
-            console.log(`[Excel Handler] Imported: ${validLine.name}`);
+                await lineRepository.save(updatedLine);
+                importResult.updated.push(validLine.name);
+                console.log(`[Excel Handler] [MERGE] Updated: ${validLine.name}`);
+              } else {
+                // Crear nueva
+                const existingLines = await lineRepository.findAll();
+                const xPosition = 100 + (existingLines.length * 250) % 1000;
+                const yPosition = 100 + Math.floor((existingLines.length * 250) / 1000) * 200;
+
+                const line = ProductionLine.create({
+                  name: validLine.name,
+                  area: validLine.area,
+                  timeAvailableDaily: validLine.timeAvailableDaily,
+                  efficiency: validLine.efficiency,
+                  xPosition,
+                  yPosition,
+                });
+
+                await lineRepository.save(line);
+                importResult.imported.push(validLine.name);
+                console.log(`[Excel Handler] [MERGE] Created: ${validLine.name}`);
+              }
+            }
           } catch (error) {
             const errorMsg = error instanceof Error ? error.message : 'Unknown error';
             importResult.errors.push({
@@ -243,12 +358,13 @@ export function registerExcelHandlers(): void {
               name: validLine.name,
               error: errorMsg,
             });
-            console.error(`[Excel Handler] Error importing ${validLine.name}:`, error);
+            console.error(`[Excel Handler] Error processing ${validLine.name}:`, error);
           }
         }
 
         console.log('[Excel Handler] Import complete:', {
           imported: importResult.imported.length,
+          updated: importResult.updated.length,
           skipped: importResult.skipped.length,
           errors: importResult.errors.length,
         });

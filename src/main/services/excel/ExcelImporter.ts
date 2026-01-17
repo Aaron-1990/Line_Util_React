@@ -1,8 +1,9 @@
 // ============================================
 // EXCEL IMPORTER SERVICE
+// Soporta formatos: .xlsx, .xls, .csv
 // ============================================
-
 import * as XLSX from 'xlsx';
+import Papa from 'papaparse';
 import fs from 'fs';
 
 export interface ExcelRow {
@@ -17,11 +18,31 @@ export interface ParseResult {
 }
 
 export class ExcelImporter {
+  /**
+   * Parse archivo Excel (.xlsx, .xls) o CSV (.csv)
+   * Detecta formato automaticamente por extension
+   */
   static parseFile(filePath: string, sheetIndex: number = 0): ParseResult {
     if (!fs.existsSync(filePath)) {
       throw new Error(`File not found: ${filePath}`);
     }
 
+    // Detectar formato por extension
+    const ext = filePath.split('.').pop()?.toLowerCase();
+
+    if (ext === 'csv') {
+      return this.parseCsv(filePath);
+    } else if (ext === 'xlsx' || ext === 'xls') {
+      return this.parseExcel(filePath, sheetIndex);
+    } else {
+      throw new Error(`Unsupported file format: ${ext}`);
+    }
+  }
+
+  /**
+   * Parse archivo Excel (.xlsx, .xls)
+   */
+  private static parseExcel(filePath: string, sheetIndex: number = 0): ParseResult {
     const buffer = fs.readFileSync(filePath);
     const workbook = XLSX.read(buffer, { type: 'buffer' });
 
@@ -67,6 +88,50 @@ export class ExcelImporter {
       rows,
       headers,
       sheetName,
+    };
+  }
+
+  /**
+   * Parse archivo CSV (.csv)
+   */
+  private static parseCsv(filePath: string): ParseResult {
+    const fileContent = fs.readFileSync(filePath, 'utf-8');
+
+    const parseResult = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      transformHeader: (header: string) => header.trim(),
+    });
+
+    if (parseResult.errors.length > 0) {
+      const firstError = parseResult.errors[0];
+      if (firstError) {
+        throw new Error(`CSV parse error: ${firstError.message} at row ${firstError.row || 'unknown'}`);
+      }
+      throw new Error('CSV parse error: Unknown error');
+    }
+
+    if (!parseResult.meta.fields || parseResult.meta.fields.length === 0) {
+      throw new Error('CSV file has no headers');
+    }
+
+    if (parseResult.data.length === 0) {
+      throw new Error('CSV file is empty');
+    }
+
+    const headers = parseResult.meta.fields;
+    const rows: ExcelRow[] = (parseResult.data as Record<string, unknown>[]).map((row, index) => {
+      return {
+        rowNumber: index + 2, // Igual que Excel (fila 1 = headers)
+        ...row,
+      };
+    });
+
+    return {
+      rows,
+      headers,
+      sheetName: 'CSV Data',
     };
   }
 

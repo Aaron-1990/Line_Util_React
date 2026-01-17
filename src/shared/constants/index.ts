@@ -95,6 +95,7 @@ export const IPC_CHANNELS = {
   EXCEL_SELECT_FILE: 'excel:select-file',
   EXCEL_PARSE_FILE: 'excel:parse-file',
   EXCEL_VALIDATE_DATA: 'excel:validate-data',
+  EXCEL_CHECK_EXISTING: 'excel:check-existing',
 
   // Python Bridge
   PYTHON_RUN_DISTRIBUTION: 'python:run-distribution',

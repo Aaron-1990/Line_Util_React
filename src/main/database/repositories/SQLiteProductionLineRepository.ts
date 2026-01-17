@@ -132,6 +132,14 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
     return row !== undefined;
   }
 
+  async findByName(name: string): Promise<ProductionLine | null> {
+    const row = this.db
+      .prepare('SELECT * FROM production_lines WHERE name = ? AND active = 1')
+      .get(name) as LineRow | undefined;
+
+    return row ? this.mapRowToEntity(row) : null;
+  }
+
   async updatePosition(id: string, x: number, y: number): Promise<void> {
     this.db
       .prepare('UPDATE production_lines SET x_position = ?, y_position = ? WHERE id = ?')

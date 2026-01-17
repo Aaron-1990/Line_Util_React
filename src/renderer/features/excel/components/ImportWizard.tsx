@@ -8,7 +8,7 @@ import { FileSelector } from './FileSelector';
 import { ColumnMapper } from './ColumnMapper';
 import { ValidationDisplay } from './ValidationDisplay';
 import { ProgressTracker } from './ProgressTracker';
-import { ValidationResult } from '@shared/types';
+import { ValidationResult, ImportMode } from '@shared/types';
 
 type Step = 'select' | 'parse' | 'map' | 'validate' | 'import' | 'complete';
 
@@ -37,10 +37,13 @@ interface ValidationDisplayData {
   invalidCount: number;
   errors: Array<{ row: number; field: string; message: string }>;
   duplicates: string[];
+  existingInDB: string[];
+  newInDB: string[];
 }
 
 interface ImportResult {
   imported: string[];
+  updated: string[];
   skipped: string[];
   errors: Array<{ row: number; name: string; error: string }>;
 }
@@ -53,6 +56,7 @@ interface ImportWizardProps {
 export const ImportWizard = ({ onComplete, onCancel }: ImportWizardProps) => {
   const [currentStep, setCurrentStep] = useState<Step>('select');
   const [filePath, setFilePath] = useState<string>('');
+  const [importMode, setImportMode] = useState<ImportMode>('merge');
   const [parsedData, setParsedData] = useState<ParsedData | null>(null);
   const [columnMapping, setColumnMapping] = useState<ColumnMapping | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationDisplayData | null>(null);
@@ -61,8 +65,13 @@ export const ImportWizard = ({ onComplete, onCancel }: ImportWizardProps) => {
   const [error, setError] = useState<string | null>(null);
 
   // Step: Select File
-  const handleFileSelected = async (selectedPath: string, _selectedName: string) => {
+  const handleFileSelected = async (
+    selectedPath: string,
+    _selectedName: string,
+    mode: ImportMode
+  ) => {
     setFilePath(selectedPath);
+    setImportMode(mode);
     setCurrentStep('parse');
     setIsLoading(true);
     setError(null);
@@ -119,6 +128,15 @@ export const ImportWizard = ({ onComplete, onCancel }: ImportWizardProps) => {
       );
 
       if (response.success && response.data) {
+        // Obtener nombres validos
+        const validLineNames = response.data.validLines.map(line => line.name);
+        
+        // Verificar contra DB
+        const checkResponse = await window.electronAPI.invoke<{
+          existing: string[];
+          new: string[];
+        }>('excel:check-existing', validLineNames);
+
         // Adapter: Convertir ValidationResult de @shared/types al formato de ValidationDisplay
         const adapted: ValidationDisplayData = {
           validCount: response.data.stats.valid,
@@ -129,6 +147,8 @@ export const ImportWizard = ({ onComplete, onCancel }: ImportWizardProps) => {
             message: err.message,
           })),
           duplicates: response.data.duplicates,
+          existingInDB: checkResponse.data?.existing || [],
+          newInDB: checkResponse.data?.new || [],
         };
         setValidationResult(adapted);
       } else {
@@ -153,7 +173,8 @@ export const ImportWizard = ({ onComplete, onCancel }: ImportWizardProps) => {
       const response = await window.electronAPI.invoke<ImportResult>(
         'excel:import',
         filePath,
-        columnMapping
+        columnMapping,
+        importMode
       );
 
       if (response.success && response.data) {
@@ -271,6 +292,7 @@ export const ImportWizard = ({ onComplete, onCancel }: ImportWizardProps) => {
           {currentStep === 'validate' && validationResult && (
             <ValidationDisplay
               validationResult={validationResult}
+              importMode={importMode}
               onStartImport={handleStartImport}
               onBack={handleBack}
             />

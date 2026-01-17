@@ -4,33 +4,67 @@
 // ============================================
 
 import { useState } from 'react';
-import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { ImportMode } from '@shared/types';
 
 interface ValidationResult {
   validCount: number;
   invalidCount: number;
   errors: Array<{ row: number; field: string; message: string }>;
   duplicates: string[];
+  existingInDB: string[];
+  newInDB: string[];
 }
 
 interface ValidationDisplayProps {
   validationResult: ValidationResult;
+  importMode: ImportMode;
   onStartImport: () => void;
   onBack: () => void;
 }
 
 export const ValidationDisplay = ({
   validationResult,
+  importMode,
   onStartImport,
   onBack,
 }: ValidationDisplayProps) => {
   const [showErrors, setShowErrors] = useState(false);
   const [showDuplicates, setShowDuplicates] = useState(false);
 
-  const { validCount, invalidCount, errors, duplicates } = validationResult;
+  const { validCount, invalidCount, errors, duplicates, existingInDB, newInDB } = validationResult;
   const hasErrors = invalidCount > 0;
   const hasDuplicates = duplicates.length > 0;
   const canImport = validCount > 0;
+
+  // Calcular preview basado en verificacion REAL de DB
+  const existingCount = existingInDB.length;
+  const newCount = newInDB.length;
+
+  const getImportPreview = () => {
+    switch (importMode) {
+      case 'merge':
+        return {
+          message: `${existingCount} line${existingCount !== 1 ? 's' : ''} will be updated, ${newCount} will be created`,
+          color: 'blue',
+          icon: <Info className="w-5 h-5" />,
+        };
+      case 'create':
+        return {
+          message: `${newCount} line${newCount !== 1 ? 's' : ''} will be created, ${existingCount} duplicate${existingCount !== 1 ? 's' : ''} will be skipped`,
+          color: 'green',
+          icon: <CheckCircle className="w-5 h-5" />,
+        };
+      case 'update':
+        return {
+          message: `${existingCount} line${existingCount !== 1 ? 's' : ''} will be updated, ${newCount} new line${newCount !== 1 ? 's' : ''} will be skipped`,
+          color: 'yellow',
+          icon: <AlertTriangle className="w-5 h-5" />,
+        };
+    }
+  };
+
+  const preview = getImportPreview();
 
   return (
     <div className="space-y-6">
@@ -109,12 +143,31 @@ export const ValidationDisplay = ({
                   hasDuplicates ? 'text-yellow-700' : 'text-gray-500'
                 }`}
               >
-                Duplicates
+                Existing Lines
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Import Mode Preview */}
+      {canImport && (
+        <div className={`bg-${preview.color}-50 border border-${preview.color}-200 rounded-lg p-4`}>
+          <div className="flex items-start gap-3">
+            <div className={`text-${preview.color}-600 mt-0.5`}>
+              {preview.icon}
+            </div>
+            <div>
+              <h3 className={`text-sm font-semibold text-${preview.color}-900 mb-1`}>
+                Import Preview - {importMode.toUpperCase()} Mode
+              </h3>
+              <p className={`text-sm text-${preview.color}-800`}>
+                {preview.message}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Errors Section */}
       {hasErrors && (
@@ -181,7 +234,7 @@ export const ValidationDisplay = ({
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-yellow-600" />
               <span className="font-semibold text-yellow-900">
-                {duplicates.length} Duplicate Names (will be skipped)
+                {duplicates.length} Existing Lines Found
               </span>
             </div>
             {showDuplicates ? (
@@ -199,6 +252,11 @@ export const ValidationDisplay = ({
                     <li key={idx} className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-yellow-500" />
                       {name}
+                      <span className="text-xs text-yellow-600">
+                        {importMode === 'create' && '(will be skipped)'}
+                        {importMode === 'update' && '(will be updated)'}
+                        {importMode === 'merge' && '(will be updated)'}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -208,22 +266,7 @@ export const ValidationDisplay = ({
         </div>
       )}
 
-      {/* Import Warning/Info */}
-      {canImport && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-blue-900 mb-2">
-            Ready to Import
-          </h3>
-          <p className="text-sm text-blue-800">
-            {validCount} valid line{validCount !== 1 ? 's' : ''} will be imported.
-            {hasDuplicates &&
-              ` ${duplicates.length} duplicate${duplicates.length !== 1 ? 's' : ''} will be skipped.`}
-            {hasErrors &&
-              ` ${invalidCount} invalid line${invalidCount !== 1 ? 's' : ''} will be ignored.`}
-          </p>
-        </div>
-      )}
-
+      {/* No valid lines warning */}
       {!canImport && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-red-900 mb-2">
@@ -249,7 +292,7 @@ export const ValidationDisplay = ({
           disabled={!canImport}
           className="btn-primary px-6 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {canImport ? `Import ${validCount} Lines` : 'No Valid Lines'}
+          {canImport ? `Start Import (${importMode.toUpperCase()})` : 'No Valid Lines'}
         </button>
       </div>
     </div>
