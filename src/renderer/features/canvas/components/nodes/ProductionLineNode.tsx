@@ -28,7 +28,11 @@ interface ProductionLineData {
 export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
   ({ data, selected }) => {
     const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(1);
-    const efficiencyPercent = (data.efficiency * 100).toFixed(0);
+
+    // Efficiency (Blended OEE) will be calculated in Phase 4 after optimization
+    // For now, show placeholder if not available
+    const hasEfficiency = data.efficiency != null && !isNaN(data.efficiency) && data.efficiency > 0;
+    const efficiencyDisplay = hasEfficiency ? `${(data.efficiency * 100).toFixed(0)}%` : '--';
 
     return (
       <div
@@ -55,8 +59,8 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
             <span>{hoursAvailable}h/day</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="font-medium">OEE:</span>
-            <span>{efficiencyPercent}%</span>
+            <span className="font-medium">Efficiency:</span>
+            <span className={hasEfficiency ? '' : 'text-gray-400'}>{efficiencyDisplay}</span>
           </div>
           {data.assignedModelsCount !== undefined && data.assignedModelsCount > 0 && (
             <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200 text-primary-600">
