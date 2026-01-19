@@ -12,6 +12,7 @@ import {
   CompatibilityColumnMapping,
   ExcelRow,
   DetectedSheets,
+  YearColumnConfig,
 } from '@shared/types';
 
 export class MultiSheetImporter {
@@ -56,6 +57,7 @@ export class MultiSheetImporter {
     if (modelsSheetName) {
       const data = this.parseSheet(workbook, modelsSheetName);
       const mapping = this.detectModelColumns(data.headers);
+      const detectedYears = this.detectYearColumns(data.headers);
       if (mapping) {
         result.models = {
           rows: data.rows,
@@ -63,6 +65,7 @@ export class MultiSheetImporter {
           sheetName: modelsSheetName,
           mapping,
           rowCount: data.rows.length,
+          detectedYears,
         };
       }
     }
@@ -223,6 +226,7 @@ export class MultiSheetImporter {
 
   /**
    * Auto-detect column mapping for Models sheet
+   * Now supports dynamic year columns - annualVolume/operationsDays are optional (legacy)
    */
   static detectModelColumns(headers: string[]): ModelColumnMapping | null {
     const lowerHeaders = headers.map(h => h.toLowerCase());
@@ -238,12 +242,15 @@ export class MultiSheetImporter {
     const customer = findColumn(['customer', 'cliente', 'client']);
     const program = findColumn(['program', 'programa', 'project', 'proyecto']);
     const family = findColumn(['family', 'familia', 'product family']);
-    const annualVolume = findColumn(['annual volume', 'annualvolume', 'volumen anual', 'volume', 'volumen']);
-    const operationsDays = findColumn(['operations days', 'operationsdays', 'dias operacion', 'dias', 'days']);
     const active = findColumn(['active', 'activo', 'status', 'estado']);
 
-    // Minimum required fields
-    if (!modelName || !annualVolume || !operationsDays) {
+    // Legacy single-year columns (optional)
+    const annualVolume = findColumn(['annual volume', 'annualvolume', 'volumen anual']);
+    const operationsDays = findColumn(['operations days', 'operationsdays']);
+
+    // Minimum required: model name
+    // Year columns OR legacy volume/operations required - checked by validator
+    if (!modelName) {
       return null;
     }
 
@@ -252,10 +259,91 @@ export class MultiSheetImporter {
       customer,
       program,
       family,
-      annualVolume,
-      operationsDays,
       active,
+      annualVolume: annualVolume || undefined,
+      operationsDays: operationsDays || undefined,
     };
+  }
+
+  /**
+   * Detect dynamic year columns from Models sheet headers
+   * Looks for patterns like: 2024, 2025, 2026, etc.
+   * And their corresponding operations days: "Dias Operacion 2024", "Op Days 2024", etc.
+   */
+  static detectYearColumns(headers: string[]): YearColumnConfig[] {
+    const yearConfigs: YearColumnConfig[] = [];
+    const yearPattern = /^(19|20|21)\d{2}$/;  // Matches years 1900-2199
+
+    headers.forEach((header, index) => {
+      const trimmed = header.trim();
+
+      // Check if this is a year column
+      if (yearPattern.test(trimmed)) {
+        const year = parseInt(trimmed, 10);
+
+        // Look for corresponding operations days column
+        // Could be at index+1 or anywhere with the year in the name
+        const opsDaysIndex = this.findOpsDaysColumnForYear(headers, year, index);
+
+        if (opsDaysIndex !== -1) {
+          yearConfigs.push({
+            year,
+            volumeColumnIndex: index,
+            volumeColumnHeader: header,
+            opsDaysColumnIndex: opsDaysIndex,
+            opsDaysColumnHeader: headers[opsDaysIndex] || '',
+          });
+        } else {
+          // No ops days column found - use default (240)
+          // Still track the year column
+          yearConfigs.push({
+            year,
+            volumeColumnIndex: index,
+            volumeColumnHeader: header,
+            opsDaysColumnIndex: -1,
+            opsDaysColumnHeader: '',
+          });
+        }
+      }
+    });
+
+    // Sort by year
+    return yearConfigs.sort((a, b) => a.year - b.year);
+  }
+
+  /**
+   * Find the operations days column for a specific year
+   * Patterns: "Dias Operacion 2024", "Dias Operacion Annual 2024", "Op Days 2024"
+   */
+  private static findOpsDaysColumnForYear(headers: string[], year: number, volumeIndex: number): number {
+    const yearStr = String(year);
+    const opsDaysPatterns = ['dias', 'operacion', 'op', 'days', 'operation'];
+
+    // First check the next column (most common pattern)
+    if (volumeIndex + 1 < headers.length) {
+      const nextHeader = headers[volumeIndex + 1]?.toLowerCase() || '';
+      const containsYear = nextHeader.includes(yearStr);
+      const containsOpsPattern = opsDaysPatterns.some(p => nextHeader.includes(p));
+
+      if (containsYear && containsOpsPattern) {
+        return volumeIndex + 1;
+      }
+    }
+
+    // Search all headers for one containing both the year and an ops pattern
+    for (let i = 0; i < headers.length; i++) {
+      if (i === volumeIndex) continue;
+
+      const header = headers[i]?.toLowerCase() || '';
+      const containsYear = header.includes(yearStr);
+      const containsOpsPattern = opsDaysPatterns.some(p => header.includes(p));
+
+      if (containsYear && containsOpsPattern) {
+        return i;
+      }
+    }
+
+    return -1;
   }
 
   /**

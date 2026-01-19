@@ -18,13 +18,15 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteProductionLineRepository } from '../../database/repositories/SQLiteProductionLineRepository';
 import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLiteProductModelV2Repository';
 import { SQLiteLineModelCompatibilityRepository } from '../../database/repositories/SQLiteLineModelCompatibilityRepository';
-import { ProductionLine, ProductModelV2, LineModelCompatibility } from '@domain/entities';
+import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
+import { ProductionLine, ProductModelV2, LineModelCompatibility, ProductVolume } from '@domain/entities';
 
 export function registerMultiSheetExcelHandlers(): void {
   const db = DatabaseConnection.getInstance();
   const lineRepository = new SQLiteProductionLineRepository(db);
   const modelRepository = new SQLiteProductModelV2Repository(db);
   const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(db);
+  const volumeRepository = new SQLiteProductVolumeRepository(db);
 
   // ===== DETECT SHEETS =====
   ipcMain.handle(
@@ -261,8 +263,8 @@ export function registerMultiSheetExcelHandlers(): void {
                     customer: validModel.customer,
                     program: validModel.program,
                     family: validModel.family,
-                    annualVolume: validModel.annualVolume,
-                    operationsDays: validModel.operationsDays,
+                    annualVolume: validModel.annualVolume ?? 0,
+                    operationsDays: validModel.operationsDays ?? 240,
                     active: validModel.active,
                   });
                   updated++;
@@ -273,8 +275,8 @@ export function registerMultiSheetExcelHandlers(): void {
                     customer: validModel.customer,
                     program: validModel.program,
                     family: validModel.family,
-                    annualVolume: validModel.annualVolume,
-                    operationsDays: validModel.operationsDays,
+                    annualVolume: validModel.annualVolume ?? 0,
+                    operationsDays: validModel.operationsDays ?? 240,
                     active: validModel.active,
                   });
                   await modelRepository.create(model);
@@ -290,7 +292,71 @@ export function registerMultiSheetExcelHandlers(): void {
             console.log('[Multi-Sheet Handler] Models imported:', result.models);
           }
 
-          // 3. Import Compatibilities (if present)
+          // 3. Import Volumes (if present - from year columns in Models sheet)
+          if (validationResult.volumes && validationResult.volumes.validVolumes.length > 0) {
+            console.log('[Multi-Sheet Handler] Importing volumes:', validationResult.volumes.validVolumes.length);
+
+            let created = 0;
+            let updated = 0;
+            let errors = 0;
+
+            // Build lookup map for model names -> IDs
+            const allModels = await modelRepository.findAll();
+            const modelNameToId = new Map(allModels.map(m => [m.name.toLowerCase(), m.id]));
+
+            for (const validVolume of validationResult.volumes.validVolumes) {
+              try {
+                const modelId = modelNameToId.get(validVolume.modelName.toLowerCase());
+
+                if (!modelId) {
+                  console.error(`[Multi-Sheet Handler] Model not found for volume: ${validVolume.modelName}`);
+                  errors++;
+                  continue;
+                }
+
+                const existingVolume = await volumeRepository.findByModelAndYear(modelId, validVolume.year);
+                const exists = existingVolume !== null;
+
+                if (mode === 'create' && exists) {
+                  continue;
+                }
+
+                if (mode === 'update' && !exists) {
+                  continue;
+                }
+
+                if (exists && existingVolume) {
+                  // Update existing
+                  await volumeRepository.update(existingVolume.id, {
+                    volume: validVolume.volume,
+                    operationsDays: validVolume.operationsDays,
+                  });
+                  updated++;
+                } else {
+                  // Create new
+                  const volume = ProductVolume.create({
+                    modelId,
+                    year: validVolume.year,
+                    volume: validVolume.volume,
+                    operationsDays: validVolume.operationsDays,
+                  });
+                  await volumeRepository.create(volume);
+                  created++;
+                }
+              } catch (error) {
+                console.error(`[Multi-Sheet Handler] Error importing volume ${validVolume.modelName}/${validVolume.year}:`, error);
+                errors++;
+              }
+            }
+
+            // Get year range for result
+            const yearRange = validationResult.volumes.stats.yearRange;
+
+            result.volumes = { created, updated, errors, yearRange: yearRange ?? undefined };
+            console.log('[Multi-Sheet Handler] Volumes imported:', result.volumes);
+          }
+
+          // 4. Import Compatibilities (if present)
           // Note: Excel uses names (user-friendly), but we store IDs (referential integrity)
           if (validationResult.compatibilities && validationResult.compatibilities.validCompatibilities.length > 0) {
             console.log('[Multi-Sheet Handler] Importing compatibilities:', validationResult.compatibilities.validCompatibilities.length);

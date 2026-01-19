@@ -1,6 +1,7 @@
 // ============================================
 // MULTI-SHEET VALIDATOR
 // Validates data from multiple sheets with cross-sheet validation
+// Supports dynamic year columns for multi-year volumes
 // ============================================
 
 import {
@@ -8,12 +9,15 @@ import {
   MultiSheetValidationResult,
   ModelValidationResult,
   CompatibilityValidationResult,
+  VolumeValidationResult,
   ValidatedModel,
   ValidatedCompatibility,
+  ValidatedVolume,
   ValidationError,
   ExcelRow,
   ModelColumnMapping,
   CompatibilityColumnMapping,
+  YearColumnConfig,
 } from '@shared/types';
 import { ExcelValidator } from './ExcelValidator';
 
@@ -42,9 +46,19 @@ export class MultiSheetValidator {
     // 2. Validate Models sheet (if present)
     if (data.models) {
       result.models = this.validateModels(data.models.rows, data.models.mapping);
+
+      // 3. Validate Volumes from year columns (if present)
+      if (data.models.detectedYears && data.models.detectedYears.length > 0) {
+        result.volumes = this.validateVolumes(
+          data.models.rows,
+          data.models.mapping,
+          data.models.detectedYears,
+          data.models.headers
+        );
+      }
     }
 
-    // 3. Validate Compatibilities sheet (if present)
+    // 4. Validate Compatibilities sheet (if present)
     if (data.compatibilities) {
       result.compatibilities = this.validateCompatibilities(
         data.compatibilities.rows,
@@ -52,7 +66,7 @@ export class MultiSheetValidator {
       );
     }
 
-    // 4. Cross-sheet validation
+    // 5. Cross-sheet validation
 
     // Build set of all valid lines (existing + from current import)
     const allValidLineNames = new Set<string>([
@@ -91,18 +105,30 @@ export class MultiSheetValidator {
       );
     }
 
+    // Validate volume references to models
+    if (result.volumes && result.volumes.validVolumes.length > 0) {
+      for (const vol of result.volumes.validVolumes) {
+        if (!allValidModelNames.has(vol.modelName)) {
+          result.crossSheetErrors.push(
+            `Row ${vol.row}: Volume for year ${vol.year} references model "${vol.modelName}" which doesn't exist`
+          );
+        }
+      }
+    }
+
     // Determine overall validity
     result.isValid =
       result.crossSheetErrors.length === 0 &&
       (result.lines?.stats.invalid || 0) === 0 &&
       (result.models?.stats.invalid || 0) === 0 &&
-      (result.compatibilities?.stats.invalid || 0) === 0;
+      (result.compatibilities?.stats.invalid || 0) === 0 &&
+      (result.volumes?.stats.invalid || 0) === 0;
 
     return result;
   }
 
   /**
-   * Validate Models sheet data
+   * Validate Models sheet data (metadata only, volumes are separate)
    */
   static validateModels(
     rows: ExcelRow[],
@@ -122,11 +148,17 @@ export class MultiSheetValidator {
         const customer = this.extractString(row[mapping.customer]) || '';
         const program = this.extractString(row[mapping.program]) || '';
         const family = this.extractString(row[mapping.family]) || '';
-        const annualVolume = this.extractNumber(row[mapping.annualVolume]);
-        const operationsDays = this.extractNumber(row[mapping.operationsDays]);
         const active = mapping.active
           ? this.extractBoolean(row[mapping.active])
           : true;
+
+        // Legacy single-year fields (optional)
+        const annualVolume = mapping.annualVolume
+          ? this.extractNumber(row[mapping.annualVolume])
+          : undefined;
+        const operationsDays = mapping.operationsDays
+          ? this.extractNumber(row[mapping.operationsDays])
+          : undefined;
 
         // Validate required fields
         if (!name) {
@@ -152,37 +184,15 @@ export class MultiSheetValidator {
         }
         seenNames.add(name.toLowerCase());
 
-        // Validate annual volume
-        if (annualVolume === null || annualVolume < 0) {
-          errors.push({
-            row: rowNum,
-            field: mapping.annualVolume,
-            message: 'Annual volume must be a number >= 0',
-            value: row[mapping.annualVolume],
-          });
-          return;
-        }
-
-        // Validate operations days
-        if (operationsDays === null || operationsDays < 1 || operationsDays > 365) {
-          errors.push({
-            row: rowNum,
-            field: mapping.operationsDays,
-            message: 'Operations days must be between 1-365',
-            value: row[mapping.operationsDays],
-          });
-          return;
-        }
-
         validModels.push({
           name,
           customer,
           program,
           family,
-          annualVolume,
-          operationsDays,
           active,
           row: rowNum,
+          annualVolume: annualVolume ?? undefined,
+          operationsDays: operationsDays ?? undefined,
         });
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
@@ -205,6 +215,112 @@ export class MultiSheetValidator {
         duplicates: duplicates.length,
       },
       duplicates,
+    };
+  }
+
+  /**
+   * Validate Volumes from year columns in Models sheet
+   * Extracts volume data for each model-year pair
+   */
+  static validateVolumes(
+    rows: ExcelRow[],
+    mapping: ModelColumnMapping,
+    yearConfigs: YearColumnConfig[],
+    headers: string[]
+  ): VolumeValidationResult {
+    const validVolumes: ValidatedVolume[] = [];
+    const errors: ValidationError[] = [];
+
+    rows.forEach((row, index) => {
+      const rowNum = (row.__rowNum__ as number) || index + 2;
+      const modelName = this.extractString(row[mapping.modelName]);
+
+      if (!modelName) {
+        // Skip rows without model name (already caught in model validation)
+        return;
+      }
+
+      // Extract volume for each detected year
+      for (const yearConfig of yearConfigs) {
+        try {
+          const volumeHeader = headers[yearConfig.volumeColumnIndex];
+          const opsDaysHeader = yearConfig.opsDaysColumnIndex >= 0
+            ? headers[yearConfig.opsDaysColumnIndex]
+            : null;
+
+          const volumeValue = volumeHeader ? row[volumeHeader] : null;
+          const opsDaysValue = opsDaysHeader ? row[opsDaysHeader] : null;
+
+          const volume = this.extractNumber(volumeValue);
+          let operationsDays = this.extractNumber(opsDaysValue);
+
+          // Default operations days to 240 if not specified or invalid
+          if (operationsDays === null || operationsDays < 0) {
+            operationsDays = 240;
+          }
+
+          // Skip if volume is null/empty (no forecast for this year)
+          if (volume === null) {
+            continue;
+          }
+
+          // Validate volume
+          if (volume < 0) {
+            errors.push({
+              row: rowNum,
+              field: volumeHeader || String(yearConfig.year),
+              message: `Volume for ${yearConfig.year} must be >= 0`,
+              value: volumeValue,
+            });
+            continue;
+          }
+
+          // Validate operations days
+          if (operationsDays > 366) {
+            errors.push({
+              row: rowNum,
+              field: opsDaysHeader || `Ops Days ${yearConfig.year}`,
+              message: `Operations days for ${yearConfig.year} must be <= 366`,
+              value: opsDaysValue,
+            });
+            continue;
+          }
+
+          validVolumes.push({
+            modelName,
+            year: yearConfig.year,
+            volume: Math.round(volume),
+            operationsDays: Math.round(operationsDays),
+            row: rowNum,
+          });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+          errors.push({
+            row: rowNum,
+            field: String(yearConfig.year),
+            message: errorMessage,
+            value: null,
+          });
+        }
+      }
+    });
+
+    // Calculate year stats
+    const yearsDetected = yearConfigs.map(y => y.year).sort((a, b) => a - b);
+    const yearRange = yearsDetected.length > 0
+      ? { min: yearsDetected[0] ?? 0, max: yearsDetected[yearsDetected.length - 1] ?? 0 }
+      : null;
+
+    return {
+      validVolumes,
+      errors,
+      stats: {
+        total: validVolumes.length + errors.length,
+        valid: validVolumes.length,
+        invalid: errors.length,
+        yearsDetected,
+        yearRange,
+      },
     };
   }
 
@@ -358,7 +474,9 @@ export class MultiSheetValidator {
         return isNaN(num) ? null : num;
       }
 
-      const parsed = parseFloat(trimmed);
+      // Handle comma as thousands separator
+      const cleaned = trimmed.replace(/,/g, '');
+      const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? null : parsed;
     }
 

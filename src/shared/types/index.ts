@@ -300,16 +300,30 @@ export interface ExcelImportData {
 // ============================================
 
 /**
- * Column mapping for Models sheet
+ * Column mapping for Models sheet (metadata columns only)
+ * Year columns are detected dynamically
  */
 export interface ModelColumnMapping {
   modelName: string;
   customer: string;
   program: string;
   family: string;
-  annualVolume: string;
-  operationsDays: string;
   active: string;
+  // Legacy fields for single-year import (optional)
+  annualVolume?: string;
+  operationsDays?: string;
+}
+
+/**
+ * Configuration for a detected year column pair
+ * Each year has a volume column and an operations days column
+ */
+export interface YearColumnConfig {
+  year: number;
+  volumeColumnIndex: number;
+  volumeColumnHeader: string;
+  opsDaysColumnIndex: number;
+  opsDaysColumnHeader: string;
 }
 
 /**
@@ -325,15 +339,28 @@ export interface CompatibilityColumnMapping {
 
 /**
  * Validated model data (ready to import)
+ * Volume data is now in ValidatedVolume (multi-year support)
  */
 export interface ValidatedModel {
   name: string;
   customer: string;
   program: string;
   family: string;
-  annualVolume: number;
-  operationsDays: number;
   active: boolean;
+  row: number;
+  // Legacy fields for single-year import (optional)
+  annualVolume?: number;
+  operationsDays?: number;
+}
+
+/**
+ * Validated volume data for a specific model-year pair
+ */
+export interface ValidatedVolume {
+  modelName: string;
+  year: number;
+  volume: number;
+  operationsDays: number;
   row: number;
 }
 
@@ -382,11 +409,18 @@ export interface SheetParsedData<T> {
 }
 
 /**
+ * Parsed data from Models sheet with dynamic year columns
+ */
+export interface ModelSheetParsedData extends SheetParsedData<ModelColumnMapping> {
+  detectedYears: YearColumnConfig[];
+}
+
+/**
  * Multi-sheet parsed data structure
  */
 export interface MultiSheetParsedData {
   lines?: SheetParsedData<ColumnMapping>;
-  models?: SheetParsedData<ModelColumnMapping>;
+  models?: ModelSheetParsedData;
   compatibilities?: SheetParsedData<CompatibilityColumnMapping>;
   availableSheets: string[];
 }
@@ -422,12 +456,28 @@ export interface CompatibilityValidationResult {
 }
 
 /**
+ * Validation result for Volumes (extracted from Models sheet year columns)
+ */
+export interface VolumeValidationResult {
+  validVolumes: ValidatedVolume[];
+  errors: ValidationError[];
+  stats: {
+    total: number;
+    valid: number;
+    invalid: number;
+    yearsDetected: number[];
+    yearRange: { min: number; max: number } | null;
+  };
+}
+
+/**
  * Multi-sheet validation result (includes cross-sheet validation)
  */
 export interface MultiSheetValidationResult {
   lines?: ValidationResult;
   models?: ModelValidationResult;
   compatibilities?: CompatibilityValidationResult;
+  volumes?: VolumeValidationResult;
   crossSheetErrors: string[];
   isValid: boolean;
 }
@@ -448,6 +498,9 @@ export interface MultiSheetImportResult {
   lines?: EntityImportResult;
   models?: EntityImportResult;
   compatibilities?: EntityImportResult;
+  volumes?: EntityImportResult & {
+    yearRange?: { min: number; max: number };
+  };
   totalTime: number;
   success: boolean;
 }

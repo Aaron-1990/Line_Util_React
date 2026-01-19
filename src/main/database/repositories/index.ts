@@ -10,3 +10,4 @@ export { SQLiteProductionVolumeRepository } from './SQLiteProductionVolumeReposi
 // Multi-sheet import repositories
 export { SQLiteProductModelV2Repository } from './SQLiteProductModelV2Repository';
 export { SQLiteLineModelCompatibilityRepository } from './SQLiteLineModelCompatibilityRepository';
+export { SQLiteProductVolumeRepository } from './SQLiteProductVolumeRepository';

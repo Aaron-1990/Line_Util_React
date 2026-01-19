@@ -53,6 +53,7 @@ class DatabaseConnection {
     const migrations = [
       '001_initial_schema.sql',
       '002_multi_sheet_import.sql',
+      '003_product_volumes.sql',
     ];
 
     try {

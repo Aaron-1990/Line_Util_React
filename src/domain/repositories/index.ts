@@ -13,3 +13,4 @@ export type { IAreaCatalogRepository } from './IAreaCatalogRepository';
 // Multi-sheet import repositories
 export type { IProductModelV2Repository } from './IProductModelV2Repository';
 export type { ILineModelCompatibilityRepository } from './ILineModelCompatibilityRepository';
+export type { IProductVolumeRepository } from './IProductVolumeRepository';

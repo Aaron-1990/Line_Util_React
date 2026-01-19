@@ -10,6 +10,7 @@ import { registerProductionVolumesHandlers } from './production-volumes.handler'
 import { registerAreaCatalogHandlers } from './area-catalog.handler';
 import { registerExcelHandlers } from './excel.handler';
 import { registerMultiSheetExcelHandlers } from './multi-sheet-excel.handler';
+import { registerVolumeHandlers } from './volumes.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -21,6 +22,7 @@ export function registerAllHandlers(): void {
   registerAreaCatalogHandlers();
   registerExcelHandlers();
   registerMultiSheetExcelHandlers();
+  registerVolumeHandlers();
 
   console.log('IPC handlers registered successfully');
 }
