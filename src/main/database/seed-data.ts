@@ -2,7 +2,6 @@
 // SEED DATA
 // Datos de prueba para desarrollo
 // ============================================
-
 import Database from 'better-sqlite3';
 import { nanoid } from 'nanoid';
 
@@ -19,22 +18,22 @@ export function seedDatabase(db: Database.Database): void {
 
   // Seed production lines
   const lines = [
-    { id: nanoid(), name: 'SMT Line 1', area: 'SMT', time: 82800, efficiency: 0.85, x: 100, y: 100 },
-    { id: nanoid(), name: 'SMT Line 2', area: 'SMT', time: 82800, efficiency: 0.80, x: 100, y: 250 },
-    { id: nanoid(), name: 'ICT Line 1', area: 'ICT', time: 82800, efficiency: 0.90, x: 400, y: 100 },
-    { id: nanoid(), name: 'ICT Line 2', area: 'ICT', time: 82800, efficiency: 0.88, x: 400, y: 250 },
-    { id: nanoid(), name: 'Wave Line 1', area: 'WAVE', time: 82800, efficiency: 0.75, x: 700, y: 100 },
-    { id: nanoid(), name: 'Assembly Line 1', area: 'ASSEMBLY', time: 82800, efficiency: 0.70, x: 700, y: 250 },
+    { id: nanoid(), name: 'SMT Line 1', area: 'SMT', time: 82800, x: 100, y: 100 },
+    { id: nanoid(), name: 'SMT Line 2', area: 'SMT', time: 82800, x: 100, y: 250 },
+    { id: nanoid(), name: 'ICT Line 1', area: 'ICT', time: 82800, x: 400, y: 100 },
+    { id: nanoid(), name: 'ICT Line 2', area: 'ICT', time: 82800, x: 400, y: 250 },
+    { id: nanoid(), name: 'Wave Line 1', area: 'WAVE', time: 82800, x: 700, y: 100 },
+    { id: nanoid(), name: 'Assembly Line 1', area: 'ASSEMBLY', time: 82800, x: 700, y: 250 },
   ];
 
   const insertLine = db.prepare(`
     INSERT INTO production_lines 
-    (id, name, area, time_available_daily, efficiency, x_position, y_position, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    (id, name, area, time_available_daily, x_position, y_position, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `);
 
   lines.forEach(line => {
-    insertLine.run(line.id, line.name, line.area, line.time, line.efficiency, line.x, line.y);
+    insertLine.run(line.id, line.name, line.area, line.time, line.x, line.y);
   });
 
   console.log(`Seeded ${lines.length} production lines`);
@@ -76,5 +75,6 @@ export function seedDatabase(db: Database.Database): void {
   });
 
   console.log(`Seeded ${volumes.length} production volumes`);
+
   console.log('Seed completed successfully');
 }

@@ -10,7 +10,6 @@ interface LineFormData {
   name: string;
   area: string;
   timeAvailableDaily: number;
-  efficiency: number;
 }
 
 interface LineFormProps {
@@ -34,7 +33,6 @@ export const LineForm = ({
     name: initialData.name || '',
     area: initialData.area || '',
     timeAvailableDaily: initialData.timeAvailableDaily || 82800,
-    efficiency: initialData.efficiency || 0.85,
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof LineFormData, string>>>({});
@@ -54,10 +52,6 @@ export const LineForm = ({
       newErrors.timeAvailableDaily = 'Time must be between 0 and 86400 seconds';
     }
 
-    if (formData.efficiency <= 0 || formData.efficiency > 1) {
-      newErrors.efficiency = 'Efficiency must be between 0 and 1';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -71,7 +65,6 @@ export const LineForm = ({
   };
 
   const hoursAvailable = (formData.timeAvailableDaily / 3600).toFixed(2);
-  const efficiencyPercent = (formData.efficiency * 100).toFixed(0);
 
   // Quick shortcuts para valores comunes
   const commonHours = [20, 21, 21.5, 22, 23];
@@ -165,32 +158,6 @@ export const LineForm = ({
         {errors.timeAvailableDaily && (
           <p className="mt-1 text-sm text-red-600">{errors.timeAvailableDaily}</p>
         )}
-      </div>
-
-      {/* Efficiency */}
-      <div>
-        <label htmlFor="efficiency" className="block text-sm font-medium text-gray-700 mb-1">
-          Efficiency (OEE) *
-        </label>
-        <div className="space-y-2">
-          <input
-            type="range"
-            id="efficiency"
-            value={formData.efficiency}
-            onChange={(e) => setFormData({ ...formData, efficiency: parseFloat(e.target.value) })}
-            min="0.1"
-            max="1"
-            step="0.01"
-            className="w-full"
-            disabled={isLoading}
-          />
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>10%</span>
-            <span className="font-medium text-primary-600">{efficiencyPercent}%</span>
-            <span>100%</span>
-          </div>
-        </div>
-        {errors.efficiency && <p className="mt-1 text-sm text-red-600">{errors.efficiency}</p>}
       </div>
 
       {/* Actions */}

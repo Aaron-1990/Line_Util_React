@@ -52,7 +52,6 @@ export const LinePropertiesPanel = () => {
     name: string;
     area: string;
     timeAvailableDaily: number;
-    efficiency: number;
   }) => {
     setIsLoading(true);
 
@@ -64,7 +63,6 @@ export const LinePropertiesPanel = () => {
           name: response.data.name,
           area: response.data.area,
           timeAvailableDaily: response.data.timeAvailableDaily,
-          efficiency: response.data.efficiency,
         });
 
         setIsEditing(false);
@@ -131,7 +129,6 @@ export const LinePropertiesPanel = () => {
                 name: data.name,
                 area: data.area,
                 timeAvailableDaily: data.timeAvailableDaily,
-                efficiency: data.efficiency,
               }}
               onSubmit={handleSave}
               onCancel={handleCancelEdit}
@@ -161,7 +158,6 @@ interface ReadOnlyViewProps {
     name: string;
     area: string;
     timeAvailableDaily: number;
-    efficiency: number;
     assignedModelsCount?: number;
   };
   onEdit: () => void;
@@ -170,7 +166,6 @@ interface ReadOnlyViewProps {
 
 const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
   const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(2);
-  const efficiencyPercent = (data.efficiency * 100).toFixed(0);
 
   return (
     <div className="space-y-4">
@@ -192,19 +187,6 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
           {hoursAvailable} hours/day
           <span className="text-xs text-gray-500 ml-1">({data.timeAvailableDaily} seconds)</span>
         </p>
-      </div>
-
-      <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-          Efficiency (OEE)
-        </label>
-        <p className="mt-1 text-sm text-gray-900">{efficiencyPercent}%</p>
-        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-primary-500 h-2 rounded-full transition-all"
-            style={{ width: `${efficiencyPercent}%` }}
-          />
-        </div>
       </div>
 
       <div>

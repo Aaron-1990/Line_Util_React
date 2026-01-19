@@ -10,7 +10,6 @@ interface ColumnMapping {
   name: string;
   area: string;
   timeAvailableHours: string;
-  efficiencyPercent: string;
 }
 
 interface ColumnMapperProps {
@@ -20,7 +19,6 @@ interface ColumnMapperProps {
     name: string | null;
     area: string | null;
     timeAvailableHours: string | null;
-    efficiencyPercent: string | null;
   };
   onMappingConfirmed: (mapping: ColumnMapping) => void;
   onBack: () => void;
@@ -37,7 +35,6 @@ export const ColumnMapper = ({
     name: suggestedMapping.name || '',
     area: suggestedMapping.area || '',
     timeAvailableHours: suggestedMapping.timeAvailableHours || '',
-    efficiencyPercent: suggestedMapping.efficiencyPercent || '',
   });
 
   const [errors, setErrors] = useState<string[]>([]);
@@ -52,7 +49,6 @@ export const ColumnMapper = ({
     if (!mapping.name) newErrors.push('Name field is required');
     if (!mapping.area) newErrors.push('Area field is required');
     if (!mapping.timeAvailableHours) newErrors.push('Time Available field is required');
-    if (!mapping.efficiencyPercent) newErrors.push('Efficiency field is required');
 
     const usedColumns = Object.values(mapping).filter(Boolean);
     const uniqueColumns = new Set(usedColumns);
@@ -79,14 +75,12 @@ export const ColumnMapper = ({
     name: 'Line Name',
     area: 'Production Area',
     timeAvailableHours: 'Time Available (hours)',
-    efficiencyPercent: 'Efficiency (%)',
   };
 
   const fieldDescriptions = {
     name: 'Unique name for the production line',
     area: 'Production area (ICT, SMT, WAVE, etc.)',
     timeAvailableHours: 'Hours available per day (e.g., 23)',
-    efficiencyPercent: 'OEE percentage (e.g., 85)',
   };
 
   return (

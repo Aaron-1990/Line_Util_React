@@ -27,7 +27,6 @@ export class ExcelImporter {
       throw new Error(`File not found: ${filePath}`);
     }
 
-    // Detectar formato por extension
     const ext = filePath.split('.').pop()?.toLowerCase();
 
     if (ext === 'csv') {
@@ -123,7 +122,7 @@ export class ExcelImporter {
     const headers = parseResult.meta.fields;
     const rows: ExcelRow[] = (parseResult.data as Record<string, unknown>[]).map((row, index) => {
       return {
-        rowNumber: index + 2, // Igual que Excel (fila 1 = headers)
+        rowNumber: index + 2,
         ...row,
       };
     });
@@ -139,14 +138,12 @@ export class ExcelImporter {
     name: string | null;
     area: string | null;
     timeAvailableHours: string | null;
-    efficiencyPercent: string | null;
   } {
     const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
 
     const namePatterns = ['name', 'linename', 'line', 'nombre', 'nombrelinea'];
     const areaPatterns = ['area', 'zone', 'zona', 'productionarea'];
     const timePatterns = ['time', 'hours', 'hoursavailable', 'timeavailable', 'horas', 'tiempo'];
-    const efficiencyPatterns = ['efficiency', 'oee', 'eficiencia', 'eff'];
 
     const findMatch = (patterns: string[]) => {
       return headers.find(h => {
@@ -159,7 +156,6 @@ export class ExcelImporter {
       name: findMatch(namePatterns),
       area: findMatch(areaPatterns),
       timeAvailableHours: findMatch(timePatterns),
-      efficiencyPercent: findMatch(efficiencyPatterns),
     };
   }
 
@@ -167,14 +163,12 @@ export class ExcelImporter {
     name: string | null;
     area: string | null;
     timeAvailableHours: string | null;
-    efficiencyPercent: string | null;
   }): { valid: boolean; missing: string[] } {
     const missing: string[] = [];
 
     if (!mapping.name) missing.push('Name');
     if (!mapping.area) missing.push('Area');
     if (!mapping.timeAvailableHours) missing.push('Time Available (hours)');
-    if (!mapping.efficiencyPercent) missing.push('Efficiency (%)');
 
     return {
       valid: missing.length === 0,

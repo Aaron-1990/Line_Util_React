@@ -40,7 +40,6 @@ export interface ValidatedLine {
   name: string;
   area: string;
   timeAvailableDaily: number;
-  efficiency: number;
   row?: number; // Row number del Excel
 }
 
@@ -87,7 +86,6 @@ export interface ColumnMapping {
   name: string;
   area: string;
   timeAvailableHours: string;
-  efficiencyPercent: string;
 }
 
 // ============================================

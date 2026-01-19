@@ -102,7 +102,6 @@ export function registerExcelHandlers(): void {
           name: null,
           area: null,
           timeAvailableHours: null,
-          efficiencyPercent: null,
         };
 
         const result: ParsedExcelData = {
@@ -274,7 +273,6 @@ export function registerExcelHandlers(): void {
                 name: validLine.name,
                 area: validLine.area,
                 timeAvailableDaily: validLine.timeAvailableDaily,
-                efficiency: validLine.efficiency,
                 xPosition,
                 yPosition,
               });
@@ -298,7 +296,6 @@ export function registerExcelHandlers(): void {
                 name: existingLine.name,
                 area: validLine.area,
                 timeAvailableDaily: validLine.timeAvailableDaily,
-                efficiency: validLine.efficiency,
                 active: existingLine.active,
                 xPosition: existingLine.xPosition,
                 yPosition: existingLine.yPosition,
@@ -320,7 +317,6 @@ export function registerExcelHandlers(): void {
                   name: existingLine.name,
                   area: validLine.area,
                   timeAvailableDaily: validLine.timeAvailableDaily,
-                  efficiency: validLine.efficiency,
                   active: existingLine.active,
                   xPosition: existingLine.xPosition,
                   yPosition: existingLine.yPosition,
@@ -341,7 +337,6 @@ export function registerExcelHandlers(): void {
                   name: validLine.name,
                   area: validLine.area,
                   timeAvailableDaily: validLine.timeAvailableDaily,
-                  efficiency: validLine.efficiency,
                   xPosition,
                   yPosition,
                 });

@@ -22,7 +22,6 @@ export class ProductionLine {
     private _name: string,
     private _area: string,
     private _timeAvailableDaily: number,
-    private _efficiency: number,
     private _active: boolean,
     private _xPosition: number,
     private _yPosition: number,
@@ -38,7 +37,6 @@ export class ProductionLine {
     name: string;
     area: string;
     timeAvailableDaily: number;
-    efficiency: number;
     xPosition?: number;
     yPosition?: number;
   }): ProductionLine {
@@ -47,7 +45,6 @@ export class ProductionLine {
       params.name,
       params.area,
       params.timeAvailableDaily,
-      params.efficiency,
       true,
       params.xPosition ?? 0,
       params.yPosition ?? 0,
@@ -62,7 +59,6 @@ export class ProductionLine {
       data.name,
       data.area,
       data.timeAvailableDaily,
-      data.efficiency,
       data.active,
       data.xPosition,
       data.yPosition,
@@ -89,10 +85,6 @@ export class ProductionLine {
     return this._timeAvailableDaily;
   }
 
-  get efficiency(): number {
-    return this._efficiency;
-  }
-
   get active(): boolean {
     return this._active;
   }
@@ -115,36 +107,37 @@ export class ProductionLine {
 
   // ===== Business Logic =====
 
-  calculateEffectiveTime(): number {
-    return this._timeAvailableDaily * this._efficiency;
-  }
+  // NOTE: Métodos relacionados con efficiency comentados temporalmente
+  // Se reactivarán cuando se implemente la tabla Compatibilities
+  
+  // calculateEffectiveTime(): number {
+  //   return this._timeAvailableDaily * this._efficiency;
+  // }
 
-  calculateUtilization(timeUsed: number): number {
-    const effectiveTime = this.calculateEffectiveTime();
-    if (effectiveTime === 0) return 0;
-    return (timeUsed / effectiveTime) * 100;
-  }
+  // calculateUtilization(timeUsed: number): number {
+  //   const effectiveTime = this.calculateEffectiveTime();
+  //   if (effectiveTime === 0) return 0;
+  //   return (timeUsed / effectiveTime) * 100;
+  // }
 
-  canHandle(timeRequired: number): boolean {
-    return timeRequired <= this.calculateEffectiveTime();
-  }
+  // canHandle(timeRequired: number): boolean {
+  //   return timeRequired <= this.calculateEffectiveTime();
+  // }
 
-  getRemainingTime(timeUsed: number): number {
-    return Math.max(0, this.calculateEffectiveTime() - timeUsed);
-  }
+  // getRemainingTime(timeUsed: number): number {
+  //   return Math.max(0, this.calculateEffectiveTime() - timeUsed);
+  // }
 
   update(params: {
     name?: string;
     area?: string;
     timeAvailableDaily?: number;
-    efficiency?: number;
   }): void {
     if (params.name !== undefined) this._name = params.name;
     if (params.area !== undefined) this._area = params.area;
     if (params.timeAvailableDaily !== undefined) {
       this._timeAvailableDaily = params.timeAvailableDaily;
     }
-    if (params.efficiency !== undefined) this._efficiency = params.efficiency;
 
     this._updatedAt = new Date();
     this.validate();
@@ -172,7 +165,6 @@ export class ProductionLine {
       name: this._name,
       area: this._area,
       timeAvailableDaily: this._timeAvailableDaily,
-      efficiency: this._efficiency,
       active: this._active,
       xPosition: this._xPosition,
       yPosition: this._yPosition,
@@ -198,10 +190,6 @@ export class ProductionLine {
 
     if (this._timeAvailableDaily > TIME_CONFIG.SECONDS_PER_DAY) {
       throw new Error(`Time available cannot exceed ${TIME_CONFIG.HOURS_PER_DAY} hours`);
-    }
-
-    if (this._efficiency <= 0 || this._efficiency > 1) {
-      throw new Error('Efficiency must be between 0 and 1');
     }
   }
 }

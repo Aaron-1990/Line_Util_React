@@ -195,4 +195,29 @@ export const EXCEL_CHANNELS = {
   VALIDATE_DATA: 'excel:validate-data',
   IMPORT: 'excel:import',
   EXPORT: 'excel:export',
+  // Multi-sheet import (Phase 3.4)
+  DETECT_SHEETS: 'excel:detect-sheets',
+  PARSE_MULTI_SHEET: 'excel:parse-multi-sheet',
+  VALIDATE_MULTI_SHEET: 'excel:validate-multi-sheet',
+  IMPORT_MULTI_SHEET: 'excel:import-multi-sheet',
+} as const;
+
+// Models V2 (for multi-sheet import)
+export const MODELS_V2_CHANNELS = {
+  GET_ALL: 'models-v2:get-all',
+  GET_BY_NAME: 'models-v2:get-by-name',
+  CREATE: 'models-v2:create',
+  UPDATE: 'models-v2:update',
+  DELETE: 'models-v2:delete',
+  GET_ALL_NAMES: 'models-v2:get-all-names',
+} as const;
+
+// Line-Model Compatibilities
+export const COMPATIBILITY_CHANNELS = {
+  GET_ALL: 'compatibility:get-all',
+  GET_BY_LINE: 'compatibility:get-by-line',
+  GET_BY_MODEL: 'compatibility:get-by-model',
+  CREATE: 'compatibility:create',
+  UPDATE: 'compatibility:update',
+  DELETE: 'compatibility:delete',
 } as const;

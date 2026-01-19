@@ -9,3 +9,7 @@ export type { IProductionVolumeRepository } from './IProductionVolumeRepository'
 export type { ILineModelAssignmentRepository } from './ILineModelAssignmentRepository';
 export type { ICanvasAreaRepository } from './ICanvasAreaRepository';
 export type { IAreaCatalogRepository } from './IAreaCatalogRepository';
+
+// Multi-sheet import repositories
+export type { IProductModelV2Repository } from './IProductModelV2Repository';
+export type { ILineModelCompatibilityRepository } from './ILineModelCompatibilityRepository';

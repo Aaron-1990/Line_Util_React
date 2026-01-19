@@ -52,29 +52,17 @@ export class ExcelValidator {
       });
     }
 
-    const efficiencyPercent = this.parseNumber(row[columnMapping.efficiencyPercent]);
-    if (efficiencyPercent === null || efficiencyPercent <= 0 || efficiencyPercent > 100) {
-      errors.push({
-        row: rowIndex,
-        field: columnMapping.efficiencyPercent,
-        message: 'Efficiency must be between 0 and 100',
-        value: row[columnMapping.efficiencyPercent],
-      });
-    }
-
     if (errors.length > 0) {
       return { line: null, errors };
     }
 
     const timeAvailableDaily = timeHours! * 3600;
-    const efficiency = efficiencyPercent! / 100;
 
     return {
       line: {
         name: (name as string).trim(),
         area: (area as string).trim(),
         timeAvailableDaily,
-        efficiency,
         row: rowIndex,
       },
       errors: [],

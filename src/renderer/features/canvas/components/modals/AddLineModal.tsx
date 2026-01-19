@@ -50,7 +50,6 @@ export const AddLineModal = ({ isOpen, onClose }: AddLineModalProps) => {
     name: string;
     area: string;
     timeAvailableDaily: number;
-    efficiency: number;
   }) => {
     setIsLoading(true);
 
@@ -69,7 +68,6 @@ export const AddLineModal = ({ isOpen, onClose }: AddLineModalProps) => {
             name: response.data.name,
             area: response.data.area,
             timeAvailableDaily: response.data.timeAvailableDaily,
-            efficiency: response.data.efficiency,
             assignedModelsCount: 0,
           },
         });

@@ -29,7 +29,6 @@ CREATE TABLE IF NOT EXISTS production_lines (
   name TEXT NOT NULL,
   area TEXT NOT NULL,
   time_available_daily INTEGER NOT NULL,
-  efficiency REAL NOT NULL CHECK(efficiency > 0 AND efficiency <= 1),
   active BOOLEAN DEFAULT 1,
   x_position REAL DEFAULT 0,
   y_position REAL DEFAULT 0,
@@ -249,8 +248,6 @@ SELECT
   pl.name,
   pl.area,
   pl.time_available_daily,
-  pl.efficiency,
-  (pl.time_available_daily * pl.efficiency) as effective_time,
   COUNT(lma.model_id) as assigned_models_count
 FROM production_lines pl
 LEFT JOIN line_model_assignments lma ON pl.id = lma.line_id

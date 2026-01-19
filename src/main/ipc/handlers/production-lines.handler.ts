@@ -18,7 +18,6 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_GET_ALL,
     async (): Promise<ApiResponse<IProductionLine[]>> => {
       try {
-        // FIX: Usar findActive() en lugar de findAll() para excluir lineas eliminadas
         const lines = await repository.findActive();
         return {
           success: true,
@@ -57,7 +56,7 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_CREATE,
     async (_event, data: Partial<IProductionLine>): Promise<ApiResponse<IProductionLine>> => {
       try {
-        if (!data.name || !data.area || !data.timeAvailableDaily || !data.efficiency) {
+        if (!data.name || !data.area || !data.timeAvailableDaily) {
           return {
             success: false,
             error: 'Missing required fields',
@@ -76,7 +75,6 @@ export function registerProductionLinesHandlers(): void {
           name: data.name,
           area: data.area,
           timeAvailableDaily: data.timeAvailableDaily,
-          efficiency: data.efficiency,
           xPosition: data.xPosition,
           yPosition: data.yPosition,
         });
@@ -128,7 +126,6 @@ export function registerProductionLinesHandlers(): void {
           name: updates.name,
           area: updates.area,
           timeAvailableDaily: updates.timeAvailableDaily,
-          efficiency: updates.efficiency,
         });
 
         await repository.save(line);

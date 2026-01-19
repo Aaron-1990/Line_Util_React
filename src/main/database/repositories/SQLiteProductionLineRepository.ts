@@ -12,7 +12,6 @@ interface LineRow {
   name: string;
   area: string;
   time_available_daily: number;
-  efficiency: number;
   active: number;
   x_position: number;
   y_position: number;
@@ -29,7 +28,6 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
       name: row.name,
       area: row.area,
       timeAvailableDaily: row.time_available_daily,
-      efficiency: row.efficiency,
       active: Boolean(row.active),
       xPosition: row.x_position,
       yPosition: row.y_position,
@@ -79,7 +77,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
       this.db
         .prepare(`
           UPDATE production_lines 
-          SET name = ?, area = ?, time_available_daily = ?, efficiency = ?,
+          SET name = ?, area = ?, time_available_daily = ?,
               active = ?, x_position = ?, y_position = ?
           WHERE id = ?
         `)
@@ -87,7 +85,6 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
           data.name,
           data.area,
           data.timeAvailableDaily,
-          data.efficiency,
           data.active ? 1 : 0,
           data.xPosition,
           data.yPosition,
@@ -97,15 +94,14 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
       this.db
         .prepare(`
           INSERT INTO production_lines 
-          (id, name, area, time_available_daily, efficiency, active, x_position, y_position, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, name, area, time_available_daily, active, x_position, y_position, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
         .run(
           data.id,
           data.name,
           data.area,
           data.timeAvailableDaily,
-          data.efficiency,
           data.active ? 1 : 0,
           data.xPosition,
           data.yPosition,

@@ -13,7 +13,6 @@ export function useLoadLines() {
   useEffect(() => {
     const loadLines = async () => {
       try {
-        // MEJORA: Limpiar store antes de cargar para evitar estados mezclados
         setNodes([]);
 
         const response = await window.electronAPI.invoke<ProductionLine[]>('lines:get-all');
@@ -29,7 +28,6 @@ export function useLoadLines() {
                 name: line.name,
                 area: line.area,
                 timeAvailableDaily: line.timeAvailableDaily,
-                efficiency: line.efficiency,
                 assignedModelsCount: 0,
               },
             });

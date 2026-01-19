@@ -49,12 +49,27 @@ class DatabaseConnection {
     const db = DatabaseConnection.instance;
     if (!db) return;
 
-    const migrationsPath = path.join(__dirname, 'migrations', '001_initial_schema.sql');
-    
+    // List of migration files in order
+    const migrations = [
+      '001_initial_schema.sql',
+      '002_multi_sheet_import.sql',
+    ];
+
     try {
-      const migrationSQL = fs.readFileSync(migrationsPath, 'utf-8');
-      db.exec(migrationSQL);
-      console.log('Database migrations completed successfully');
+      for (const migrationFile of migrations) {
+        const migrationsPath = path.join(__dirname, 'migrations', migrationFile);
+
+        // Check if migration file exists
+        if (!fs.existsSync(migrationsPath)) {
+          console.log(`Migration file not found, skipping: ${migrationFile}`);
+          continue;
+        }
+
+        const migrationSQL = fs.readFileSync(migrationsPath, 'utf-8');
+        db.exec(migrationSQL);
+        console.log(`Migration completed: ${migrationFile}`);
+      }
+      console.log('All database migrations completed successfully');
     } catch (error) {
       console.error('Migration error:', error);
       throw new Error('Failed to run database migrations');

@@ -16,7 +16,6 @@ interface ColumnMapping {
   name: string;
   area: string;
   timeAvailableHours: string;
-  efficiencyPercent: string;
 }
 
 interface ParsedData {
@@ -27,7 +26,6 @@ interface ParsedData {
     name: string | null;
     area: string | null;
     timeAvailableHours: string | null;
-    efficiencyPercent: string | null;
   };
 }
 
@@ -86,8 +84,7 @@ export const ImportWizard = ({ onComplete, onCancel }: ImportWizardProps) => {
         const allMapped =
           suggestedMapping.name &&
           suggestedMapping.area &&
-          suggestedMapping.timeAvailableHours &&
-          suggestedMapping.efficiencyPercent;
+          suggestedMapping.timeAvailableHours;
 
         if (allMapped) {
           setColumnMapping(suggestedMapping as ColumnMapping);

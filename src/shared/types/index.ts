@@ -14,7 +14,6 @@ export interface ProductionLine {
   name: string;
   area: Area;
   timeAvailableDaily: number;
-  efficiency: number;
   active: boolean;
   xPosition: number;
   yPosition: number;
@@ -182,7 +181,6 @@ export interface ColumnMapping {
   name: string;
   area: string;
   timeAvailableHours: string;
-  efficiencyPercent: string;
 }
 
 /**
@@ -196,7 +194,6 @@ export interface ParsedExcelData {
     name: string | null;
     area: string | null;
     timeAvailableHours: string | null;
-    efficiencyPercent: string | null;
   };
 }
 
@@ -217,7 +214,6 @@ export interface ValidatedLine {
   name: string;
   area: string;
   timeAvailableDaily: number;
-  efficiency: number;
   row: number;
 }
 
@@ -297,4 +293,161 @@ export interface ExcelImportData {
   processes: ModelProcess[];
   volumes: ProductionVolume[];
   assignments: LineModelAssignment[];
+}
+
+// ============================================
+// MULTI-SHEET EXCEL IMPORT TYPES
+// ============================================
+
+/**
+ * Column mapping for Models sheet
+ */
+export interface ModelColumnMapping {
+  modelName: string;
+  customer: string;
+  program: string;
+  family: string;
+  annualVolume: string;
+  operationsDays: string;
+  active: string;
+}
+
+/**
+ * Column mapping for Compatibilities sheet
+ */
+export interface CompatibilityColumnMapping {
+  lineName: string;
+  modelName: string;
+  cycleTime: string;
+  efficiency: string;
+  priority: string;
+}
+
+/**
+ * Validated model data (ready to import)
+ */
+export interface ValidatedModel {
+  name: string;
+  customer: string;
+  program: string;
+  family: string;
+  annualVolume: number;
+  operationsDays: number;
+  active: boolean;
+  row: number;
+}
+
+/**
+ * Validated compatibility data (ready to import)
+ */
+export interface ValidatedCompatibility {
+  lineName: string;
+  modelName: string;
+  cycleTime: number;
+  efficiency: number;
+  priority: number;
+  row: number;
+}
+
+/**
+ * Sheet detection result - which sheets are available
+ */
+export interface DetectedSheets {
+  lines?: {
+    sheetName: string;
+    rowCount: number;
+    headers: string[];
+  };
+  models?: {
+    sheetName: string;
+    rowCount: number;
+    headers: string[];
+  };
+  compatibilities?: {
+    sheetName: string;
+    rowCount: number;
+    headers: string[];
+  };
+}
+
+/**
+ * Parsed data from a single sheet
+ */
+export interface SheetParsedData<T> {
+  rows: ExcelRow[];
+  headers: string[];
+  sheetName: string;
+  mapping: T;
+  rowCount: number;
+}
+
+/**
+ * Multi-sheet parsed data structure
+ */
+export interface MultiSheetParsedData {
+  lines?: SheetParsedData<ColumnMapping>;
+  models?: SheetParsedData<ModelColumnMapping>;
+  compatibilities?: SheetParsedData<CompatibilityColumnMapping>;
+  availableSheets: string[];
+}
+
+/**
+ * Validation result for Models sheet
+ */
+export interface ModelValidationResult {
+  validModels: ValidatedModel[];
+  errors: ValidationError[];
+  stats: {
+    total: number;
+    valid: number;
+    invalid: number;
+    duplicates: number;
+  };
+  duplicates: string[];
+}
+
+/**
+ * Validation result for Compatibilities sheet
+ */
+export interface CompatibilityValidationResult {
+  validCompatibilities: ValidatedCompatibility[];
+  errors: ValidationError[];
+  stats: {
+    total: number;
+    valid: number;
+    invalid: number;
+    duplicates: number;
+  };
+  duplicates: string[];
+}
+
+/**
+ * Multi-sheet validation result (includes cross-sheet validation)
+ */
+export interface MultiSheetValidationResult {
+  lines?: ValidationResult;
+  models?: ModelValidationResult;
+  compatibilities?: CompatibilityValidationResult;
+  crossSheetErrors: string[];
+  isValid: boolean;
+}
+
+/**
+ * Import result for a single entity type
+ */
+export interface EntityImportResult {
+  created: number;
+  updated: number;
+  errors: number;
+}
+
+/**
+ * Multi-sheet import result
+ */
+export interface MultiSheetImportResult {
+  lines?: EntityImportResult;
+  models?: EntityImportResult;
+  compatibilities?: EntityImportResult;
+  totalTime: number;
+  success: boolean;
 }
