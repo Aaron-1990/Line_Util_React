@@ -43,17 +43,20 @@ export const MultiSheetProgressTracker = ({
     const totalCreated =
       (importResult.lines?.created || 0) +
       (importResult.models?.created || 0) +
-      (importResult.compatibilities?.created || 0);
+      (importResult.compatibilities?.created || 0) +
+      (importResult.volumes?.created || 0);
 
     const totalUpdated =
       (importResult.lines?.updated || 0) +
       (importResult.models?.updated || 0) +
-      (importResult.compatibilities?.updated || 0);
+      (importResult.compatibilities?.updated || 0) +
+      (importResult.volumes?.updated || 0);
 
     const totalErrors =
       (importResult.lines?.errors || 0) +
       (importResult.models?.errors || 0) +
-      (importResult.compatibilities?.errors || 0);
+      (importResult.compatibilities?.errors || 0) +
+      (importResult.volumes?.errors || 0);
 
     const isSuccess = importResult.success && totalErrors === 0;
 
@@ -135,6 +138,15 @@ export const MultiSheetProgressTracker = ({
               created={importResult.compatibilities.created}
               updated={importResult.compatibilities.updated}
               errors={importResult.compatibilities.errors}
+            />
+          )}
+          {importResult.volumes && (
+            <SheetResultRow
+              icon="📊"
+              title={`Volumes${importResult.volumes.yearRange ? ` (${importResult.volumes.yearRange.min}-${importResult.volumes.yearRange.max})` : ''}`}
+              created={importResult.volumes.created}
+              updated={importResult.volumes.updated}
+              errors={importResult.volumes.errors}
             />
           )}
         </div>
