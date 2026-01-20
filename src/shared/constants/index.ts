@@ -221,3 +221,13 @@ export const COMPATIBILITY_CHANNELS = {
   UPDATE: 'compatibility:update',
   DELETE: 'compatibility:delete',
 } as const;
+
+// Product Volumes (multi-year)
+export const PRODUCT_VOLUME_CHANNELS = {
+  GET_ALL: 'product-volumes:get-all',
+  GET_BY_YEAR: 'product-volumes:get-by-year',
+  GET_BY_MODEL: 'product-volumes:get-by-model',
+  GET_AVAILABLE_YEARS: 'product-volumes:get-available-years',
+  GET_YEAR_RANGE: 'product-volumes:get-year-range',
+  GET_YEAR_SUMMARY: 'product-volumes:get-year-summary',
+} as const;

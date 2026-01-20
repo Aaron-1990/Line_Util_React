@@ -11,6 +11,8 @@ import { registerAreaCatalogHandlers } from './area-catalog.handler';
 import { registerExcelHandlers } from './excel.handler';
 import { registerMultiSheetExcelHandlers } from './multi-sheet-excel.handler';
 import { registerVolumeHandlers } from './volumes.handler';
+import { registerModelsV2Handlers } from './models-v2.handler';
+import { registerCompatibilityHandlers } from './compatibility.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -23,6 +25,8 @@ export function registerAllHandlers(): void {
   registerExcelHandlers();
   registerMultiSheetExcelHandlers();
   registerVolumeHandlers();
+  registerModelsV2Handlers();
+  registerCompatibilityHandlers();
 
   console.log('IPC handlers registered successfully');
 }

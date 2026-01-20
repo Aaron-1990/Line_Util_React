@@ -5,20 +5,10 @@
 
 import { ipcMain } from 'electron';
 import { ApiResponse } from '@shared/types';
+import { PRODUCT_VOLUME_CHANNELS } from '@shared/constants';
 import { IProductVolume } from '@domain/entities';
 import DatabaseConnection from '../../database/connection';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
-
-// Channel names for ProductVolume operations (multi-year volumes)
-// Uses 'product-volumes:' prefix to differentiate from legacy 'volumes:' channels
-export const PRODUCT_VOLUME_CHANNELS = {
-  GET_BY_YEAR: 'product-volumes:get-by-year',
-  GET_BY_MODEL: 'product-volumes:get-by-model',
-  GET_AVAILABLE_YEARS: 'product-volumes:get-available-years',
-  GET_YEAR_RANGE: 'product-volumes:get-year-range',
-  GET_YEAR_SUMMARY: 'product-volumes:get-year-summary',
-  GET_ALL: 'product-volumes:get-all',
-} as const;
 
 export function registerVolumeHandlers(): void {
   const db = DatabaseConnection.getInstance();
