@@ -24,6 +24,7 @@ import { useLoadLines } from './hooks/useLoadLines';
 import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
+import { AnalysisControlBar } from '../analysis';
 
 const nodeTypes = {
   productionLine: ProductionLineNode,
@@ -140,6 +141,9 @@ export const ProductionCanvas = () => {
       </ReactFlow>
 
       <LinePropertiesPanel />
+
+      {/* Analysis Control Bar - Fixed at bottom */}
+      <AnalysisControlBar />
     </div>
   );
 };
