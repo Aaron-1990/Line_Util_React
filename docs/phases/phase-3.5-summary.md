@@ -1,6 +1,6 @@
 # Phase 3.5 Summary: Analysis Control Bar
 
-**Date Completed**: 2026-01-19
+**Date Completed**: 2026-01-20
 **Developer**: Aaron Zapata
 **Project**: Line Optimizer Desktop Application
 
@@ -52,11 +52,11 @@ Phase 3.4 established the complete data pipeline for production line optimizatio
 │  │   DATA STATUS       │  │    YEAR SELECTOR         │  │   RUN BUTTON      │  │
 │  │   PANEL             │  │                          │  │                   │  │
 │  │                     │  │  [All] [Range] [Single]  │  │  ┌─────────────┐  │  │
-│  │  ✓ 6 Lines          │  │                          │  │  │ Run Analysis│  │  │
-│  │  ✓ 5 Models         │  │  From: [2024 ▼]          │  │  │  (5 years)  │  │  │
-│  │  ✓ 25 Volumes       │  │  To:   [2028 ▼]          │  │  └─────────────┘  │  │
-│  │  ✓ 11 Compat        │  │                          │  │                   │  │
-│  │                     │  │  [5 years]               │  │                   │  │
+│  │  ✓ 100 Lines        │  │                          │  │  │ Run Analysis│  │  │
+│  │  ✓ 45 Models        │  │  From: [2024 ▼]          │  │  │  (11 years) │  │  │
+│  │  ✓ 495 Volumes      │  │  To:   [2034 ▼]          │  │  └─────────────┘  │  │
+│  │  ✓ 852 Compat       │  │                          │  │                   │  │
+│  │                     │  │  [11 years]              │  │                   │  │
 │  │  [Data Ready ✓]     │  │                          │  │                   │  │
 │  └─────────────────────┘  └──────────────────────────┘  └───────────────────┘  │
 │                                                                                 │
@@ -99,6 +99,61 @@ Phase 3.4 established the complete data pipeline for production line optimizatio
 | **All** | Analyze all available years |
 | **Range** | Select From/To year dropdowns |
 | **Single** | Analyze one specific year |
+
+### Auto-Create Areas Feature
+
+Added automatic creation of missing areas during import to resolve foreign key constraints:
+
+- **Problem**: Real production data contains area codes (Wave Solder, Final Assembly, etc.) not in `area_catalog`
+- **Solution**: Auto-create missing areas before importing lines
+- **Implementation**: `multi-sheet-excel.handler.ts` now detects unique areas and creates them with UUID and default colors
+
+```typescript
+// Auto-creates areas with UUID and color palette
+const uniqueAreas = new Set(validationResult.lines.validLines.map(l => l.area));
+for (const areaCode of uniqueAreas) {
+  if (!existingArea) {
+    const areaId = randomUUID();
+    db.prepare('INSERT INTO area_catalog ...').run(areaId, areaCode, areaCode, color);
+  }
+}
+```
+
+---
+
+## Real Production Data Import - SUCCESS
+
+**Date**: 2026-01-20
+**File**: `tests/fixtures/Copia de multi-year-production-data(Rev2).xlsx`
+
+### Import Results
+
+| Entity | Count | Status |
+|--------|-------|--------|
+| **Lines** | 100 | ✅ Created |
+| **Models** | 45 | ✅ Created |
+| **Volumes** | 495 | ✅ Created (11 years × 45 models) |
+| **Compatibilities** | 852 | ✅ Created |
+| **Areas** | 8 | ✅ Auto-created |
+
+### Auto-Created Areas
+
+| Area | Color |
+|------|-------|
+| Wave Solder | #60a5fa |
+| Final Assembly | #34d399 |
+| Test | #fbbf24 |
+| Selective Solder | #f472b6 |
+| Conformal | #a78bfa |
+| Router | #f87171 |
+| FSW | #38bdf8 |
+| Subassembly | #4ade80 |
+
+### Performance
+
+- **Total import time**: 47ms
+- **Year range**: 2024-2034 (11 years)
+- **Cross-sheet errors**: 0
 
 ---
 
@@ -150,7 +205,7 @@ interface AnalysisState {
 
 ### Overview
 
-Connect the Analysis Control Bar to the Python optimization algorithm (`main_5.py`) for real production line utilization analysis.
+Connect the Analysis Control Bar to the Python optimization algorithm (`main_5.py`) for real production line utilization analysis. The database is now populated with real BorgWarner production data.
 
 ### 4.1 Data Export Pipeline
 
@@ -226,10 +281,10 @@ interface OptimizationResult {
 
 ```
 ┌─────────────────────────────────────┐
-│  SMT-1                              │
-│  Area: SMT                          │
+│  WS-01                              │
+│  Area: Wave Solder                  │
 │  ━━━━━━━━━━━━━━━━━━━━ 85%          │  ← Utilization bar
-│  Models: A4E4, GKN, Tesla-X         │  ← Assigned models
+│  Models: Model-A, Model-B           │  ← Assigned models
 └─────────────────────────────────────┘
 ```
 
@@ -240,17 +295,17 @@ interface OptimizationResult {
 ### 4.5 Implementation Order
 
 ```
-Week 1: Data Export + Python Bridge Setup
+Step 1: Data Export + Python Bridge Setup
 ├── 4.1 DataExporter service
 ├── 4.2 PythonBridge with child process
-└── Test with sample data
+└── Test with real production data (100 lines, 45 models)
 
-Week 2: Integration + Results
+Step 2: Integration + Results
 ├── 4.3 ResultsProcessor
 ├── 4.4 Update ProductionLineNode
-└── End-to-end testing
+└── End-to-end testing with real data
 
-Week 3: Polish + Error Handling
+Step 3: Polish + Error Handling
 ├── Progress streaming
 ├── Error recovery
 └── Performance optimization
@@ -284,6 +339,7 @@ After Python integration is complete:
 9eb5ce6 fix(ipc): Add missing handlers for models-v2 and compatibility
 9d15028 feat(phase-3.5): Add Analysis Control Bar
 796e6cd fix(ui): Display volumes count in import results summary
+[pending] fix(import): Auto-create missing areas during multi-sheet import
 ```
 
 ---
@@ -304,6 +360,8 @@ After Python integration is complete:
 - [x] All/Range/Single modes work
 - [x] Run button state transitions work
 - [x] Simulated progress displays correctly
+- [x] Auto-create missing areas during import
+- [x] Real production data imported successfully (100 lines, 45 models, 852 compatibilities)
 
 ### Phase 4 (Pending)
 - [ ] Data exports to JSON correctly
@@ -318,4 +376,4 @@ After Python integration is complete:
 
 - Phase 3.4 Summary: `docs/phases/phase-3.4-summary.md`
 - Multi-Sheet Import Spec: `docs/specs/multi-sheet-excel-import.md`
-- Test Fixture: `tests/fixtures/multi-year-production-data.xlsx`
+- Real Data Fixture: `tests/fixtures/Copia de multi-year-production-data(Rev2).xlsx`

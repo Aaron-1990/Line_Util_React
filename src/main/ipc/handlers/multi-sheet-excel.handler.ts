@@ -4,6 +4,7 @@
 // ============================================
 
 import { ipcMain } from 'electron';
+import { randomUUID } from 'crypto';
 import { EXCEL_CHANNELS } from '@shared/constants';
 import {
   ApiResponse,
@@ -181,6 +182,37 @@ export function registerMultiSheetExcelHandlers(): void {
         db.prepare('BEGIN TRANSACTION').run();
 
         try {
+          // 0. Auto-create missing areas (before importing lines)
+          if (validationResult.lines && validationResult.lines.validLines.length > 0) {
+            const uniqueAreas = new Set(validationResult.lines.validLines.map(l => l.area));
+            const defaultColors = [
+              '#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa',
+              '#f87171', '#38bdf8', '#4ade80', '#facc15', '#e879f9',
+              '#fb923c', '#2dd4bf', '#818cf8', '#f43f5e', '#84cc16',
+            ];
+            let colorIndex = 0;
+
+            for (const areaCode of uniqueAreas) {
+              // Check if area exists
+              const existingArea = db.prepare(
+                'SELECT id FROM area_catalog WHERE code = ?'
+              ).get(areaCode);
+
+              if (!existingArea) {
+                // Create new area with default color and UUID
+                const color = defaultColors[colorIndex % defaultColors.length] ?? '#9ca3af';
+                colorIndex++;
+
+                const areaId = randomUUID();
+                db.prepare(
+                  'INSERT INTO area_catalog (id, code, name, color, active) VALUES (?, ?, ?, ?, 1)'
+                ).run(areaId, areaCode, areaCode, color);
+
+                console.log(`[Multi-Sheet Handler] Auto-created area: ${areaCode} with color ${color}`);
+              }
+            }
+          }
+
           // 1. Import Lines (if present)
           if (validationResult.lines && validationResult.lines.validLines.length > 0) {
             console.log('[Multi-Sheet Handler] Importing lines:', validationResult.lines.validLines.length);
