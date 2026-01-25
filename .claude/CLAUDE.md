@@ -25,6 +25,34 @@
 
 ---
 
+## Target Audience
+
+**This tool is NOT for shop floor operators.** It is designed for strategic capacity planning by:
+
+| User Type | Primary Use Case |
+|-----------|------------------|
+| **Industrial Engineers** | Capacity planning, scenario analysis, constraint identification, volume allocation |
+| **Plant Managers** | Strategic decisions, resource allocation, investment justification |
+| **Corporate/Regional Teams** | Multi-plant capacity visibility, global planning, new business feasibility |
+
+### Design Implications
+
+- **Yearly volumes** are the primary view (not daily/hourly for operators)
+- **Multi-year analysis** for strategic planning horizons
+- **Detailed tables** are appropriate - users are technical
+- **English interface** - corporate/engineering standard
+- **Scenario comparison** is high priority for decision-making
+- **Executive dashboards** for management presentations
+
+### NOT in Scope
+
+- Real-time production monitoring (that's MES)
+- Operator work instructions
+- Shop floor displays
+- Shift-level scheduling
+
+---
+
 ## Tech Stack
 
 ```
