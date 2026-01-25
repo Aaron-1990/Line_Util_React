@@ -363,12 +363,168 @@ After Python integration is complete:
 - [x] Auto-create missing areas during import
 - [x] Real production data imported successfully (100 lines, 45 models, 852 compatibilities)
 
-### Phase 4 (Pending)
-- [ ] Data exports to JSON correctly
-- [ ] Python script receives data
+### Phase 4.1 ✅ (Algorithm)
+- [x] Data exports to JSON correctly (DataExporter.ts)
+- [x] Python optimizer receives and processes data
+- [x] Priority distribution fixed (area-wide, not line-local)
+- [x] Capacity calculation verified (time constraint, not piece count)
+- [x] Per-area demand tracking works correctly
+
+### Phase 4.2 (Pending - UI Integration)
 - [ ] Progress streams back to UI
 - [ ] Results update canvas nodes
 - [ ] Error handling works
+- [ ] Results panel displays correctly
+
+---
+
+---
+
+## Phase 4.1: Python Optimizer Algorithm
+
+**Date Completed**: 2026-01-24
+**Developer**: Aaron Zapata
+
+### Overview
+
+Implemented and validated the Python optimization algorithm (`Optimizer/optimizer.py`) that calculates line utilization based on production demands, cycle times, and efficiencies.
+
+### Algorithm Flow
+
+```
+Input JSON → For Each Year → For Each Area → Distribute Models by Priority → Calculate Utilization
+```
+
+### Key Data Structures
+
+| Structure | Purpose |
+|-----------|---------|
+| `ProductionLine` | Tracks timeAvailableDaily, timeUsedDaily, assignments |
+| `ModelAssignment` | Records allocatedUnitsDaily, cycleTime, efficiency, priority |
+| `compatibilities` | Links lines ↔ models with cycle_time, efficiency, priority |
+
+### Issue #1 RESOLVED: Priority Distribution Fix
+
+**Problem**: The original algorithm processed **line by line**, so priority only worked within each individual line. The order in which lines were processed determined which line "wins" shared models.
+
+**Before (Line-centric - WRONG)**:
+```python
+for line in area:
+    for model in line.compatibilities:  # priority only within line
+        allocate()
+```
+
+**After (Model-centric - CORRECT)**:
+```python
+for priority_level in [1, 2, 3...]:
+    for model at this priority:
+        for compatible_line:
+            allocate()
+```
+
+**Implementation**: Modified `run_optimization_for_year()` in `optimizer.py` (lines 217-296):
+1. Collect ALL compatibilities for the area first
+2. Extract unique priority levels across all lines
+3. Process priority 1 models across ALL compatible lines
+4. Then priority 2 models with remaining capacity
+5. Continue for all priority levels
+
+**Result**: High-priority models now get line capacity before lower-priority models, regardless of which line they're compatible with.
+
+### Issue #2 CLARIFIED: Total Pieces Exceeding Single-Model Maximum
+
+**User Observation**: Conformal 1 showing 140,726 pieces/year in 2028, but calculated max for PIM 400V is 132,000/year.
+
+**Investigation**:
+```
+PIM 400V max calculation:
+- timeAvailableDaily = 76,212 sec (21.17 hrs)
+- Cycle time = 117.78 sec
+- Efficiency = 85%
+- Adjusted cycle time = 117.78 / 0.85 = 138.57 sec
+- Max daily = 76,212 / 138.57 = 550 units
+- Max yearly = 550 × 240 = 132,000 units
+```
+
+**Resolution**: This is **NOT a bug**. The 140,726 is the TOTAL across ALL models on the line:
+
+| Model | Cycle Time | Adjusted CT | Yearly Units | Time Used |
+|-------|------------|-------------|--------------|-----------|
+| BEV2-2 Dual 400V | 110 sec | 129.41 sec | 43,903 | 23,674 sec |
+| BEV2-2 Single 400V | 90 sec | 105.88 sec | 24,696 | 10,895 sec |
+| GPIM | 117.78 sec | 138.57 sec | 30,000 | 17,321 sec |
+| PIM 400V | 117.78 sec | 138.57 sec | 42,127 | 24,322 sec |
+| **TOTAL** | | | **140,726** | **76,212 sec** |
+
+**Key Insight**:
+- The constraint is **TIME** (76,212 sec/day), not a fixed piece count
+- Different models have different cycle times
+- Faster models (shorter cycle time) = more pieces per second
+- Mix of fast + slow models = more total pieces than all-slow scenario
+- **Time used = 76,212 sec (100% utilization) ✓**
+
+### Algorithm Verification Tests
+
+Created test scripts to validate algorithm behavior:
+
+```bash
+# Test priority distribution
+python3 Optimizer/test_priority_distribution.py
+
+# Test capacity calculation
+python3 /tmp/test_conformal_capacity.py
+
+# Test specific year analysis
+python3 /tmp/test_conformal_2028.py
+```
+
+### Core Algorithm Formula
+
+```python
+# Line capacity calculation (optimizer.py lines 84-95)
+adjusted_cycle_time = cycle_time / (efficiency / 100.0)
+available_time = timeAvailableDaily - timeUsedDaily
+max_units = available_time / adjusted_cycle_time
+allocated_units = min(max_units, daily_demand)
+time_used = allocated_units * adjusted_cycle_time
+```
+
+### Per-Area Processing (Critical for Sequential Manufacturing)
+
+Each area processes the **FULL demand** independently because products must be manufactured in each area:
+
+```
+Product: PIM 400V (686 units/day in 2027)
+├── SMT Area: 686 units distributed across SMT lines
+├── ICT Area: 686 units distributed across ICT lines
+├── Conformal Area: 686 units distributed across Conformal lines
+├── Router Area: 686 units distributed across Router lines
+└── Final Assembly: 686 units distributed across FA lines
+```
+
+### Files Modified/Created
+
+| File | Change |
+|------|--------|
+| `Optimizer/optimizer.py` | Priority fix (lines 217-296) |
+| `Optimizer/test_priority_distribution.py` | Priority test suite |
+| `Optimizer/PRIORITY_FIX_SUMMARY.md` | Implementation summary |
+
+### Lessons Learned
+
+1. **Priority should be area-wide**: Models compete for capacity across all compatible lines in an area, not just within a single line
+2. **Time is the constraint**: Total pieces can vary based on model mix; what's constant is available time
+3. **Faster models = more pieces**: A line with all 90-sec models produces more pieces than one with all 117-sec models
+4. **Utilization validates correctness**: 100% utilization with correct time calculation confirms the algorithm is working
+
+### Testing Checklist
+
+- [x] Priority 1 models distributed before Priority 2
+- [x] Per-area demand tracking (not global)
+- [x] Time constraint respected (never exceeds timeAvailableDaily)
+- [x] Multiple models on same line sum correctly
+- [x] Efficiency/OEE applied correctly to cycle time
+- [x] Daily × 240 = Yearly calculation verified
 
 ---
 
@@ -377,3 +533,4 @@ After Python integration is complete:
 - Phase 3.4 Summary: `docs/phases/phase-3.4-summary.md`
 - Multi-Sheet Import Spec: `docs/specs/multi-sheet-excel-import.md`
 - Real Data Fixture: `tests/fixtures/Copia de multi-year-production-data(Rev2).xlsx`
+- Optimizer Algorithm: `Optimizer/optimizer.py`
