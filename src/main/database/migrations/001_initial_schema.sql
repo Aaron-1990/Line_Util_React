@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS area_catalog (
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_area_catalog_code ON area_catalog(code);
-CREATE INDEX idx_area_catalog_active ON area_catalog(active);
+CREATE INDEX IF NOT EXISTS idx_area_catalog_code ON area_catalog(code);
+CREATE INDEX IF NOT EXISTS idx_area_catalog_active ON area_catalog(active);
 
 -- ============================================
 -- PRODUCTION LINES
@@ -37,9 +37,9 @@ CREATE TABLE IF NOT EXISTS production_lines (
   FOREIGN KEY (area) REFERENCES area_catalog(code) ON DELETE RESTRICT
 );
 
-CREATE UNIQUE INDEX idx_production_lines_name ON production_lines(name) WHERE active = 1;
-CREATE INDEX idx_production_lines_area ON production_lines(area);
-CREATE INDEX idx_production_lines_active ON production_lines(active);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_production_lines_name ON production_lines(name) WHERE active = 1;
+CREATE INDEX IF NOT EXISTS idx_production_lines_area ON production_lines(area);
+CREATE INDEX IF NOT EXISTS idx_production_lines_active ON production_lines(active);
 
 -- ============================================
 -- PRODUCT MODELS
@@ -60,10 +60,10 @@ CREATE TABLE IF NOT EXISTS product_models (
   FOREIGN KEY (area) REFERENCES area_catalog(code) ON DELETE RESTRICT
 );
 
-CREATE INDEX idx_product_models_family ON product_models(family);
-CREATE INDEX idx_product_models_area ON product_models(area);
-CREATE INDEX idx_product_models_active ON product_models(active);
-CREATE INDEX idx_product_models_priority ON product_models(priority);
+CREATE INDEX IF NOT EXISTS idx_product_models_family ON product_models(family);
+CREATE INDEX IF NOT EXISTS idx_product_models_area ON product_models(area);
+CREATE INDEX IF NOT EXISTS idx_product_models_active ON product_models(active);
+CREATE INDEX IF NOT EXISTS idx_product_models_priority ON product_models(priority);
 
 -- ============================================
 -- MODEL PROCESSES
@@ -81,8 +81,8 @@ CREATE TABLE IF NOT EXISTS model_processes (
   FOREIGN KEY (model_id) REFERENCES product_models(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_model_processes_model_id ON model_processes(model_id);
-CREATE INDEX idx_model_processes_sequence ON model_processes(model_id, sequence);
+CREATE INDEX IF NOT EXISTS idx_model_processes_model_id ON model_processes(model_id);
+CREATE INDEX IF NOT EXISTS idx_model_processes_sequence ON model_processes(model_id, sequence);
 
 -- ============================================
 -- LINE-MODEL ASSIGNMENTS (Many-to-Many)
@@ -98,8 +98,8 @@ CREATE TABLE IF NOT EXISTS line_model_assignments (
   UNIQUE(line_id, model_id)
 );
 
-CREATE INDEX idx_assignments_line_id ON line_model_assignments(line_id);
-CREATE INDEX idx_assignments_model_id ON line_model_assignments(model_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_line_id ON line_model_assignments(line_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_model_id ON line_model_assignments(model_id);
 
 -- ============================================
 -- PRODUCTION VOLUMES
@@ -116,9 +116,9 @@ CREATE TABLE IF NOT EXISTS production_volumes (
   UNIQUE(family, year)
 );
 
-CREATE INDEX idx_production_volumes_family ON production_volumes(family);
-CREATE INDEX idx_production_volumes_year ON production_volumes(year);
-CREATE INDEX idx_production_volumes_family_year ON production_volumes(family, year);
+CREATE INDEX IF NOT EXISTS idx_production_volumes_family ON production_volumes(family);
+CREATE INDEX IF NOT EXISTS idx_production_volumes_year ON production_volumes(year);
+CREATE INDEX IF NOT EXISTS idx_production_volumes_family_year ON production_volumes(family, year);
 
 -- ============================================
 -- CANVAS AREAS (Visual grouping)
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS canvas_areas (
   FOREIGN KEY (area_code) REFERENCES area_catalog(code) ON DELETE RESTRICT
 );
 
-CREATE INDEX idx_canvas_areas_code ON canvas_areas(area_code);
+CREATE INDEX IF NOT EXISTS idx_canvas_areas_code ON canvas_areas(area_code);
 
 -- ============================================
 -- ANALYSIS RUNS (Historical analysis results)
@@ -152,8 +152,8 @@ CREATE TABLE IF NOT EXISTS analysis_runs (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_analysis_runs_year ON analysis_runs(year);
-CREATE INDEX idx_analysis_runs_created ON analysis_runs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analysis_runs_year ON analysis_runs(year);
+CREATE INDEX IF NOT EXISTS idx_analysis_runs_created ON analysis_runs(created_at DESC);
 
 -- ============================================
 -- TRIGGERS - Auto-update timestamps

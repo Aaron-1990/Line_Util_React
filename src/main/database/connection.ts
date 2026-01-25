@@ -6,8 +6,8 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import path from 'path';
-import fs from 'fs';
 import { DB_CONFIG } from '@shared/constants';
+import { MigrationRunner } from './MigrationRunner';
 
 class DatabaseConnection {
   private static instance: Database.Database | null = null;
@@ -44,28 +44,9 @@ class DatabaseConnection {
     const db = DatabaseConnection.instance;
     if (!db) return;
 
-    // List of migration files in order
-    const migrations = [
-      '001_initial_schema.sql',
-      '002_multi_sheet_import.sql',
-      '003_product_volumes.sql',
-    ];
-
     try {
-      for (const migrationFile of migrations) {
-        const migrationsPath = path.join(__dirname, 'migrations', migrationFile);
-
-        // Check if migration file exists
-        if (!fs.existsSync(migrationsPath)) {
-          console.log(`Migration file not found, skipping: ${migrationFile}`);
-          continue;
-        }
-
-        const migrationSQL = fs.readFileSync(migrationsPath, 'utf-8');
-        db.exec(migrationSQL);
-        console.log(`Migration completed: ${migrationFile}`);
-      }
-      console.log('All database migrations completed successfully');
+      const migrationRunner = new MigrationRunner(db);
+      migrationRunner.runPendingMigrations();
     } catch (error) {
       console.error('Migration error:', error);
       throw new Error('Failed to run database migrations');

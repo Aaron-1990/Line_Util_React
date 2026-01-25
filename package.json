@@ -21,7 +21,8 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "db:reset": "node scripts/reset-db.js"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.5.0",
