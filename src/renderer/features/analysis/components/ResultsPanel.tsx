@@ -6,15 +6,52 @@
 
 import { useState, useMemo } from 'react';
 import { useAnalysisStore } from '../store/useAnalysisStore';
-import { X } from 'lucide-react';
+import { X, BarChart3 } from 'lucide-react';
 import { LineUtilizationResult } from '@shared/types';
+
+// ============================================
+// COLOR SCHEME (matches ValueStreamDashboard)
+// ============================================
+
+const UTILIZATION_COLORS = {
+  underutilized: '#3B82F6',  // Blue: 0-70%
+  optimal: '#22C55E',        // Green: 70-85%
+  caution: '#F59E0B',        // Yellow: 85-95%
+  atCapacity: '#F97316',     // Orange: 95-100%
+  overloaded: '#EF4444',     // Red: >100%
+};
+
+function getUtilizationColor(percent: number): string {
+  if (percent > 100) return UTILIZATION_COLORS.overloaded;
+  if (percent >= 95) return UTILIZATION_COLORS.atCapacity;
+  if (percent >= 85) return UTILIZATION_COLORS.caution;
+  if (percent >= 70) return UTILIZATION_COLORS.optimal;
+  return UTILIZATION_COLORS.underutilized;
+}
+
+function getUtilizationLabel(percent: number): string {
+  if (percent > 100) return 'Overloaded';
+  if (percent >= 95) return 'At Capacity';
+  if (percent >= 85) return 'Caution';
+  if (percent >= 70) return 'Optimal';
+  return 'Underutilized';
+}
 
 // Natural sort comparator for line names (e.g., "Line 1", "Line 2", "Line 10")
 const naturalSort = (a: string, b: string): number => {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 };
 
-export const ResultsPanel = () => {
+// ============================================
+// PROPS
+// ============================================
+
+interface ResultsPanelProps {
+  onClose?: () => void;
+  onViewDashboard?: () => void;
+}
+
+export const ResultsPanel = ({ onClose, onViewDashboard }: ResultsPanelProps) => {
   const { results, resetAnalysis } = useAnalysisStore();
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
@@ -94,6 +131,40 @@ export const ResultsPanel = () => {
     return null;
   }
 
+  // Calculate summary metrics with fallbacks for backward compatibility
+  const summaryMetrics = useMemo(() => {
+    if (!results) return null;
+
+    const firstYear = results.yearResults[0];
+    if (!firstYear) return null;
+
+    // Use new fields if available, otherwise calculate from existing data
+    const overallFulfillment = firstYear.summary.overallFulfillmentPercent
+      ?? firstYear.summary.demandFulfillmentPercent
+      ?? 100;
+
+    const totalUnfulfilled = firstYear.summary.totalUnfulfilledUnitsYearly
+      ?? 0;
+
+    const systemConstraint = firstYear.systemConstraint?.area
+      ?? firstYear.summary.systemConstraintArea
+      ?? null;
+
+    return {
+      overallFulfillment,
+      systemConstraint,
+      totalUnfulfilled,
+    };
+  }, [results]);
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      resetAnalysis();
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[90vh] flex flex-col">
@@ -109,13 +180,62 @@ export const ResultsPanel = () => {
               Execution: {results.metadata.executionTimeMs}ms
             </p>
           </div>
-          <button
-            onClick={resetAnalysis}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            {onViewDashboard && (
+              <button
+                onClick={onViewDashboard}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <BarChart3 className="w-4 h-4" />
+                View Dashboard
+              </button>
+            )}
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
+
+        {/* Summary Header */}
+        {summaryMetrics && (
+          <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-600 uppercase tracking-wide mb-1">
+                  Overall Fulfillment
+                </span>
+                <span className={`text-2xl font-bold ${
+                  (summaryMetrics.overallFulfillment ?? 100) >= 95 ? 'text-green-600' :
+                  (summaryMetrics.overallFulfillment ?? 100) >= 85 ? 'text-yellow-600' :
+                  'text-red-600'
+                }`}>
+                  {(summaryMetrics.overallFulfillment ?? 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-600 uppercase tracking-wide mb-1">
+                  System Constraint
+                </span>
+                <span className={`text-2xl font-bold ${summaryMetrics.systemConstraint ? 'text-red-600' : 'text-green-600'}`}>
+                  {summaryMetrics.systemConstraint || 'None'}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-600 uppercase tracking-wide mb-1">
+                  Total Unfulfilled
+                </span>
+                <span className={`text-2xl font-bold ${(summaryMetrics.totalUnfulfilled ?? 0) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {(summaryMetrics.totalUnfulfilled ?? 0).toLocaleString()}
+                  <span className="text-sm text-gray-500 ml-1">units</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Area Tabs */}
         <div className="flex gap-1 px-6 py-3 border-b bg-gray-50 overflow-x-auto">
@@ -259,14 +379,41 @@ export const ResultsPanel = () => {
                           {areaResults.years.map(year => {
                             const yearData = line.yearData.get(year);
                             const util = yearData?.utilizationPercent || 0;
+                            const color = getUtilizationColor(util);
+                            const label = getUtilizationLabel(util);
                             return (
-                              <td key={`util-${year}`} className={`px-4 py-2 text-sm text-right border-l font-medium ${
-                                util > 100 ? 'text-red-600' :
-                                util >= 70 ? 'text-green-600' :
-                                util > 0 ? 'text-yellow-600' :
-                                'text-gray-400'
-                              }`}>
-                                {util.toFixed(2)}%
+                              <td key={`util-${year}`} className="px-4 py-2 border-l">
+                                <div className="flex items-center gap-2">
+                                  {/* Progress bar */}
+                                  <div className="flex-1 min-w-[80px]">
+                                    <div className="h-6 bg-gray-100 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full transition-all duration-300"
+                                        style={{
+                                          width: `${Math.min(util, 100)}%`,
+                                          backgroundColor: color
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                  {/* Percentage */}
+                                  <span
+                                    className="text-sm font-medium whitespace-nowrap"
+                                    style={{ color }}
+                                  >
+                                    {util.toFixed(1)}%
+                                  </span>
+                                  {/* Status badge */}
+                                  <span
+                                    className="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                                    style={{
+                                      backgroundColor: `${color}15`,
+                                      color: color
+                                    }}
+                                  >
+                                    {label}
+                                  </span>
+                                </div>
                               </td>
                             );
                           })}
@@ -339,21 +486,17 @@ const YearDataCells = ({
     assignments.map(a => [a.modelName, a])
   );
 
-  const utilizationColor = utilization > 100
-    ? 'text-red-600 font-medium'
-    : utilization >= 70
-      ? 'text-green-600 font-medium'
-      : utilization > 0
-        ? 'text-yellow-600'
-        : 'text-gray-400';
+  const color = getUtilizationColor(utilization);
 
   return (
     <>
       <td className="px-3 py-2 text-sm text-right text-gray-700 border-l">
         {Math.round(timeUsed).toLocaleString()}
       </td>
-      <td className={`px-3 py-2 text-sm text-right ${utilizationColor}`}>
-        {utilization.toFixed(2)}%
+      <td className="px-3 py-2 text-sm text-right border-l">
+        <span className="font-medium" style={{ color }}>
+          {utilization.toFixed(2)}%
+        </span>
       </td>
       {/* Pieces per model */}
       {models.map(model => {

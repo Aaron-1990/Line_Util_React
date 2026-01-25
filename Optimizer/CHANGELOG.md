@@ -1,5 +1,158 @@
 # Optimizer Algorithm Changelog
 
+## 2026-01-25: Unfulfilled Demand Tracking & Bottleneck Detection
+
+### Purpose
+Add visibility into capacity constraints by tracking unfulfilled demand and automatically identifying system bottlenecks.
+
+### New Features
+
+#### 1. Unfulfilled Demand Tracking (Per Model Per Area)
+After allocating models to lines in each area, the optimizer now tracks any remaining demand that couldn't be fulfilled due to capacity constraints.
+
+**Output Structure:**
+```json
+{
+  "unfulfilledDemand": [
+    {
+      "modelId": "model-a",
+      "modelName": "Model A",
+      "area": "Final Assembly",
+      "unfulfilledUnitsDaily": 150.73,
+      "unfulfilledUnitsYearly": 36176.0,
+      "demandUnitsDaily": 208.33,
+      "fulfillmentPercent": 27.65
+    }
+  ]
+}
+```
+
+Empty array when all demand is fulfilled.
+
+#### 2. Area-Level Summary
+Aggregates key metrics for each production area:
+
+**Fields:**
+- `totalDemandUnitsDaily`: Total demand for all models in this area
+- `totalAllocatedUnitsDaily`: Total units successfully allocated
+- `totalUnfulfilledUnitsDaily`: Demand minus allocated
+- `fulfillmentPercent`: Percentage of demand met
+- `averageUtilization`: Average line utilization in area
+- `linesAtCapacity`: Count of lines ≥ 95% utilization
+- `totalLines`: Total lines in area
+- `isSystemConstraint`: True if this area is the bottleneck
+
+#### 3. System Constraint (Bottleneck) Detection
+Automatically identifies the production area limiting overall capacity.
+
+**Logic:**
+1. If any area has unfulfilled demand → Area with highest unfulfilled demand
+2. If all demand fulfilled → Area with highest average utilization
+
+**Output:**
+```json
+{
+  "systemConstraint": {
+    "area": "Final Assembly",
+    "reason": "unfulfilled_demand",
+    "utilizationPercent": 100.0,
+    "unfulfilledUnitsDaily": 275.73
+  }
+}
+```
+
+**Reasons:**
+- `"unfulfilled_demand"`: Area has insufficient capacity
+- `"highest_utilization"`: Area is most heavily loaded (no capacity shortage)
+
+#### 4. Enhanced Summary Metrics
+Added to existing `summary` object:
+- `totalUnfulfilledUnitsDaily`: Total unfulfilled across all areas
+- `totalUnfulfilledUnitsYearly`: Daily × operations days
+- `overallFulfillmentPercent`: Global fulfillment rate
+- `systemConstraintArea`: Name of bottleneck area
+
+### Implementation Details
+
+**File: `optimizer.py`**
+
+**Added:**
+- `unfulfilled_demand_tracker` dict (line 223): Tracks unfulfilled demand per area per model
+- Unfulfilled demand calculation after area processing (lines 302-311)
+- Unfulfilled demand list builder (lines 396-417)
+- Area summary calculator (lines 419-473)
+- System constraint detector (lines 475-512)
+- Overall metrics calculator (lines 514-527)
+
+**Modified:**
+- `run_optimization_for_year()` return structure (lines 529-552)
+- Added new fields to output while preserving existing structure
+- Updated docstring (lines 18-27)
+
+### Test Coverage
+
+**Test File: `test_unfulfilled_input.json`**
+- 3 lines (2 SMT, 1 Final Assembly)
+- 2 models with high demand (exceeds capacity)
+- Validates unfulfilled demand tracking
+- Confirms bottleneck detection (Final Assembly has highest unfulfilled)
+
+**Results:**
+```
+SMT fulfillment: 48.96%
+Final Assembly fulfillment: 17.28%
+System Constraint: Final Assembly (unfulfilled_demand)
+```
+
+### Backward Compatibility
+
+All existing output fields preserved:
+- `lines` array unchanged
+- `summary` existing fields unchanged
+- New fields added without breaking structure
+
+Existing integrations continue to work without modification.
+
+### Business Value
+
+Production planners can now:
+- **Identify bottlenecks**: See which area limits overall capacity
+- **Quantify shortages**: Know exact unfulfilled demand per model per area
+- **Prioritize investments**: Focus capacity improvements on constraint areas
+- **Track fulfillment**: Monitor demand satisfaction by area
+- **Detect capacity issues**: See which lines are at capacity (≥95%)
+
+### Example Scenarios
+
+**Scenario 1: No Capacity Shortage**
+```json
+{
+  "unfulfilledDemand": [],
+  "systemConstraint": {
+    "area": "SMT",
+    "reason": "highest_utilization",
+    "utilizationPercent": 90.69,
+    "unfulfilledUnitsDaily": 0
+  }
+}
+```
+
+**Scenario 2: Capacity Shortage**
+```json
+{
+  "unfulfilledDemand": [
+    { "area": "Final Assembly", "unfulfilledUnitsDaily": 275.73 }
+  ],
+  "systemConstraint": {
+    "area": "Final Assembly",
+    "reason": "unfulfilled_demand",
+    "unfulfilledUnitsDaily": 275.73
+  }
+}
+```
+
+---
+
 ## 2026-01-22: Per-Area Demand Processing Fix
 
 ### Problem

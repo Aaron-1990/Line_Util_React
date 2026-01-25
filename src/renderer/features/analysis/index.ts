@@ -8,6 +8,7 @@ export { DataStatusPanel } from './components/DataStatusPanel';
 export { YearRangeSelector } from './components/YearRangeSelector';
 export { RunAnalysisButton } from './components/RunAnalysisButton';
 export { ResultsPanel } from './components/ResultsPanel';
+export { ValueStreamDashboard } from './components/ValueStreamDashboard';
 
 // Store
 export { useAnalysisStore } from './store/useAnalysisStore';

@@ -3,7 +3,7 @@
 // Componente principal del canvas con ReactFlow
 // ============================================
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -24,7 +24,7 @@ import { useLoadLines } from './hooks/useLoadLines';
 import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
-import { AnalysisControlBar, ResultsPanel, useAnalysisStore } from '../analysis';
+import { AnalysisControlBar, ResultsPanel, ValueStreamDashboard, useAnalysisStore } from '../analysis';
 
 const nodeTypes = {
   productionLine: ProductionLineNode,
@@ -151,11 +151,30 @@ export const ProductionCanvas = () => {
   );
 };
 
-// Wrapper component to conditionally render ResultsPanel
+// Wrapper component to conditionally render ResultsPanel or ValueStreamDashboard
 const ResultsPanelWrapper = () => {
-  const { results } = useAnalysisStore();
+  const { results, resetAnalysis } = useAnalysisStore();
+  const [viewMode, setViewMode] = useState<'details' | 'dashboard'>('details');
 
   if (!results) return null;
 
-  return <ResultsPanel />;
+  // Get first year for dashboard (can be extended to support year selection)
+  const firstYearResult = results.yearResults[0];
+
+  if (viewMode === 'dashboard' && firstYearResult) {
+    return (
+      <ValueStreamDashboard
+        yearResult={firstYearResult}
+        onClose={resetAnalysis}
+        onViewDetails={() => setViewMode('details')}
+      />
+    );
+  }
+
+  return (
+    <ResultsPanel
+      onClose={resetAnalysis}
+      onViewDashboard={() => setViewMode('dashboard')}
+    />
+  );
 };

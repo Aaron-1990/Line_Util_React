@@ -1,0 +1,192 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "timestamp": "2026-01-25T00:45:08.297488",
+    "inputYears": [
+      2024
+    ],
+    "executionTimeMs": 0
+  },
+  "yearResults": [
+    {
+      "year": 2024,
+      "lines": [
+        {
+          "lineId": "line-fa-1",
+          "lineName": "FA-1",
+          "area": "Final Assembly",
+          "timeAvailableDaily": 28800,
+          "timeUsedDaily": 28800.0,
+          "utilizationPercent": 100.0,
+          "assignments": [
+            {
+              "modelId": "model-a",
+              "modelName": "Model A",
+              "allocatedUnitsDaily": 57.6,
+              "demandUnitsDaily": 208.33,
+              "timeRequiredSeconds": 28800.0,
+              "cycleTime": 400,
+              "efficiency": 80,
+              "priority": 1,
+              "fulfillmentPercent": 27.65
+            }
+          ]
+        },
+        {
+          "lineId": "line-smt-1",
+          "lineName": "SMT-1",
+          "area": "SMT",
+          "timeAvailableDaily": 28800,
+          "timeUsedDaily": 28800.0,
+          "utilizationPercent": 100.0,
+          "assignments": [
+            {
+              "modelId": "model-a",
+              "modelName": "Model A",
+              "allocatedUnitsDaily": 81.6,
+              "demandUnitsDaily": 208.33,
+              "timeRequiredSeconds": 28800.0,
+              "cycleTime": 300,
+              "efficiency": 85,
+              "priority": 1,
+              "fulfillmentPercent": 39.17
+            },
+            {
+              "modelId": "model-b",
+              "modelName": "Model B",
+              "allocatedUnitsDaily": 0.0,
+              "demandUnitsDaily": 125.0,
+              "timeRequiredSeconds": 0.0,
+              "cycleTime": 200,
+              "efficiency": 90,
+              "priority": 2,
+              "fulfillmentPercent": 0.0
+            }
+          ]
+        },
+        {
+          "lineId": "line-smt-2",
+          "lineName": "SMT-2",
+          "area": "SMT",
+          "timeAvailableDaily": 28800,
+          "timeUsedDaily": 28800.0,
+          "utilizationPercent": 100.0,
+          "assignments": [
+            {
+              "modelId": "model-a",
+              "modelName": "Model A",
+              "allocatedUnitsDaily": 81.6,
+              "demandUnitsDaily": 126.73,
+              "timeRequiredSeconds": 28800.0,
+              "cycleTime": 300,
+              "efficiency": 85,
+              "priority": 1,
+              "fulfillmentPercent": 64.39
+            },
+            {
+              "modelId": "model-b",
+              "modelName": "Model B",
+              "allocatedUnitsDaily": 0.0,
+              "demandUnitsDaily": 125.0,
+              "timeRequiredSeconds": 0.0,
+              "cycleTime": 200,
+              "efficiency": 90,
+              "priority": 2,
+              "fulfillmentPercent": 0.0
+            }
+          ]
+        }
+      ],
+      "unfulfilledDemand": [
+        {
+          "modelId": "model-a",
+          "modelName": "Model A",
+          "area": "SMT",
+          "unfulfilledUnitsDaily": 45.13,
+          "unfulfilledUnitsYearly": 10832.0,
+          "demandUnitsDaily": 208.33,
+          "fulfillmentPercent": 78.34
+        },
+        {
+          "modelId": "model-b",
+          "modelName": "Model B",
+          "area": "SMT",
+          "unfulfilledUnitsDaily": 125.0,
+          "unfulfilledUnitsYearly": 30000.0,
+          "demandUnitsDaily": 125.0,
+          "fulfillmentPercent": 0.0
+        },
+        {
+          "modelId": "model-a",
+          "modelName": "Model A",
+          "area": "Final Assembly",
+          "unfulfilledUnitsDaily": 150.73,
+          "unfulfilledUnitsYearly": 36176.0,
+          "demandUnitsDaily": 208.33,
+          "fulfillmentPercent": 27.65
+        },
+        {
+          "modelId": "model-b",
+          "modelName": "Model B",
+          "area": "Final Assembly",
+          "unfulfilledUnitsDaily": 125.0,
+          "unfulfilledUnitsYearly": 30000.0,
+          "demandUnitsDaily": 125.0,
+          "fulfillmentPercent": 0.0
+        }
+      ],
+      "areaSummary": [
+        {
+          "area": "SMT",
+          "totalDemandUnitsDaily": 333.33,
+          "totalAllocatedUnitsDaily": 163.2,
+          "totalUnfulfilledUnitsDaily": 170.13,
+          "fulfillmentPercent": 48.96,
+          "averageUtilization": 100.0,
+          "linesAtCapacity": 2,
+          "totalLines": 2,
+          "isSystemConstraint": false
+        },
+        {
+          "area": "Final Assembly",
+          "totalDemandUnitsDaily": 333.33,
+          "totalAllocatedUnitsDaily": 57.6,
+          "totalUnfulfilledUnitsDaily": 275.73,
+          "fulfillmentPercent": 17.28,
+          "averageUtilization": 100.0,
+          "linesAtCapacity": 1,
+          "totalLines": 1,
+          "isSystemConstraint": true
+        }
+      ],
+      "systemConstraint": {
+        "area": "Final Assembly",
+        "reason": "unfulfilled_demand",
+        "utilizationPercent": 100.0,
+        "unfulfilledUnitsDaily": 275.73
+      },
+      "summary": {
+        "totalLines": 3,
+        "totalAreas": 2,
+        "averageUtilization": 100.0,
+        "overloadedLines": 0,
+        "balancedLines": 3,
+        "underutilizedLines": 0,
+        "totalModels": 2,
+        "assignedModels": 2,
+        "unassignedModels": 0,
+        "totalAllocatedUnits": 220.8,
+        "demandFulfillmentPercent": 27.77,
+        "totalUnfulfilledUnitsDaily": 445.87,
+        "totalUnfulfilledUnitsYearly": 107008.0,
+        "overallFulfillmentPercent": 33.12,
+        "systemConstraintArea": "Final Assembly"
+      }
+    }
+  ],
+  "overallSummary": {
+    "yearsProcessed": 1,
+    "averageUtilizationAllYears": 100.0,
+    "totalLinesAnalyzed": 3
+  }
+}

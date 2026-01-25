@@ -575,10 +575,49 @@ export interface LineUtilizationResult {
 }
 
 /**
+ * Unfulfilled demand for a model in an area
+ */
+export interface UnfulfilledDemand {
+  modelId: string;
+  modelName: string;
+  area: string;
+  unfulfilledUnitsDaily: number;
+  unfulfilledUnitsYearly: number;
+  demandUnitsDaily: number;
+  fulfillmentPercent: number;
+}
+
+/**
+ * Summary for a single area
+ */
+export interface AreaSummary {
+  area: string;
+  totalDemandUnitsDaily: number;
+  totalAllocatedUnitsDaily: number;
+  totalUnfulfilledUnitsDaily: number;
+  fulfillmentPercent: number;
+  averageUtilization: number;
+  linesAtCapacity: number;  // lines >= 95%
+  totalLines: number;
+  isSystemConstraint: boolean;
+}
+
+/**
+ * System constraint (bottleneck) information
+ */
+export interface SystemConstraint {
+  area: string;
+  reason: 'unfulfilled_demand' | 'highest_utilization';
+  utilizationPercent: number;
+  unfulfilledUnitsDaily: number;
+}
+
+/**
  * Summary statistics for a year's optimization
  */
 export interface YearSummary {
   totalLines: number;
+  totalAreas: number;
   averageUtilization: number;
   overloadedLines: number;      // >100%
   balancedLines: number;        // 70-100%
@@ -587,6 +626,11 @@ export interface YearSummary {
   totalDemandUnits: number;
   totalAllocatedUnits: number;
   demandFulfillmentPercent: number;
+  // New unfulfilled demand fields
+  totalUnfulfilledUnitsDaily: number;
+  totalUnfulfilledUnitsYearly: number;
+  overallFulfillmentPercent: number;
+  systemConstraintArea: string | null;
 }
 
 /**
@@ -596,6 +640,10 @@ export interface YearOptimizationResult {
   year: number;
   lines: LineUtilizationResult[];
   summary: YearSummary;
+  // New fields for unfulfilled demand tracking
+  unfulfilledDemand: UnfulfilledDemand[];
+  areaSummary: AreaSummary[];
+  systemConstraint: SystemConstraint | null;
 }
 
 /**
