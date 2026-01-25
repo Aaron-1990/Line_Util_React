@@ -21,7 +21,10 @@ Output JSON structure:
     "yearResults": [{
         "year": 2024,
         "lines": [{ "lineId", "lineName", "area", "utilizationPercent", "assignments": [...] }],
-        "summary": { "totalLines", "averageUtilization", ... }
+        "unfulfilledDemand": [{ "modelId", "modelName", "area", "unfulfilledUnitsDaily", "unfulfilledUnitsYearly", "demandUnitsDaily", "fulfillmentPercent" }],
+        "areaSummary": [{ "area", "totalDemandUnitsDaily", "totalAllocatedUnitsDaily", "totalUnfulfilledUnitsDaily", "fulfillmentPercent", "averageUtilization", "linesAtCapacity", "totalLines", "isSystemConstraint" }],
+        "systemConstraint": { "area", "reason", "utilizationPercent", "unfulfilledUnitsDaily" },
+        "summary": { "totalLines", "averageUtilization", "totalUnfulfilledUnitsDaily", "totalUnfulfilledUnitsYearly", "overallFulfillmentPercent", "systemConstraintArea", ... }
     }],
     "overallSummary": { ... }
 }
@@ -187,6 +190,7 @@ def run_optimization_for_year(
        - Distribute the FULL demand for each model across lines in that area
        - Each area processes the complete volume (products go through all processes)
     3. Track remaining demand PER AREA (not globally)
+    4. Calculate unfulfilled demand and identify bottleneck area
     """
     print(f"\n{'='*60}")
     print(f"Processing year: {year}")
@@ -214,20 +218,21 @@ def run_optimization_for_year(
     for area, line_ids in lines_by_area.items():
         print(f"  {area}: {len(line_ids)} lines")
 
+    # Track unfulfilled demand per area per model
+    unfulfilled_demand_tracker: Dict[str, Dict[str, float]] = {}  # {area: {model_id: unfulfilled_units}}
+
     # Process each area independently
     for area, line_ids_in_area in lines_by_area.items():
         print(f"\n--- Processing Area: {area} ---")
-
-        # Track remaining demand PER AREA (each area gets full demand)
-        remaining_demand_in_area: Dict[str, float] = {}
-        for model_id, vol_info in volumes_by_model.items():
-            remaining_demand_in_area[model_id] = vol_info['dailyDemand']
 
         # ===================================================================
         # MODEL-CENTRIC DISTRIBUTION (Priority-Based)
         # ===================================================================
         # Step 1: Collect ALL compatibilities for this area
+        # We need this FIRST to know which models have compatible lines in this area
         area_compatibilities = []
+        models_with_compats_in_area = set()  # Track which models have compatible lines here
+
         for line_id in line_ids_in_area:
             compats = compats_by_line.get(line_id, [])
             for compat in compats:
@@ -241,6 +246,15 @@ def run_optimization_for_year(
                         'efficiency': compat['efficiency'],
                         'priority': compat.get('priority', 999)
                     })
+                    models_with_compats_in_area.add(compat['modelId'])
+
+        # Track remaining demand PER AREA - ONLY for models that have compatible lines here
+        remaining_demand_in_area: Dict[str, float] = {}
+        for model_id in models_with_compats_in_area:
+            vol_info = volumes_by_model[model_id]
+            remaining_demand_in_area[model_id] = vol_info['dailyDemand']
+
+        print(f"  Models with compatibilities in {area}: {len(models_with_compats_in_area)}")
 
         # Step 2: Get unique priority levels, sorted (1, 2, 3, ...)
         priority_levels = sorted(set(c['priority'] for c in area_compatibilities))
@@ -273,13 +287,21 @@ def run_optimization_for_year(
                 print(f"    Model {model_name} (demand: {demand:.0f} units/day)")
 
                 # Distribute this model's demand across all compatible lines (at this priority)
+                print(f"      Compatible lines: {[c['lineId'] for c in compatible_lines]}")
                 for compat in compatible_lines:
                     line_id = compat['lineId']
                     line = lines[line_id]
 
                     current_demand = remaining_demand_in_area.get(model_id, 0)
                     if current_demand <= 0:
+                        print(f"      -> {line.name}: SKIPPED (demand fulfilled)")
                         break  # Model fully allocated
+
+                    # Debug: show line capacity before allocation
+                    available_time = line.timeAvailableDaily - line.timeUsedDaily
+                    adjusted_ct = compat['cycleTime'] / (compat['efficiency'] / 100.0)
+                    max_units = available_time / adjusted_ct if adjusted_ct > 0 else 0
+                    print(f"      -> {line.name}: avail_time={available_time:.0f}s, adjusted_ct={adjusted_ct:.1f}s, max_units={max_units:.0f}, current_demand={current_demand:.0f}")
 
                     # Try to allocate model to this line
                     allocated = line.add_model(
@@ -293,7 +315,20 @@ def run_optimization_for_year(
 
                     if allocated > 0:
                         remaining_demand_in_area[model_id] -= allocated
-                        print(f"      -> {line.name}: {allocated:.0f} units ({(allocated/vol_info['dailyDemand']*100):.1f}% of total demand)")
+                        print(f"         ALLOCATED: {allocated:.0f} units ({(allocated/vol_info['dailyDemand']*100):.1f}% of total demand), remaining={remaining_demand_in_area[model_id]:.0f}")
+                    else:
+                        print(f"         ALLOCATED: 0 units (line full or no capacity)")
+
+        # After processing all models in this area, track unfulfilled demand
+        unfulfilled_demand_tracker[area] = {}
+        for model_id, remaining_units in remaining_demand_in_area.items():
+            if remaining_units > 0.01:  # Use small threshold to avoid floating point issues
+                unfulfilled_demand_tracker[area][model_id] = remaining_units
+                vol_info = volumes_by_model[model_id]
+                model_name = vol_info.get('modelName', 'Unknown')
+                total_demand = vol_info['dailyDemand']
+                fulfillment = ((total_demand - remaining_units) / total_demand * 100) if total_demand > 0 else 0
+                print(f"  Unfulfilled: {model_name} - {remaining_units:.1f} units/day ({100-fulfillment:.1f}% unmet)")
 
     # Calculate summary statistics
     total_utilization = 0.0
@@ -378,9 +413,165 @@ def run_optimization_for_year(
     # Sort lines by name for consistent output
     lines_result.sort(key=lambda x: x['lineName'])
 
+    # Build unfulfilled demand list
+    unfulfilled_demand_list = []
+    for area, models_unfulfilled in unfulfilled_demand_tracker.items():
+        for model_id, unfulfilled_units_daily in models_unfulfilled.items():
+            vol_info = volumes_by_model[model_id]
+            model_name = vol_info.get('modelName', 'Unknown')
+            total_demand_daily = vol_info['dailyDemand']
+            operations_days = vol_info.get('operationsDays', 240)
+
+            unfulfilled_yearly = unfulfilled_units_daily * operations_days
+            allocated_daily = total_demand_daily - unfulfilled_units_daily
+            fulfillment_percent = (allocated_daily / total_demand_daily * 100) if total_demand_daily > 0 else 0
+
+            unfulfilled_demand_list.append({
+                'modelId': model_id,
+                'modelName': model_name,
+                'area': area,
+                'unfulfilledUnitsDaily': round(unfulfilled_units_daily, 2),
+                'unfulfilledUnitsYearly': round(unfulfilled_yearly, 2),
+                'demandUnitsDaily': round(total_demand_daily, 2),
+                'fulfillmentPercent': round(fulfillment_percent, 2)
+            })
+
+    # Build area-level summary
+    area_summary_list = []
+    area_utilizations = {}  # Track for bottleneck calculation
+
+    for area, line_ids_in_area in lines_by_area.items():
+        area_lines = [lines[lid] for lid in line_ids_in_area]
+
+        # Calculate total demand and allocated for this area
+        total_demand_daily = 0.0
+        total_allocated_daily = 0.0
+        total_utilization = 0.0
+        lines_at_capacity = 0
+
+        for line in area_lines:
+            total_utilization += line.utilizationPercent
+            if line.utilizationPercent >= 95.0:
+                lines_at_capacity += 1
+
+            for assignment in line.assignments:
+                # Each assignment represents demand for that model in this area
+                # We need to count unique model demands once, not sum duplicates
+                pass
+
+        # Calculate demand from volumes (each model's full demand goes to each area)
+        models_in_area = set()
+        for line_id in line_ids_in_area:
+            for compat in compats_by_line.get(line_id, []):
+                if compat['modelId'] in volumes_by_model:
+                    models_in_area.add(compat['modelId'])
+
+        for model_id in models_in_area:
+            total_demand_daily += volumes_by_model[model_id]['dailyDemand']
+
+        # Calculate allocated from assignments
+        for line in area_lines:
+            for assignment in line.assignments:
+                total_allocated_daily += assignment.allocatedUnitsDaily
+
+        total_unfulfilled_daily = total_demand_daily - total_allocated_daily
+        avg_utilization = total_utilization / len(area_lines) if area_lines else 0
+        fulfillment_percent = (total_allocated_daily / total_demand_daily * 100) if total_demand_daily > 0 else 100.0
+
+        area_utilizations[area] = avg_utilization
+
+        area_summary_list.append({
+            'area': area,
+            'totalDemandUnitsDaily': round(total_demand_daily, 2),
+            'totalAllocatedUnitsDaily': round(total_allocated_daily, 2),
+            'totalUnfulfilledUnitsDaily': round(total_unfulfilled_daily, 2),
+            'fulfillmentPercent': round(fulfillment_percent, 2),
+            'averageUtilization': round(avg_utilization, 2),
+            'linesAtCapacity': lines_at_capacity,
+            'totalLines': len(area_lines),
+            'isSystemConstraint': False  # Will be set below
+        })
+
+    # Identify system constraint (bottleneck)
+    system_constraint = None
+    constraint_reason = None
+
+    # Find areas with unfulfilled demand
+    areas_with_unfulfilled = {}
+    for area, models_unfulfilled in unfulfilled_demand_tracker.items():
+        if models_unfulfilled:  # Has unfulfilled demand
+            total_unfulfilled = sum(models_unfulfilled.values())
+            areas_with_unfulfilled[area] = total_unfulfilled
+
+    # DEBUG: Show all areas with unfulfilled demand
+    print(f"\n=== SYSTEM CONSTRAINT DETERMINATION for Year {year} ===")
+    if areas_with_unfulfilled:
+        print(f"Areas with unfulfilled demand:")
+        for area, unfulfilled in sorted(areas_with_unfulfilled.items(), key=lambda x: -x[1]):
+            print(f"  {area}: {unfulfilled:.1f} units/day unfulfilled")
+    else:
+        print("No areas with unfulfilled demand")
+
+    if areas_with_unfulfilled:
+        # Constraint is area with highest unfulfilled demand
+        constraint_area = max(areas_with_unfulfilled.items(), key=lambda x: x[1])[0]
+        constraint_reason = "unfulfilled_demand"
+        print(f"Selected constraint: {constraint_area} (highest unfulfilled: {areas_with_unfulfilled[constraint_area]:.1f})")
+        system_constraint = {
+            'area': constraint_area,
+            'reason': constraint_reason,
+            'utilizationPercent': round(area_utilizations.get(constraint_area, 0), 2),
+            'unfulfilledUnitsDaily': round(areas_with_unfulfilled[constraint_area], 2)
+        }
+    elif area_utilizations:
+        # No unfulfilled demand - check if any area is at/over capacity (>=100%)
+        max_util_area = max(area_utilizations.items(), key=lambda x: x[1])
+        constraint_area = max_util_area[0]
+        max_util_percent = max_util_area[1]
+
+        if max_util_percent >= 100:
+            # Only mark as constraint if actually at capacity
+            constraint_reason = "highest_utilization"
+            print(f"Highest utilization area at capacity: {constraint_area} ({max_util_percent:.1f}%)")
+            system_constraint = {
+                'area': constraint_area,
+                'reason': constraint_reason,
+                'utilizationPercent': round(max_util_percent, 2),
+                'unfulfilledUnitsDaily': 0
+            }
+        else:
+            # All areas under 100% and no unfulfilled demand = NO CONSTRAINT
+            print(f"No constraint - all areas have available capacity (highest: {constraint_area} at {max_util_percent:.1f}%)")
+            system_constraint = None
+
+    # Mark constraint area in summary
+    if system_constraint:
+        for area_sum in area_summary_list:
+            if area_sum['area'] == system_constraint['area']:
+                area_sum['isSystemConstraint'] = True
+                break
+
+    # Calculate total unfulfilled demand across all areas
+    total_unfulfilled_daily = sum(sum(models.values()) for models in unfulfilled_demand_tracker.values())
+
+    # Calculate operations days (use first model's operations days as reference, typically 240)
+    operations_days = 240
+    if volumes_by_model:
+        first_model = next(iter(volumes_by_model.values()))
+        operations_days = first_model.get('operationsDays', 240)
+
+    total_unfulfilled_yearly = total_unfulfilled_daily * operations_days
+
+    # Overall fulfillment percent (considering all areas)
+    total_demand_all_areas = sum(v['dailyDemand'] for v in volumes_by_model.values()) * len(lines_by_area)
+    overall_fulfillment_percent = ((total_demand_all_areas - total_unfulfilled_daily) / total_demand_all_areas * 100) if total_demand_all_areas > 0 else 100.0
+
     return {
         'year': year,
         'lines': lines_result,
+        'unfulfilledDemand': unfulfilled_demand_list,
+        'areaSummary': area_summary_list,
+        'systemConstraint': system_constraint,
         'summary': {
             'totalLines': len(lines),
             'totalAreas': len(lines_by_area),
@@ -392,7 +583,11 @@ def run_optimization_for_year(
             'assignedModels': len(assigned_models),
             'unassignedModels': unassigned,
             'totalAllocatedUnits': round(total_allocated, 2),
-            'demandFulfillmentPercent': round(fulfillment, 2)
+            'demandFulfillmentPercent': round(fulfillment, 2),
+            'totalUnfulfilledUnitsDaily': round(total_unfulfilled_daily, 2),
+            'totalUnfulfilledUnitsYearly': round(total_unfulfilled_yearly, 2),
+            'overallFulfillmentPercent': round(overall_fulfillment_percent, 2),
+            'systemConstraintArea': system_constraint['area'] if system_constraint else None
         }
     }
 

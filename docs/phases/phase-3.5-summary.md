@@ -528,6 +528,152 @@ Product: PIM 400V (686 units/day in 2027)
 
 ---
 
+## Phase 4.2: Results UI & Bug Fixes
+
+**Date Completed**: 2026-01-25
+**Developer**: Aaron Zapata
+
+### Overview
+
+Implemented the results visualization UI (ResultsPanel, ValueStreamDashboard) and resolved critical algorithm bugs related to unfulfilled demand tracking and system constraint determination.
+
+### UI Components Implemented
+
+| Component | Purpose |
+|-----------|---------|
+| `ResultsPanel.tsx` | Modal displaying line utilization results with color-coded metrics |
+| `ValueStreamDashboard.tsx` | Area-level summary view showing demand fulfillment and constraints |
+| `ResultsPanelWrapper` | Smart wrapper that toggles between detail and dashboard views |
+
+### Issue #3 RESOLVED: Undefined Value Crashes
+
+**Problem**: ResultsPanel and ValueStreamDashboard crashed with errors:
+- `Cannot read properties of undefined (reading 'toFixed')`
+- `yearResult.areaSummary is not iterable`
+
+**Cause**: New summary fields (`overallFulfillmentPercent`, `totalUnfulfilledUnitsYearly`, `areaSummary`) weren't present in all optimizer outputs.
+
+**Solution**: Added fallback values and defensive computations:
+
+```typescript
+// ResultsPanel.tsx - Fallback for summary metrics
+const overallFulfillment = firstYear.summary.overallFulfillmentPercent
+  ?? firstYear.summary.demandFulfillmentPercent
+  ?? 100;
+
+const totalUnfulfilled = firstYear.summary.totalUnfulfilledUnitsYearly ?? 0;
+
+const systemConstraint = firstYear.systemConstraint?.area
+  ?? firstYear.summary.systemConstraintArea
+  ?? null;
+```
+
+```typescript
+// ValueStreamDashboard.tsx - Generate areaSummary from line data if missing
+const areaSummary = useMemo((): AreaSummary[] => {
+  if (yearResult.areaSummary && Array.isArray(yearResult.areaSummary)) {
+    return yearResult.areaSummary;
+  }
+  // Fallback: generate from existing line data
+  const areaMap = new Map<string, {...}>();
+  yearResult.lines.forEach(line => { /* group by area */ });
+  return Array.from(areaMap.entries()).map(([area, data]) => ({...}));
+}, [yearResult]);
+```
+
+### Issue #4 RESOLVED: Unfulfilled Demand in Wrong Areas
+
+**Problem**: GPEC5 and GPEC5 LATAM showed unfulfilled demand in areas (Subassembly, Conformal, FSW, Router, Selective Solder) where they have NO compatible lines.
+
+**Root Cause**: The algorithm initialized demand for ALL models in EVERY area, not just models with compatible lines.
+
+**Before (WRONG)**:
+```python
+# Tracked demand for ALL models in ALL areas
+remaining_demand_in_area = {model_id: dailyDemand for all models}
+```
+
+**After (CORRECT)**:
+```python
+# Step 1: Collect compatibilities FIRST to know which models have lines in this area
+models_with_compats_in_area = set()
+for line_id in line_ids_in_area:
+    for compat in compats_by_line.get(line_id, []):
+        models_with_compats_in_area.add(compat['modelId'])
+
+# Step 2: Only track demand for models that actually have compatible lines here
+remaining_demand_in_area: Dict[str, float] = {}
+for model_id in models_with_compats_in_area:
+    remaining_demand_in_area[model_id] = volumes_by_model[model_id]['dailyDemand']
+```
+
+**Result**: Unfulfilled demand only appears for models that have compatible lines in that area but couldn't be fully allocated due to capacity constraints.
+
+### Issue #5 RESOLVED: False System Constraint at Low Utilization
+
+**Problem**: SMT was marked as "system constraint" for 2026 even though all SMT lines were at 20-42% utilization with no unfulfilled demand.
+
+**Root Cause**: The algorithm always selected the highest utilization area as constraint, even when all areas had plenty of capacity.
+
+**Before (WRONG)**:
+```python
+elif area_utilizations:
+    # Always selected highest utilization, even at 20%
+    constraint_area = max(area_utilizations.items(), key=lambda x: x[1])[0]
+    system_constraint = {...}  # Always set
+```
+
+**After (CORRECT)**:
+```python
+elif area_utilizations:
+    max_util_area = max(area_utilizations.items(), key=lambda x: x[1])
+    max_util_percent = max_util_area[1]
+
+    if max_util_percent >= 100:
+        # Only mark as constraint if actually at capacity
+        system_constraint = {...}
+    else:
+        # All areas under 100% = NO CONSTRAINT (system has available capacity)
+        print(f"No constraint - all areas have available capacity")
+        system_constraint = None
+```
+
+**Manufacturing Logic**: If the highest utilized area is below 100%, the system has excess capacity - there is no bottleneck. A constraint only exists when:
+1. There's unfulfilled demand (models can't be fully allocated), OR
+2. An area is at/over 100% utilization (actual capacity limit)
+
+### Algorithm Verification Results
+
+**Year 2026** (Low demand year):
+- All areas under 45% utilization
+- No unfulfilled demand
+- **System constraint: None** ✓ (correctly identified as having capacity)
+
+**Year 2033/2034** (High demand years):
+- Conformal area has unfulfilled demand (capacity exceeded)
+- **System constraint: Conformal** ✓ (correctly identified as bottleneck)
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `Optimizer/optimizer.py` | Fixed unfulfilled demand tracking (lines 232-255) |
+| `Optimizer/optimizer.py` | Fixed system constraint logic (lines 515-536) |
+| `ResultsPanel.tsx` | Added fallback values for new summary fields |
+| `ValueStreamDashboard.tsx` | Added fallback areaSummary computation |
+
+### Testing Checklist
+
+- [x] ResultsPanel renders without crashes
+- [x] ValueStreamDashboard renders without crashes
+- [x] Unfulfilled demand only shows for models with compatible lines in area
+- [x] System constraint = None when all areas under 100%
+- [x] System constraint = area with unfulfilled demand when present
+- [x] Year navigation works (2026-2034)
+- [x] Color coding works (green/yellow/red utilization)
+
+---
+
 ## Related Documentation
 
 - Phase 3.4 Summary: `docs/phases/phase-3.4-summary.md`
