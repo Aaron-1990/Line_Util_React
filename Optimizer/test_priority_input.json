@@ -1,0 +1,121 @@
+{
+  "lines": [
+    {
+      "id": "line-smt-1",
+      "name": "SMT-1",
+      "area": "SMT",
+      "timeAvailableDaily": 28800
+    },
+    {
+      "id": "line-smt-2",
+      "name": "SMT-2",
+      "area": "SMT",
+      "timeAvailableDaily": 28800
+    }
+  ],
+  "models": [
+    {
+      "id": "model-a",
+      "name": "Model A",
+      "customer": "Customer 1",
+      "program": "Program 1",
+      "family": "Family 1"
+    },
+    {
+      "id": "model-b",
+      "name": "Model B",
+      "customer": "Customer 2",
+      "program": "Program 2",
+      "family": "Family 2"
+    },
+    {
+      "id": "model-c",
+      "name": "Model C",
+      "customer": "Customer 3",
+      "program": "Program 3",
+      "family": "Family 3"
+    }
+  ],
+  "volumes": [
+    {
+      "modelId": "model-a",
+      "modelName": "Model A",
+      "year": 2024,
+      "volume": 10000,
+      "operationsDays": 250
+    },
+    {
+      "modelId": "model-b",
+      "modelName": "Model B",
+      "year": 2024,
+      "volume": 15000,
+      "operationsDays": 250
+    },
+    {
+      "modelId": "model-c",
+      "modelName": "Model C",
+      "year": 2024,
+      "volume": 12000,
+      "operationsDays": 250
+    }
+  ],
+  "compatibilities": [
+    {
+      "lineId": "line-smt-1",
+      "lineName": "SMT-1",
+      "modelId": "model-a",
+      "modelName": "Model A",
+      "cycleTime": 300,
+      "efficiency": 85,
+      "priority": 1
+    },
+    {
+      "lineId": "line-smt-2",
+      "lineName": "SMT-2",
+      "modelId": "model-a",
+      "modelName": "Model A",
+      "cycleTime": 300,
+      "efficiency": 85,
+      "priority": 1
+    },
+    {
+      "lineId": "line-smt-1",
+      "lineName": "SMT-1",
+      "modelId": "model-b",
+      "modelName": "Model B",
+      "cycleTime": 300,
+      "efficiency": 85,
+      "priority": 2
+    },
+    {
+      "lineId": "line-smt-2",
+      "lineName": "SMT-2",
+      "modelId": "model-b",
+      "modelName": "Model B",
+      "cycleTime": 300,
+      "efficiency": 85,
+      "priority": 1
+    },
+    {
+      "lineId": "line-smt-1",
+      "lineName": "SMT-1",
+      "modelId": "model-c",
+      "modelName": "Model C",
+      "cycleTime": 300,
+      "efficiency": 85,
+      "priority": 1
+    },
+    {
+      "lineId": "line-smt-2",
+      "lineName": "SMT-2",
+      "modelId": "model-c",
+      "modelName": "Model C",
+      "cycleTime": 300,
+      "efficiency": 85,
+      "priority": 2
+    }
+  ],
+  "selectedYears": [
+    2024
+  ]
+}

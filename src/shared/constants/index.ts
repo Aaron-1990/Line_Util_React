@@ -231,3 +231,12 @@ export const PRODUCT_VOLUME_CHANNELS = {
   GET_YEAR_RANGE: 'product-volumes:get-year-range',
   GET_YEAR_SUMMARY: 'product-volumes:get-year-summary',
 } as const;
+
+// Optimization Analysis (Phase 4)
+export const ANALYSIS_CHANNELS = {
+  EXPORT_DATA: 'analysis:export-data',
+  RUN_OPTIMIZATION: 'analysis:run-optimization',
+  GET_RESULTS: 'analysis:get-results',
+  GET_RESULTS_BY_YEAR: 'analysis:get-results-by-year',
+  CANCEL_OPTIMIZATION: 'analysis:cancel-optimization',
+} as const;

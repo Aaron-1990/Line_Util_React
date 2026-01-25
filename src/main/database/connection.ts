@@ -8,7 +8,6 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { DB_CONFIG } from '@shared/constants';
-import { seedDatabase } from './seed-data';
 
 class DatabaseConnection {
   private static instance: Database.Database | null = null;
@@ -20,10 +19,6 @@ class DatabaseConnection {
     if (!DatabaseConnection.instance) {
       DatabaseConnection.instance = DatabaseConnection.createConnection();
       DatabaseConnection.runMigrations();
-      
-      if (process.env.NODE_ENV === 'development') {
-        seedDatabase(DatabaseConnection.instance);
-      }
     }
     return DatabaseConnection.instance;
   }

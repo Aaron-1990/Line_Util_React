@@ -4,6 +4,8 @@
 // ============================================
 
 import { create } from 'zustand';
+import { OptimizationResult, RunOptimizationRequest } from '@shared/types';
+import { ANALYSIS_CHANNELS } from '@shared/constants';
 
 // ===== Types =====
 
@@ -49,6 +51,9 @@ interface AnalysisState {
   progress: AnalysisProgress | null;
   analysisError: string | null;
 
+  // Results
+  results: OptimizationResult | null;
+
   // Computed
   isDataReady: boolean;
   selectedYearsCount: number;
@@ -71,9 +76,13 @@ interface AnalysisState {
   // Actions - Analysis
   startAnalysis: () => void;
   updateProgress: (year: number, index: number, total: number) => void;
-  completeAnalysis: () => void;
+  completeAnalysis: (results: OptimizationResult) => void;
   setAnalysisError: (error: string) => void;
   resetAnalysis: () => void;
+
+  // Actions - Run Optimization
+  runOptimization: () => Promise<void>;
+  getSelectedYears: () => number[];
 
   // Actions - Refresh
   refreshData: () => Promise<void>;
@@ -144,6 +153,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   status: 'idle',
   progress: null,
   analysisError: null,
+
+  // Results
+  results: null,
 
   // Computed (implemented as derived state)
   isDataReady: false,
@@ -236,9 +248,10 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     progress: { currentYear: year, currentIndex: index, totalYears: total },
   }),
 
-  completeAnalysis: () => set({
+  completeAnalysis: (results) => set({
     status: 'complete',
     progress: null,
+    results,
   }),
 
   setAnalysisError: (error) => set({
@@ -251,7 +264,64 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     status: get().isDataReady ? 'ready' : 'idle',
     progress: null,
     analysisError: null,
+    results: null,
   }),
+
+  // ===== Get Selected Years =====
+  getSelectedYears: () => {
+    const { yearSelection, availableYears } = get();
+
+    switch (yearSelection.mode) {
+      case 'all':
+        return availableYears;
+      case 'single':
+        return yearSelection.singleYear ? [yearSelection.singleYear] : [];
+      case 'range': {
+        if (!yearSelection.fromYear || !yearSelection.toYear) return [];
+        const from = Math.min(yearSelection.fromYear, yearSelection.toYear);
+        const to = Math.max(yearSelection.fromYear, yearSelection.toYear);
+        return availableYears.filter(y => y >= from && y <= to);
+      }
+      default:
+        return [];
+    }
+  },
+
+  // ===== Run Optimization =====
+  runOptimization: async () => {
+    const { startAnalysis, completeAnalysis, setAnalysisError, getSelectedYears, updateProgress } = get();
+
+    const selectedYears = getSelectedYears();
+    if (selectedYears.length === 0) {
+      setAnalysisError('No years selected');
+      return;
+    }
+
+    startAnalysis();
+
+    try {
+      // Show initial progress
+      updateProgress(selectedYears[0] ?? 0, 0, selectedYears.length);
+
+      const request: RunOptimizationRequest = {
+        selectedYears,
+        mode: 'json',
+      };
+
+      const response = await window.electronAPI.invoke<OptimizationResult>(
+        ANALYSIS_CHANNELS.RUN_OPTIMIZATION,
+        request
+      );
+
+      if (response.success && response.data) {
+        completeAnalysis(response.data);
+      } else {
+        setAnalysisError(response.error || 'Optimization failed');
+      }
+    } catch (error) {
+      setAnalysisError(error instanceof Error ? error.message : 'Unknown error');
+    }
+  },
 
   // ===== Refresh Action =====
 

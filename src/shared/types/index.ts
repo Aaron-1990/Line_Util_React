@@ -504,3 +504,134 @@ export interface MultiSheetImportResult {
   totalTime: number;
   success: boolean;
 }
+
+// ============================================
+// PYTHON OPTIMIZATION ANALYSIS TYPES (Phase 4)
+// ============================================
+
+/**
+ * Input data structure for Python optimization algorithm
+ * This is exported from SQLite and passed to main_5.py
+ */
+export interface OptimizationInputData {
+  lines: {
+    id: string;
+    name: string;
+    area: string;
+    timeAvailableDaily: number;  // seconds
+  }[];
+  models: {
+    id: string;
+    name: string;
+    customer: string;
+    program: string;
+    family: string;
+  }[];
+  volumes: {
+    modelId: string;
+    modelName: string;
+    year: number;
+    volume: number;
+    operationsDays: number;
+  }[];
+  compatibilities: {
+    lineId: string;
+    lineName: string;
+    modelId: string;
+    modelName: string;
+    cycleTime: number;      // seconds per unit
+    efficiency: number;     // percentage (0-100)
+    priority: number;       // lower = higher priority
+  }[];
+  selectedYears: number[];
+}
+
+/**
+ * A single model assignment to a line
+ */
+export interface ModelAssignment {
+  modelId: string;
+  modelName: string;
+  allocatedUnitsDaily: number;
+  demandUnitsDaily: number;
+  timeRequiredSeconds: number;
+  cycleTime: number;
+  efficiency: number;
+  priority: number;
+  fulfillmentPercent: number;  // How much of demand is fulfilled
+}
+
+/**
+ * Utilization result for a single line
+ */
+export interface LineUtilizationResult {
+  lineId: string;
+  lineName: string;
+  area: string;
+  timeAvailableDaily: number;
+  timeUsedDaily: number;
+  utilizationPercent: number;
+  assignments: ModelAssignment[];
+}
+
+/**
+ * Summary statistics for a year's optimization
+ */
+export interface YearSummary {
+  totalLines: number;
+  averageUtilization: number;
+  overloadedLines: number;      // >100%
+  balancedLines: number;        // 70-100%
+  underutilizedLines: number;   // <70%
+  unassignedModels: number;
+  totalDemandUnits: number;
+  totalAllocatedUnits: number;
+  demandFulfillmentPercent: number;
+}
+
+/**
+ * Optimization results for a single year
+ */
+export interface YearOptimizationResult {
+  year: number;
+  lines: LineUtilizationResult[];
+  summary: YearSummary;
+}
+
+/**
+ * Complete optimization results (all years)
+ */
+export interface OptimizationResult {
+  metadata: {
+    version: string;
+    timestamp: string;
+    inputYears: number[];
+    executionTimeMs: number;
+  };
+  yearResults: YearOptimizationResult[];
+  overallSummary: {
+    yearsProcessed: number;
+    averageUtilizationAllYears: number;
+    totalLinesAnalyzed: number;
+  };
+}
+
+/**
+ * Progress update during optimization
+ */
+export interface OptimizationProgress {
+  status: 'starting' | 'processing' | 'complete' | 'error';
+  currentYear?: number;
+  currentYearIndex?: number;
+  totalYears?: number;
+  message?: string;
+  percent?: number;
+}
+
+/**
+ * Request to run optimization
+ */
+export interface RunOptimizationRequest {
+  selectedYears: number[];
+  mode?: 'json' | 'db';  // Output mode
+}

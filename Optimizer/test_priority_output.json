@@ -1,0 +1,99 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "timestamp": "2026-01-23T17:45:35.559319",
+    "inputYears": [
+      2024
+    ],
+    "executionTimeMs": 0
+  },
+  "yearResults": [
+    {
+      "year": 2024,
+      "lines": [
+        {
+          "lineId": "line-smt-1",
+          "lineName": "SMT-1",
+          "area": "SMT",
+          "timeAvailableDaily": 28800,
+          "timeUsedDaily": 28800.0,
+          "utilizationPercent": 100.0,
+          "assignments": [
+            {
+              "modelId": "model-a",
+              "modelName": "Model A",
+              "allocatedUnitsDaily": 40.0,
+              "demandUnitsDaily": 40.0,
+              "timeRequiredSeconds": 14117.65,
+              "cycleTime": 300,
+              "efficiency": 85,
+              "priority": 1,
+              "fulfillmentPercent": 100.0
+            },
+            {
+              "modelId": "model-c",
+              "modelName": "Model C",
+              "allocatedUnitsDaily": 41.6,
+              "demandUnitsDaily": 48.0,
+              "timeRequiredSeconds": 14682.35,
+              "cycleTime": 300,
+              "efficiency": 85,
+              "priority": 1,
+              "fulfillmentPercent": 86.67
+            }
+          ]
+        },
+        {
+          "lineId": "line-smt-2",
+          "lineName": "SMT-2",
+          "area": "SMT",
+          "timeAvailableDaily": 28800,
+          "timeUsedDaily": 23435.29,
+          "utilizationPercent": 81.37,
+          "assignments": [
+            {
+              "modelId": "model-b",
+              "modelName": "Model B",
+              "allocatedUnitsDaily": 60.0,
+              "demandUnitsDaily": 60.0,
+              "timeRequiredSeconds": 21176.47,
+              "cycleTime": 300,
+              "efficiency": 85,
+              "priority": 1,
+              "fulfillmentPercent": 100.0
+            },
+            {
+              "modelId": "model-c",
+              "modelName": "Model C",
+              "allocatedUnitsDaily": 6.4,
+              "demandUnitsDaily": 6.4,
+              "timeRequiredSeconds": 2258.82,
+              "cycleTime": 300,
+              "efficiency": 85,
+              "priority": 2,
+              "fulfillmentPercent": 100.0
+            }
+          ]
+        }
+      ],
+      "summary": {
+        "totalLines": 2,
+        "totalAreas": 1,
+        "averageUtilization": 90.69,
+        "overloadedLines": 0,
+        "balancedLines": 2,
+        "underutilizedLines": 0,
+        "totalModels": 3,
+        "assignedModels": 3,
+        "unassignedModels": 0,
+        "totalAllocatedUnits": 148.0,
+        "demandFulfillmentPercent": 95.85
+      }
+    }
+  ],
+  "overallSummary": {
+    "yearsProcessed": 1,
+    "averageUtilizationAllYears": 90.69,
+    "totalLinesAnalyzed": 2
+  }
+}

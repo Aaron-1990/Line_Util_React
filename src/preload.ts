@@ -4,7 +4,7 @@
 // ============================================
 
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS, EXCEL_CHANNELS, MODELS_V2_CHANNELS, COMPATIBILITY_CHANNELS, PRODUCT_VOLUME_CHANNELS } from './shared/constants';
+import { IPC_CHANNELS, EXCEL_CHANNELS, MODELS_V2_CHANNELS, COMPATIBILITY_CHANNELS, PRODUCT_VOLUME_CHANNELS, ANALYSIS_CHANNELS } from './shared/constants';
 import { ApiResponse } from './shared/types';
 
 /**
@@ -23,6 +23,7 @@ const ALL_VALID_CHANNELS = [
   ...Object.values(MODELS_V2_CHANNELS),
   ...Object.values(COMPATIBILITY_CHANNELS),
   ...Object.values(PRODUCT_VOLUME_CHANNELS),
+  ...Object.values(ANALYSIS_CHANNELS),
 ] as const;
 
 const electronAPI = {

@@ -13,6 +13,7 @@ import { registerMultiSheetExcelHandlers } from './multi-sheet-excel.handler';
 import { registerVolumeHandlers } from './volumes.handler';
 import { registerModelsV2Handlers } from './models-v2.handler';
 import { registerCompatibilityHandlers } from './compatibility.handler';
+import { registerAnalysisHandlers } from './analysis.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -27,6 +28,7 @@ export function registerAllHandlers(): void {
   registerVolumeHandlers();
   registerModelsV2Handlers();
   registerCompatibilityHandlers();
+  registerAnalysisHandlers();
 
   console.log('IPC handlers registered successfully');
 }

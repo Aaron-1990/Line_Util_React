@@ -24,7 +24,7 @@ import { useLoadLines } from './hooks/useLoadLines';
 import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
-import { AnalysisControlBar } from '../analysis';
+import { AnalysisControlBar, ResultsPanel, useAnalysisStore } from '../analysis';
 
 const nodeTypes = {
   productionLine: ProductionLineNode,
@@ -144,6 +144,18 @@ export const ProductionCanvas = () => {
 
       {/* Analysis Control Bar - Fixed at bottom */}
       <AnalysisControlBar />
+
+      {/* Results Panel - Modal when analysis is complete */}
+      <ResultsPanelWrapper />
     </div>
   );
+};
+
+// Wrapper component to conditionally render ResultsPanel
+const ResultsPanelWrapper = () => {
+  const { results } = useAnalysisStore();
+
+  if (!results) return null;
+
+  return <ResultsPanel />;
 };
