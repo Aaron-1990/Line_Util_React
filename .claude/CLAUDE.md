@@ -1,110 +1,142 @@
-# Line Optimizer - Claude CLI Knowledge Base
+# Line Optimizer - Project Context
 
-## Multi-Sheet Excel Import
-- **Specification**: `docs/specs/multi-sheet-excel-import.md`
-- **Status**: Ready for implementation
-- **Agent**: `@fullstack-developer` (recommended) or `@backend-architect` → `@frontend-developer` (split approach)
-- **Priority**: High
-- **Designed**: 2026-01-19
-- **Context**: Extends existing single-sheet Excel import to support importing Lines, Models, and Compatibilities from a single multi-sheet Excel file. Critical for loading complete datasets needed by Python optimization algorithm.
-- **Estimated Complexity**: Complex (12 bloques, 2-3 semanas manual, 2-3 horas con CLI)
+## Current State
 
-### Business Value
-Enables rapid data loading for production line optimization analysis. Current manual process takes hours; multi-sheet import reduces to <5 minutes. Essential for Phase 4 (Python Integration) where algorithm requires complete dataset (Lines + Models + Compatibilities).
+**Version:** 0.4.1 (Phase 4.1 Complete)
+**Last Updated:** 2026-01-24
+**Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
-### Technical Highlights
-- **3 new database tables**: product_models, line_model_compatibilities (with foreign keys)
-- **Cross-sheet validation**: Detects invalid references between sheets
-- **Transactional import**: Rollback on error, no partial data
-- **Backward compatible**: Single-sheet import still works
-- **Performance**: <2s for 1,000 rows total
+### Completed Phases
 
-### Dependencies
-- Requires: Phase 3.1-3.3 (Single-Sheet Import) ✅ completed
-- Blocks: Phase 4 (Python Integration) until complete
-- Python algorithm: `main_5.py` expects data structure defined here
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Canvas Feature (ReactFlow) | ✅ Complete |
+| Phase 2 | CRUD Lines (Add/Edit/Delete) | ✅ Complete |
+| Phase 3.4 | Multi-Sheet Excel Import | ✅ Complete |
+| Phase 3.5 | Analysis Control Bar | ✅ Complete |
+| Phase 4.1 | Python Optimizer Algorithm | ✅ Complete |
 
-### Architecture Decisions
-- **No Processes table**: Algorithm assigns by individual line, not sequential flow
-- **Volumes in Models**: Simplifies import (Annual Volume + Operations Days)
-- **Efficiency in Compatibilities**: OEE varies by line-model pair
-- **Priority in Compatibilities**: Same model, different priority per line
+### Current Capabilities
 
-### Implementation Command
-
-**Full-stack approach (recommended)**:
-```bash
-cd ~/projects/line-optimizer
-
-claude "@fullstack-developer implement multi-sheet-excel-import according to docs/specs/multi-sheet-excel-import.md. Apply contracts-first methodology with checkpoints after each block. Use Framework Híbrido v2.0."
-```
-
-**Split approach (backend first, then frontend)**:
-```bash
-# Step 1: Backend (Blocks 1-5)
-claude "@backend-architect implement multi-sheet import backend (Blocks 1-5) according to docs/specs/multi-sheet-excel-import.md. Focus on database migration, domain entities, repositories, parsers, validators, and IPC handlers."
-
-# Step 2: Frontend (Blocks 6-9)
-claude "@frontend-developer implement multi-sheet import UI (Blocks 6-9) according to docs/specs/multi-sheet-excel-import.md. Use TypeScript types from backend. Extend ImportWizard with SheetSelector, multi-sheet validation display, and progress tracking."
-
-# Step 3: Testing (Block 10)
-claude "@test-generator implement integration tests (Block 10) according to docs/specs/multi-sheet-excel-import.md. Coverage target >80%."
-```
-
-### Post-Implementation Verification
-
-```bash
-# 1. Type check
-npm run type-check
-
-# 2. Run tests
-npm test
-
-# 3. Manual verification
-npm start
-# Import test fixture: tests/fixtures/multi-sheet-production-data.xlsx
-# Verify in DB:
-sqlite3 ~/Library/Application\ Support/Line\ Optimizer/line-optimizer.db << 'EOF'
-SELECT COUNT(*) as lines FROM production_lines;
-SELECT COUNT(*) as models FROM product_models;
-SELECT COUNT(*) as compatibilities FROM line_model_compatibilities;
-EOF
-
-# 4. Test Python integration
-cd python
-python src/main_5.py
-# Expected: Algorithm runs, calculates line utilization
-```
-
-### Success Metrics
-- [ ] All 3 sheets import successfully
-- [ ] Cross-sheet validation detects invalid references
-- [ ] Transactional rollback works (no partial data on error)
-- [ ] Performance: <2s for 1,000 rows
-- [ ] Test coverage >80%
-- [ ] Backward compatible with single-sheet import
-- [ ] Python algorithm runs with imported data
-
-### Related Features
-- **Phase 3.1-3.3**: Single-Sheet Excel Import (prerequisite)
-- **Phase 4**: Python Integration (depends on this)
-- **Future**: Excel Export functionality
+1. **Data Import**: Multi-sheet Excel import (Lines, Models, Compatibilities)
+2. **Canvas**: Interactive production line visualization with drag & drop
+3. **Analysis**: Python-based optimization with 17ms execution time
+4. **Results Panel**: Modal displaying utilization by area, line, and model
 
 ---
 
-## Project Context
+## Tech Stack
 
-**Line Optimizer** is a desktop application for optimizing production line utilization in electronics manufacturing at BorgWarner.
+```
+Electron 28 + React 18 + TypeScript
+├── SQLite (local database via better-sqlite3)
+├── Zustand (state management)
+├── ReactFlow (canvas visualization)
+├── Vite (build tool)
+└── Python 3 (optimization algorithm)
+```
 
-**Tech Stack**:
-- Electron 28 + React 18 + TypeScript
-- SQLite (local database)
-- Zustand (state management)
-- ReactFlow (canvas)
-- Vite (build)
+---
 
-**Current Phase**: 3.4 (Multi-Sheet Excel Import)
+## Architecture Overview
 
-**Developer**: Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
+```
+┌─────────────────────────────────────────────────────────┐
+│              ELECTRON DESKTOP APP                        │
+├─────────────────────────────────────────────────────────┤
+│  RENDERER (React)          │  MAIN (Node.js)            │
+│  ├── Canvas Feature        │  ├── IPC Handlers          │
+│  ├── Analysis Control Bar  │  ├── SQLite Database       │
+│  ├── Results Panel         │  ├── DataExporter          │
+│  └── Import Wizard         │  └── PythonBridge          │
+├─────────────────────────────────────────────────────────┤
+│                    PYTHON OPTIMIZER                      │
+│  Optimizer/optimizer.py - Line utilization algorithm    │
+└─────────────────────────────────────────────────────────┘
+```
 
-**Development Framework**: Híbrido v2.0 (Contracts-First + Checkpoints + Alternate Flows)
+---
+
+## Key Files
+
+| Purpose | Location |
+|---------|----------|
+| Main documentation | `docs/phases/phase-3.5-summary.md` |
+| Excel import spec | `docs/phases/phase-3.4-summary.md` |
+| Python optimizer | `Optimizer/optimizer.py` |
+| Algorithm changelog | `Optimizer/CHANGELOG.md` |
+| Analysis store | `src/renderer/features/analysis/store/useAnalysisStore.ts` |
+| Results display | `src/renderer/features/analysis/components/ResultsPanel.tsx` |
+| Python bridge | `src/main/services/python/PythonBridge.ts` |
+| Data exporter | `src/main/services/analysis/DataExporter.ts` |
+
+---
+
+## Database Schema
+
+```sql
+production_lines          -- Line metadata (name, area, time_available_daily)
+product_models_v2         -- Model metadata (name, customer, program, family)
+product_volumes           -- Multi-year volumes (model_id, year, volume, operations_days)
+line_model_compatibilities -- Line-model pairs (cycle_time, efficiency, priority)
+```
+
+**Database location:** `~/Library/Application Support/Line Optimizer/line-optimizer.db`
+
+---
+
+## Algorithm Key Concepts
+
+### Per-Area Processing
+Each manufacturing area (SMT, ICT, Conformal, Router, Final Assembly) processes the FULL demand independently because products flow through ALL areas sequentially.
+
+### Priority Distribution (Area-Wide)
+Priority is respected across the entire area, not just within each line:
+```
+Priority 1 models distributed to ALL compatible lines first
+Then Priority 2 models get remaining capacity
+```
+
+### Time Constraint (Not Piece Count)
+The constraint is available TIME, not a fixed piece count. Multiple models with different cycle times can produce varying total pieces within the same time window.
+
+### Core Formula
+```python
+adjusted_cycle_time = cycle_time / (efficiency / 100)
+max_units = available_time / adjusted_cycle_time
+allocated_units = min(max_units, daily_demand)
+```
+
+---
+
+## Common Commands
+
+```bash
+# Development
+npm start              # Start app with HMR
+npm run type-check     # TypeScript validation
+
+# Database
+sqlite3 ~/Library/Application\ Support/Line\ Optimizer/line-optimizer.db
+
+# Test optimizer
+python3 Optimizer/test_priority_distribution.py
+```
+
+---
+
+## Next Steps (Phase 4.2)
+
+- [ ] Progress streaming from Python to UI
+- [ ] Results update canvas nodes with utilization colors
+- [ ] Error handling improvements
+- [ ] Dashboard with KPIs and charts
+
+---
+
+## Important Notes
+
+- **HMR**: Changes to `src/renderer/*` auto-reload; changes to `src/main/*` require app restart
+- **IPC Security**: All database access goes through IPC handlers (no direct DB from renderer)
+- **Soft Deletes**: Records use `active` flag, not hard deletes
+- **Execution Speed**: Python optimizer runs in ~17ms (not 10-20 seconds) because it's pure Python without pandas/Excel I/O overhead
