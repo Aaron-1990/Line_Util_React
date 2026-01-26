@@ -240,3 +240,10 @@ export const ANALYSIS_CHANNELS = {
   GET_RESULTS_BY_YEAR: 'analysis:get-results-by-year',
   CANCEL_OPTIMIZATION: 'analysis:cancel-optimization',
 } as const;
+
+// Window Management (Phase 4.2)
+export const WINDOW_CHANNELS = {
+  OPEN_TIMELINE_WINDOW: 'window:open-timeline',
+  GET_TIMELINE_DATA: 'window:get-timeline-data',
+  CLOSE_TIMELINE_WINDOW: 'window:close-timeline',
+} as const;

@@ -164,6 +164,25 @@ const ResultsPanelWrapper = () => {
     sequence: area.sequence,
   }));
 
+  // Handler to open timeline in separate window
+  const handleOpenInWindow = async () => {
+    try {
+      const response = await window.electronAPI.invoke('window:open-timeline', {
+        results,
+        areaSequences,
+      });
+      if (response.success) {
+        // Optionally close the modal after opening in window
+        // resetAnalysis();
+        console.log('[ProductionCanvas] Timeline window opened:', response.data);
+      } else {
+        console.error('[ProductionCanvas] Failed to open timeline window:', response.error);
+      }
+    } catch (error) {
+      console.error('[ProductionCanvas] Error opening timeline window:', error);
+    }
+  };
+
   // Default view: Constraint Timeline (multi-year overview)
   if (viewMode === 'timeline') {
     return (
@@ -172,6 +191,7 @@ const ResultsPanelWrapper = () => {
         areaSequences={areaSequences}
         onClose={resetAnalysis}
         onViewDetails={() => setViewMode('details')}
+        onOpenInWindow={handleOpenInWindow}
       />
     );
   }

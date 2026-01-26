@@ -7,7 +7,7 @@
 import { useState, useMemo } from 'react';
 import { useAnalysisStore } from '../store/useAnalysisStore';
 import { X, BarChart3 } from 'lucide-react';
-import { LineUtilizationResult } from '@shared/types';
+import { LineUtilizationResult, OptimizationResult } from '@shared/types';
 
 // ============================================
 // COLOR SCHEME (matches ValueStreamDashboard)
@@ -49,10 +49,13 @@ const naturalSort = (a: string, b: string): number => {
 interface ResultsPanelProps {
   onClose?: () => void;
   onViewDashboard?: () => void;
+  results?: OptimizationResult;  // Optional - overrides store (for standalone window)
 }
 
-export const ResultsPanel = ({ onClose, onViewDashboard }: ResultsPanelProps) => {
-  const { results, resetAnalysis } = useAnalysisStore();
+export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults }: ResultsPanelProps) => {
+  const { results: storeResults, resetAnalysis } = useAnalysisStore();
+  // Use prop results if provided, otherwise use store
+  const results = propResults || storeResults;
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
   // Group results by area

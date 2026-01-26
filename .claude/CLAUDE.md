@@ -1,9 +1,56 @@
 # Line Optimizer - Project Context
 
+> **⚠️ CRITICAL: READ THIS AFTER EVERY COMPACTION**
+> This file contains agent orchestration rules that MUST be followed. If you just resumed from a compacted conversation, re-read this entire file before proceeding.
+
+---
+
+## 🤖 Agent Orchestration (MANDATORY)
+
+**Claude MUST automatically select and invoke the appropriate agents for each task.**
+
+### Agent Routing Rules
+
+| Task Type | Trigger Keywords | Agent Type (exact) |
+|-----------|------------------|-------------------|
+| React components, UI, styling, windows | "component", "UI", "modal", "window", "canvas" | `frontend-developer` |
+| Optimizer algorithm, manufacturing logic | "optimizer", "allocation", "utilization", "constraint" | `Industrial Engineer` |
+| Electron main process, IPC, services | "IPC", "main process", "BrowserWindow", "service" | `backend-architect` |
+| Database schema, migrations, queries | "schema", "migration", "query", "SQLite" | `database-architect` |
+| After writing/modifying code | (always after implementation) | `code-reviewer` |
+| Tests, coverage, CI/CD testing | "test", "coverage", "spec", "vitest" | `test-engineer` |
+| Performance bottlenecks | "slow", "performance", "memory" | `performance-profiler` |
+| Codebase exploration, finding code | "where is", "how does", "find" | `Explore` |
+
+### Custom Agent: Industrial Engineer
+
+The `Industrial Engineer` agent is a **World-Class Manufacturing Expert** with 13 years automotive experience at BorgWarner. **ALWAYS consult this agent for:**
+- Any changes to the Python optimizer algorithm
+- New metrics or KPI calculations
+- Manufacturing logic decisions (cycle time, efficiency, constraints)
+- Algorithm correctness validation
+- Theory of Constraints analysis
+
+### Parallel Execution
+
+When tasks are independent, invoke multiple agents in parallel:
+- New Electron feature → `backend-architect` (main) + `frontend-developer` (renderer) in parallel
+- After implementation → `code-reviewer` to verify quality
+- Algorithm changes → `Industrial Engineer` to validate, then `code-reviewer`
+
+### Multi-Component Features
+
+For features that span multiple layers (like a new window):
+1. `backend-architect` for main process / IPC / window management
+2. `frontend-developer` for React components / UI
+3. `Industrial Engineer` if it affects how manufacturing data is displayed
+
+---
+
 ## Current State
 
-**Version:** 0.4.1 (Phase 4.1 Complete)
-**Last Updated:** 2026-01-24
+**Version:** 0.4.2 (Phase 4.2 In Progress)
+**Last Updated:** 2026-01-25
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
 ### Completed Phases
@@ -158,6 +205,9 @@ python3 Optimizer/test_priority_distribution.py
 
 ## Next Steps (Phase 4.2)
 
+- [x] Dedicated line bottleneck detection (constraintType, constrainedLines)
+- [x] Constraint drill-down with Pareto analysis
+- [ ] Multi-window support (ConstraintTimeline in separate window)
 - [ ] Progress streaming from Python to UI
 - [ ] Results update canvas nodes with utilization colors
 - [ ] Error handling improvements
@@ -172,42 +222,3 @@ python3 Optimizer/test_priority_distribution.py
 - **Soft Deletes**: Records use `active` flag, not hard deletes
 - **Execution Speed**: Python optimizer runs in ~17ms (not 10-20 seconds) because it's pure Python without pandas/Excel I/O overhead
 
----
-
-## Automatic Agent Orchestration
-
-When working on this project, Claude should automatically analyze each task and invoke the appropriate specialized agents without being asked.
-
-### Task Analysis Process
-
-Before starting any non-trivial task:
-1. **Identify task type**: Is this frontend, backend, optimization, testing, architecture?
-2. **Assess complexity**: Does this need specialized expertise?
-3. **Select agents**: Choose the right agent(s) based on the mapping below
-4. **Execute**: Invoke agents proactively, in parallel when independent
-
-### Agent Routing Rules
-
-| Task Type | Trigger Keywords/Patterns | Agent to Use |
-|-----------|---------------------------|--------------|
-| React components, UI, styling | "component", "UI", "button", "modal", "canvas" | `frontend-developer` |
-| Optimizer algorithm changes | "optimizer", "allocation", "utilization", "Python algorithm" | `industrial-engineer` |
-| API design, data flow | "API", "endpoint", "service", "IPC" | `backend-architect` |
-| Database schema, queries | "schema", "migration", "query", "SQLite" | `database-architect` |
-| After completing any feature | Code was written or modified | `code-reviewer` |
-| Test creation or fixes | "test", "coverage", "spec", "vitest" | `test-engineer` |
-| Performance issues | "slow", "performance", "memory", "optimize" | `performance-profiler` |
-| Codebase exploration | "where is", "how does", "find", "understand" | `Explore` agent |
-
-### Parallel Execution
-
-When multiple agents are needed and their tasks are independent, invoke them in parallel. For example:
-- Writing a new feature → `frontend-developer` (implement) + `test-engineer` (tests) in parallel
-- After implementation → `code-reviewer` to verify quality
-
-### Always Consult Industrial Engineer For
-
-- Any changes to the Python optimizer
-- New metrics or KPI calculations
-- Manufacturing logic decisions
-- Algorithm correctness validation

@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Lock,
   Unlock,
-  Layers
+  Layers,
+  ExternalLink
 } from 'lucide-react';
 import { OptimizationResult, AreaSummary, SystemConstraint, ConstrainedLineDetail } from '@shared/types';
 
@@ -35,6 +36,8 @@ interface ConstraintTimelineProps {
   areaSequences?: AreaSequence[];  // Optional area ordering from database
   onClose?: () => void;
   onViewDetails?: () => void;
+  onOpenInWindow?: () => void;  // Opens timeline in separate Electron window
+  isStandalone?: boolean;  // When true, renders without modal wrapper (for separate window)
 }
 
 // ============================================
@@ -114,7 +117,9 @@ export const ConstraintTimeline = ({
   results,
   areaSequences,
   onClose,
-  onViewDetails
+  onViewDetails,
+  onOpenInWindow,
+  isStandalone = false
 }: ConstraintTimelineProps) => {
   // State for expanded constraint detail view
   const [expandedYear, setExpandedYear] = useState<number | null>(null);
@@ -365,9 +370,18 @@ export const ConstraintTimeline = ({
     return yearResult?.unfulfilledDemand || [];
   };
 
+  // Container classes based on standalone mode
+  const containerClass = isStandalone
+    ? 'h-screen flex flex-col bg-white'  // Full window, no modal overlay
+    : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+
+  const contentClass = isStandalone
+    ? 'flex-1 flex flex-col overflow-hidden'  // Fill the window
+    : 'bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[95vh] flex flex-col';
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl max-h-[95vh] flex flex-col">
+    <div className={containerClass}>
+      <div className={contentClass}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
           <div>
@@ -387,6 +401,16 @@ export const ConstraintTimeline = ({
               >
                 <Eye className="w-4 h-4" />
                 View Details
+              </button>
+            )}
+            {onOpenInWindow && !isStandalone && (
+              <button
+                onClick={onOpenInWindow}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                title="Open in separate window for multi-monitor setup"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Open in Window
               </button>
             )}
             {onClose && (

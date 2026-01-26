@@ -8,10 +8,11 @@ import { HomePage } from '../pages/HomePage';
 import { CanvasPage } from '../pages/CanvasPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { ExcelImportPage } from '../pages/ExcelImportPage';
+import { TimelineWindowPage } from '../pages/TimelineWindowPage';
 
 /**
  * Router principal de la aplicacion
- * 
+ *
  * Usa HashRouter para compatibilidad con Electron
  * (file:// protocol no soporta BrowserRouter)
  */
@@ -31,6 +32,11 @@ export const router = createHashRouter([
   {
     path: '/excel/import',
     element: <ExcelImportPage />,
+  },
+  {
+    // Standalone timeline window - opens in separate Electron window
+    path: '/timeline-window',
+    element: <TimelineWindowPage />,
   },
   {
     path: '*',
