@@ -272,6 +272,7 @@ export function registerExcelHandlers(): void {
               const line = ProductionLine.create({
                 name: validLine.name,
                 area: validLine.area,
+                lineType: validLine.lineType,
                 timeAvailableDaily: validLine.timeAvailableDaily,
                 xPosition,
                 yPosition,
@@ -281,7 +282,7 @@ export function registerExcelHandlers(): void {
               importResult.imported.push(validLine.name);
               console.log(`[Excel Handler] [CREATE] Created: ${validLine.name}`);
             }
-            
+
             // MODO UPDATE: Solo actualizar existentes, skip si no existe
             else if (mode === 'update') {
               if (!exists || !existingLine) {
@@ -295,6 +296,7 @@ export function registerExcelHandlers(): void {
                 id: existingLine.id,
                 name: existingLine.name,
                 area: validLine.area,
+                lineType: validLine.lineType,
                 timeAvailableDaily: validLine.timeAvailableDaily,
                 active: existingLine.active,
                 xPosition: existingLine.xPosition,
@@ -307,7 +309,7 @@ export function registerExcelHandlers(): void {
               importResult.updated.push(validLine.name);
               console.log(`[Excel Handler] [UPDATE] Updated: ${validLine.name}`);
             }
-            
+
             // MODO MERGE: Actualizar si existe, crear si no
             else if (mode === 'merge') {
               if (exists && existingLine) {
@@ -316,6 +318,7 @@ export function registerExcelHandlers(): void {
                   id: existingLine.id,
                   name: existingLine.name,
                   area: validLine.area,
+                  lineType: validLine.lineType,
                   timeAvailableDaily: validLine.timeAvailableDaily,
                   active: existingLine.active,
                   xPosition: existingLine.xPosition,
@@ -336,6 +339,7 @@ export function registerExcelHandlers(): void {
                 const line = ProductionLine.create({
                   name: validLine.name,
                   area: validLine.area,
+                  lineType: validLine.lineType,
                   timeAvailableDaily: validLine.timeAvailableDaily,
                   xPosition,
                   yPosition,

@@ -24,7 +24,7 @@ import { useLoadLines } from './hooks/useLoadLines';
 import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
-import { AnalysisControlBar, ResultsPanel, ValueStreamDashboard, useAnalysisStore } from '../analysis';
+import { AnalysisControlBar, ResultsPanel, ConstraintTimeline, useAnalysisStore } from '../analysis';
 
 const nodeTypes = {
   productionLine: ProductionLineNode,
@@ -151,30 +151,36 @@ export const ProductionCanvas = () => {
   );
 };
 
-// Wrapper component to conditionally render ResultsPanel or ValueStreamDashboard
+// Wrapper component to conditionally render ConstraintTimeline or ResultsPanel
 const ResultsPanelWrapper = () => {
-  const { results, resetAnalysis } = useAnalysisStore();
-  const [viewMode, setViewMode] = useState<'details' | 'dashboard'>('details');
+  const { results, resetAnalysis, areaCatalog } = useAnalysisStore();
+  const [viewMode, setViewMode] = useState<'timeline' | 'details'>('timeline');
 
   if (!results) return null;
 
-  // Get first year for dashboard (can be extended to support year selection)
-  const firstYearResult = results.yearResults[0];
+  // Build area sequences for ordering
+  const areaSequences = areaCatalog.map(area => ({
+    code: area.code,
+    sequence: area.sequence,
+  }));
 
-  if (viewMode === 'dashboard' && firstYearResult) {
+  // Default view: Constraint Timeline (multi-year overview)
+  if (viewMode === 'timeline') {
     return (
-      <ValueStreamDashboard
-        yearResult={firstYearResult}
+      <ConstraintTimeline
+        results={results}
+        areaSequences={areaSequences}
         onClose={resetAnalysis}
         onViewDetails={() => setViewMode('details')}
       />
     );
   }
 
+  // Detailed view: ResultsPanel with tables
   return (
     <ResultsPanel
       onClose={resetAnalysis}
-      onViewDashboard={() => setViewMode('dashboard')}
+      onViewDashboard={() => setViewMode('timeline')}
     />
   );
 };

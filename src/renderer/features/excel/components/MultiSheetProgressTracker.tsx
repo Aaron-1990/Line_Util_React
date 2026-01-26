@@ -41,18 +41,21 @@ export const MultiSheetProgressTracker = ({
   // Results state
   if (importResult) {
     const totalCreated =
+      (importResult.areas?.created || 0) +
       (importResult.lines?.created || 0) +
       (importResult.models?.created || 0) +
       (importResult.compatibilities?.created || 0) +
       (importResult.volumes?.created || 0);
 
     const totalUpdated =
+      (importResult.areas?.updated || 0) +
       (importResult.lines?.updated || 0) +
       (importResult.models?.updated || 0) +
       (importResult.compatibilities?.updated || 0) +
       (importResult.volumes?.updated || 0);
 
     const totalErrors =
+      (importResult.areas?.errors || 0) +
       (importResult.lines?.errors || 0) +
       (importResult.models?.errors || 0) +
       (importResult.compatibilities?.errors || 0) +
@@ -113,6 +116,15 @@ export const MultiSheetProgressTracker = ({
 
         {/* Per-Sheet Details */}
         <div className="space-y-3">
+          {importResult.areas && (
+            <SheetResultRow
+              icon="🏷️"
+              title="Process Areas (Flow Order)"
+              created={importResult.areas.created}
+              updated={importResult.areas.updated}
+              errors={importResult.areas.errors}
+            />
+          )}
           {importResult.lines && (
             <SheetResultRow
               icon="🏭"

@@ -40,6 +40,7 @@ export interface ValidatedLine {
   name: string;
   area: string;
   timeAvailableDaily: number;
+  lineType: 'shared' | 'dedicated';
   row?: number; // Row number del Excel
 }
 
@@ -86,6 +87,7 @@ export interface ColumnMapping {
   name: string;
   area: string;
   timeAvailableHours: string;
+  lineType?: string;  // Optional: 'shared' or 'dedicated'
 }
 
 // ============================================

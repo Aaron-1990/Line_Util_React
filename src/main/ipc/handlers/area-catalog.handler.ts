@@ -16,12 +16,13 @@ export function registerAreaCatalogHandlers(): void {
     async (): Promise<ApiResponse<AreaCatalogItem[]>> => {
       try {
         const rows = db
-          .prepare('SELECT * FROM area_catalog WHERE active = 1 ORDER BY name')
+          .prepare('SELECT * FROM area_catalog WHERE active = 1 ORDER BY sequence, name')
           .all() as Array<{
             id: string;
             code: string;
             name: string;
             color: string;
+            sequence: number | null;
             active: number;
             created_at: string;
             updated_at: string;
@@ -32,6 +33,7 @@ export function registerAreaCatalogHandlers(): void {
           code: row.code,
           name: row.name,
           color: row.color,
+          sequence: row.sequence ?? 0,
           active: Boolean(row.active),
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at),

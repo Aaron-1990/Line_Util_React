@@ -46,6 +46,7 @@ export function registerMultiSheetExcelHandlers(): void {
         const detected = MultiSheetImporter.detectSheets(filePath);
 
         console.log('[Multi-Sheet Handler] Detected sheets:', {
+          areas: detected.areas?.sheetName,
           lines: detected.lines?.sheetName,
           models: detected.models?.sheetName,
           compatibilities: detected.compatibilities?.sheetName,
@@ -82,6 +83,8 @@ export function registerMultiSheetExcelHandlers(): void {
         const parsed = MultiSheetImporter.parseFile(filePath);
 
         console.log('[Multi-Sheet Handler] Parse complete:', {
+          areas: parsed.areas?.rowCount || 0,
+          areasMapping: parsed.areas?.mapping || 'NONE',
           lines: parsed.lines?.rowCount || 0,
           models: parsed.models?.rowCount || 0,
           compatibilities: parsed.compatibilities?.rowCount || 0,
@@ -130,12 +133,16 @@ export function registerMultiSheetExcelHandlers(): void {
         );
 
         console.log('[Multi-Sheet Handler] Validation complete:', {
+          areasValid: validationResult.areas?.stats.valid || 0,
           linesValid: validationResult.lines?.stats.valid || 0,
           modelsValid: validationResult.models?.stats.valid || 0,
           compatibilitiesValid: validationResult.compatibilities?.stats.valid || 0,
           crossSheetErrors: validationResult.crossSheetErrors.length,
           isValid: validationResult.isValid,
         });
+        if (validationResult.areas) {
+          console.log('[Multi-Sheet Handler] Areas validation:', validationResult.areas.stats);
+        }
 
         return {
           success: true,
@@ -182,7 +189,63 @@ export function registerMultiSheetExcelHandlers(): void {
         db.prepare('BEGIN TRANSACTION').run();
 
         try {
-          // 0. Auto-create missing areas (before importing lines)
+          // 0. Import Areas (if present) - must be first to set up process flow order
+          console.log('[Multi-Sheet Handler] Areas in validation result:', validationResult.areas?.validAreas?.length ?? 'NONE');
+          if (validationResult.areas && validationResult.areas.validAreas.length > 0) {
+            console.log('[Multi-Sheet Handler] Importing areas:', validationResult.areas.validAreas.length);
+            console.log('[Multi-Sheet Handler] Areas to import:', validationResult.areas.validAreas.map(a => `${a.code}(seq:${a.sequence})`).join(', '));
+
+            let created = 0;
+            let updated = 0;
+            let errors = 0;
+
+            const defaultColors = [
+              '#60a5fa', '#34d399', '#fbbf24', '#f472b6', '#a78bfa',
+              '#f87171', '#38bdf8', '#4ade80', '#facc15', '#e879f9',
+            ];
+            let colorIndex = 0;
+
+            for (const validArea of validationResult.areas.validAreas) {
+              try {
+                // Check if area exists (case-insensitive)
+                const existingArea = db.prepare(
+                  'SELECT id, code FROM area_catalog WHERE UPPER(code) = UPPER(?)'
+                ).get(validArea.code) as { id: string; code: string } | undefined;
+
+                if (existingArea) {
+                  // Update existing area (keep original code case)
+                  if (mode === 'create') {
+                    continue; // Skip in create mode
+                  }
+                  db.prepare(
+                    'UPDATE area_catalog SET name = ?, sequence = ?, color = COALESCE(?, color) WHERE id = ?'
+                  ).run(validArea.name, validArea.sequence, validArea.color || null, existingArea.id);
+                  updated++;
+                } else {
+                  // Create new area
+                  if (mode === 'update') {
+                    continue; // Skip in update mode
+                  }
+                  const color = validArea.color || defaultColors[colorIndex % defaultColors.length] || '#9ca3af';
+                  colorIndex++;
+
+                  const areaId = randomUUID();
+                  db.prepare(
+                    'INSERT INTO area_catalog (id, code, name, color, sequence, active) VALUES (?, ?, ?, ?, ?, 1)'
+                  ).run(areaId, validArea.code, validArea.name, color, validArea.sequence);
+                  created++;
+                }
+              } catch (error) {
+                console.error(`[Multi-Sheet Handler] Error importing area ${validArea.code}:`, error);
+                errors++;
+              }
+            }
+
+            result.areas = { created, updated, errors };
+            console.log('[Multi-Sheet Handler] Areas imported:', result.areas);
+          }
+
+          // 0b. Auto-create missing areas (from Lines sheet, if no Areas sheet)
           if (validationResult.lines && validationResult.lines.validLines.length > 0) {
             const uniqueAreas = new Set(validationResult.lines.validLines.map(l => l.area));
             const defaultColors = [
@@ -193,10 +256,10 @@ export function registerMultiSheetExcelHandlers(): void {
             let colorIndex = 0;
 
             for (const areaCode of uniqueAreas) {
-              // Check if area exists
+              // Check if area exists (case-insensitive)
               const existingArea = db.prepare(
-                'SELECT id FROM area_catalog WHERE code = ?'
-              ).get(areaCode);
+                'SELECT id, code FROM area_catalog WHERE UPPER(code) = UPPER(?)'
+              ).get(areaCode) as { id: string; code: string } | undefined;
 
               if (!existingArea) {
                 // Create new area with default color and UUID
@@ -221,8 +284,16 @@ export function registerMultiSheetExcelHandlers(): void {
             let updated = 0;
             let errors = 0;
 
+            // Build area code lookup map (case-insensitive -> actual code in DB)
+            const areaCodeMap = new Map<string, string>();
+            const allAreas = db.prepare('SELECT code FROM area_catalog WHERE active = 1').all() as { code: string }[];
+            allAreas.forEach(a => areaCodeMap.set(a.code.toUpperCase(), a.code));
+
             for (const validLine of validationResult.lines.validLines) {
               try {
+                // Get the correct area code from DB (case-insensitive match)
+                const areaCode = areaCodeMap.get(validLine.area.toUpperCase()) || validLine.area;
+
                 const existingLine = await lineRepository.findByName(validLine.name);
                 const exists = existingLine !== null;
 
@@ -237,7 +308,8 @@ export function registerMultiSheetExcelHandlers(): void {
                 if (exists && existingLine) {
                   // Update existing
                   existingLine.update({
-                    area: validLine.area,
+                    area: areaCode,
+                    lineType: validLine.lineType,
                     timeAvailableDaily: validLine.timeAvailableDaily,
                   });
                   await lineRepository.save(existingLine);
@@ -250,7 +322,8 @@ export function registerMultiSheetExcelHandlers(): void {
 
                   const line = ProductionLine.create({
                     name: validLine.name,
-                    area: validLine.area,
+                    area: areaCode,
+                    lineType: validLine.lineType,
                     timeAvailableDaily: validLine.timeAvailableDaily,
                     xPosition,
                     yPosition,

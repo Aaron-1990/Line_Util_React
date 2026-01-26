@@ -40,12 +40,14 @@ export const MultiSheetValidationDisplay = ({
   };
 
   const hasErrors =
+    (validationResult.areas?.stats.invalid || 0) > 0 ||
     (validationResult.lines?.stats.invalid || 0) > 0 ||
     (validationResult.models?.stats.invalid || 0) > 0 ||
     (validationResult.compatibilities?.stats.invalid || 0) > 0 ||
     validationResult.crossSheetErrors.length > 0;
 
   const canImport = !validationResult.crossSheetErrors.length && (
+    (validationResult.areas?.stats.valid || 0) > 0 ||
     (validationResult.lines?.stats.valid || 0) > 0 ||
     (validationResult.models?.stats.valid || 0) > 0 ||
     (validationResult.compatibilities?.stats.valid || 0) > 0
@@ -238,6 +240,15 @@ export const MultiSheetValidationDisplay = ({
 
       {/* Sheet-Specific Validation */}
       <div className="space-y-3">
+        {renderSheetSection(
+          'Process Areas (Flow Order)',
+          '🏷️',
+          'areas',
+          validationResult.areas?.stats,
+          validationResult.areas?.errors,
+          validationResult.areas?.duplicates
+        )}
+
         {renderSheetSection(
           'Production Lines',
           '🏭',

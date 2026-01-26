@@ -111,6 +111,12 @@ export const MultiSheetImportWizard = ({
         availableSheets: parsed.availableSheets,
       };
 
+      // Areas are always included automatically (they define process flow order)
+      // and must be imported before Lines
+      if (parsed.areas) {
+        filteredParsed.areas = parsed.areas;
+      }
+
       if (sheets.has('lines') && parsed.lines) {
         filteredParsed.lines = parsed.lines;
       }

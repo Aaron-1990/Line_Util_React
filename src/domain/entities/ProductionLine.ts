@@ -21,6 +21,7 @@ export class ProductionLine {
     private _id: string,
     private _name: string,
     private _area: string,
+    private _lineType: 'shared' | 'dedicated',
     private _timeAvailableDaily: number,
     private _active: boolean,
     private _xPosition: number,
@@ -36,6 +37,7 @@ export class ProductionLine {
   static create(params: {
     name: string;
     area: string;
+    lineType?: 'shared' | 'dedicated';
     timeAvailableDaily: number;
     xPosition?: number;
     yPosition?: number;
@@ -44,6 +46,7 @@ export class ProductionLine {
       nanoid(),
       params.name,
       params.area,
+      params.lineType ?? 'shared',
       params.timeAvailableDaily,
       true,
       params.xPosition ?? 0,
@@ -58,6 +61,7 @@ export class ProductionLine {
       data.id,
       data.name,
       data.area,
+      data.lineType ?? 'shared',
       data.timeAvailableDaily,
       data.active,
       data.xPosition,
@@ -79,6 +83,10 @@ export class ProductionLine {
 
   get area(): string {
     return this._area;
+  }
+
+  get lineType(): 'shared' | 'dedicated' {
+    return this._lineType;
   }
 
   get timeAvailableDaily(): number {
@@ -131,10 +139,12 @@ export class ProductionLine {
   update(params: {
     name?: string;
     area?: string;
+    lineType?: 'shared' | 'dedicated';
     timeAvailableDaily?: number;
   }): void {
     if (params.name !== undefined) this._name = params.name;
     if (params.area !== undefined) this._area = params.area;
+    if (params.lineType !== undefined) this._lineType = params.lineType;
     if (params.timeAvailableDaily !== undefined) {
       this._timeAvailableDaily = params.timeAvailableDaily;
     }
@@ -164,6 +174,7 @@ export class ProductionLine {
       id: this._id,
       name: this._name,
       area: this._area,
+      lineType: this._lineType,
       timeAvailableDaily: this._timeAvailableDaily,
       active: this._active,
       xPosition: this._xPosition,

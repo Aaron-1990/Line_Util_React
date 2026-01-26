@@ -4,8 +4,8 @@
 // ============================================
 
 import { create } from 'zustand';
-import { OptimizationResult, RunOptimizationRequest } from '@shared/types';
-import { ANALYSIS_CHANNELS } from '@shared/constants';
+import { OptimizationResult, RunOptimizationRequest, AreaCatalogItem } from '@shared/types';
+import { ANALYSIS_CHANNELS, IPC_CHANNELS } from '@shared/constants';
 
 // ===== Types =====
 
@@ -39,6 +39,9 @@ interface AnalysisState {
   isDataLoading: boolean;
   dataError: string | null;
 
+  // Area Catalog (for ordering)
+  areaCatalog: AreaCatalogItem[];
+
   // Available Years (from database)
   availableYears: number[];
   yearRange: { min: number; max: number } | null;
@@ -62,6 +65,7 @@ interface AnalysisState {
   setDataCounts: (counts: DataCounts) => void;
   setDataLoading: (loading: boolean) => void;
   setDataError: (error: string | null) => void;
+  setAreaCatalog: (areas: AreaCatalogItem[]) => void;
 
   // Actions - Years
   setAvailableYears: (years: number[]) => void;
@@ -145,6 +149,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   isDataLoading: false,
   dataError: null,
 
+  areaCatalog: [],
+
   availableYears: [],
   yearRange: null,
 
@@ -172,6 +178,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setDataLoading: (loading) => set({ isDataLoading: loading }),
 
   setDataError: (error) => set({ dataError: error }),
+
+  setAreaCatalog: (areas) => set({ areaCatalog: areas }),
 
   // ===== Year Actions =====
 
@@ -326,20 +334,21 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   // ===== Refresh Action =====
 
   refreshData: async () => {
-    const { setDataLoading, setDataError, setDataCounts, setAvailableYears, setYearRange } = get();
+    const { setDataLoading, setDataError, setDataCounts, setAvailableYears, setYearRange, setAreaCatalog } = get();
 
     setDataLoading(true);
     setDataError(null);
 
     try {
       // Fetch all counts in parallel
-      const [linesRes, modelsRes, volumesRes, compatsRes, yearsRes, rangeRes] = await Promise.all([
+      const [linesRes, modelsRes, volumesRes, compatsRes, yearsRes, rangeRes, areasRes] = await Promise.all([
         window.electronAPI.invoke<unknown[]>('lines:get-all'),
         window.electronAPI.invoke<unknown[]>('models-v2:get-all'),
         window.electronAPI.invoke<unknown[]>('product-volumes:get-all'),
         window.electronAPI.invoke<unknown[]>('compatibility:get-all'),
         window.electronAPI.invoke<number[]>('product-volumes:get-available-years'),
         window.electronAPI.invoke<{ min: number; max: number } | null>('product-volumes:get-year-range'),
+        window.electronAPI.invoke<AreaCatalogItem[]>(IPC_CHANNELS.CATALOG_AREAS_GET_ALL),
       ]);
 
       // Extract counts
@@ -360,6 +369,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       // Set year range
       if (rangeRes.success && rangeRes.data) {
         setYearRange(rangeRes.data);
+      }
+
+      // Set area catalog for ordering
+      if (areasRes.success && Array.isArray(areasRes.data)) {
+        setAreaCatalog(areasRes.data);
       }
     } catch (error) {
       setDataError(error instanceof Error ? error.message : 'Failed to load data');

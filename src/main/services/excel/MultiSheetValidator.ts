@@ -10,13 +10,16 @@ import {
   ModelValidationResult,
   CompatibilityValidationResult,
   VolumeValidationResult,
+  AreaValidationResult,
   ValidatedModel,
   ValidatedCompatibility,
   ValidatedVolume,
+  ValidatedArea,
   ValidationError,
   ExcelRow,
   ModelColumnMapping,
   CompatibilityColumnMapping,
+  AreaColumnMapping,
   YearColumnConfig,
 } from '@shared/types';
 import { ExcelValidator } from './ExcelValidator';
@@ -37,6 +40,22 @@ export class MultiSheetValidator {
       crossSheetErrors: [],
       isValid: true,
     };
+
+    // 0. Validate Areas sheet (if present) - process flow order
+    console.log('[MultiSheetValidator] data.areas present:', !!data.areas);
+    if (data.areas) {
+      console.log('[MultiSheetValidator] Validating areas sheet:', {
+        rowCount: data.areas.rows.length,
+        mapping: data.areas.mapping,
+      });
+      result.areas = this.validateAreas(data.areas.rows, data.areas.mapping);
+      console.log('[MultiSheetValidator] Areas validation result:', {
+        valid: result.areas.validAreas.length,
+        errors: result.areas.errors.length,
+      });
+    } else {
+      console.log('[MultiSheetValidator] NO areas data to validate');
+    }
 
     // 1. Validate Lines sheet (if present)
     if (data.lines) {
@@ -119,12 +138,101 @@ export class MultiSheetValidator {
     // Determine overall validity
     result.isValid =
       result.crossSheetErrors.length === 0 &&
+      (result.areas?.stats.invalid || 0) === 0 &&
       (result.lines?.stats.invalid || 0) === 0 &&
       (result.models?.stats.invalid || 0) === 0 &&
       (result.compatibilities?.stats.invalid || 0) === 0 &&
       (result.volumes?.stats.invalid || 0) === 0;
 
     return result;
+  }
+
+  /**
+   * Validate Areas sheet data (process flow order)
+   */
+  static validateAreas(
+    rows: ExcelRow[],
+    mapping: AreaColumnMapping
+  ): AreaValidationResult {
+    const validAreas: ValidatedArea[] = [];
+    const errors: ValidationError[] = [];
+    const seenCodes = new Set<string>();
+    const duplicates: string[] = [];
+
+    rows.forEach((row, index) => {
+      const rowNum = (row.__rowNum__ as number) || index + 2;
+
+      try {
+        // Extract values
+        const code = this.extractString(row[mapping.code]);
+        const name = mapping.name ? this.extractString(row[mapping.name]) : null;
+        const sequence = this.extractNumber(row[mapping.sequence]);
+        const color = mapping.color ? this.extractString(row[mapping.color]) : null;
+
+        // Validate required fields
+        if (!code) {
+          errors.push({
+            row: rowNum,
+            field: mapping.code,
+            message: 'Area code is required',
+            value: row[mapping.code],
+          });
+          return;
+        }
+
+        if (sequence === null || sequence < 0) {
+          errors.push({
+            row: rowNum,
+            field: mapping.sequence,
+            message: 'Sequence must be a non-negative number',
+            value: row[mapping.sequence],
+          });
+          return;
+        }
+
+        // Check for duplicates within the sheet
+        const upperCode = code.toUpperCase();
+        if (seenCodes.has(upperCode)) {
+          errors.push({
+            row: rowNum,
+            field: mapping.code,
+            message: `Duplicate area code "${code}"`,
+            value: code,
+          });
+          duplicates.push(code);
+          return;
+        }
+        seenCodes.add(upperCode);
+
+        validAreas.push({
+          code: upperCode,
+          name: name || upperCode, // Default name to code if not provided
+          sequence: Math.round(sequence),
+          color: color || undefined,
+          row: rowNum,
+        });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+        errors.push({
+          row: rowNum,
+          field: 'Multiple',
+          message: errorMessage,
+          value: null,
+        });
+      }
+    });
+
+    return {
+      validAreas,
+      errors,
+      stats: {
+        total: rows.length,
+        valid: validAreas.length,
+        invalid: errors.length,
+        duplicates: duplicates.length,
+      },
+      duplicates,
+    };
   }
 
   /**

@@ -52,6 +52,21 @@ export class ExcelValidator {
       });
     }
 
+    // Parse line type (optional, defaults to 'shared')
+    let lineType: 'shared' | 'dedicated' = 'shared';
+    if (columnMapping.lineType) {
+      const lineTypeValue = row[columnMapping.lineType];
+      if (lineTypeValue !== null && lineTypeValue !== undefined) {
+        const normalized = String(lineTypeValue).toLowerCase().trim();
+        if (normalized === 'dedicated' || normalized === 'dedicado' || normalized === 'unico' || normalized === 'unique') {
+          lineType = 'dedicated';
+        } else if (normalized === 'shared' || normalized === 'compartido' || normalized === 'compartida') {
+          lineType = 'shared';
+        }
+        // Invalid values default to 'shared'
+      }
+    }
+
     if (errors.length > 0) {
       return { line: null, errors };
     }
@@ -63,6 +78,7 @@ export class ExcelValidator {
         name: (name as string).trim(),
         area: (area as string).trim(),
         timeAvailableDaily,
+        lineType,
         row: rowIndex,
       },
       errors: [],

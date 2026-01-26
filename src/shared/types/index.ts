@@ -4,6 +4,7 @@
 
 export type Area = 'ICT' | 'SMT' | 'WAVE' | 'ASSEMBLY' | 'TEST' | string;
 export type ProcessType = 'Top' | 'Bottom' | 'HVDC' | 'HVAC' | 'GDB Subassy' | string;
+export type LineType = 'shared' | 'dedicated';
 
 // ============================================
 // ENTIDADES CORE
@@ -13,6 +14,7 @@ export interface ProductionLine {
   id: string;
   name: string;
   area: Area;
+  lineType: LineType;
   timeAvailableDaily: number;
   active: boolean;
   xPosition: number;
@@ -149,6 +151,7 @@ export interface AreaCatalogItem {
   code: string;
   name: string;
   color: string;
+  sequence: number;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -181,6 +184,7 @@ export interface ColumnMapping {
   name: string;
   area: string;
   timeAvailableHours: string;
+  lineType?: string;  // Optional: 'shared' or 'dedicated'
 }
 
 /**
@@ -214,6 +218,7 @@ export interface ValidatedLine {
   name: string;
   area: string;
   timeAvailableDaily: number;
+  lineType: LineType;
   row: number;
 }
 
@@ -377,9 +382,50 @@ export interface ValidatedCompatibility {
 }
 
 /**
+ * Column mapping for Areas sheet
+ */
+export interface AreaColumnMapping {
+  code: string;
+  name?: string;
+  sequence: string;
+  color?: string;
+}
+
+/**
+ * Validated area data (ready to import)
+ */
+export interface ValidatedArea {
+  code: string;
+  name: string;
+  sequence: number;
+  color?: string;
+  row: number;
+}
+
+/**
+ * Validation result for Areas sheet
+ */
+export interface AreaValidationResult {
+  validAreas: ValidatedArea[];
+  errors: ValidationError[];
+  stats: {
+    total: number;
+    valid: number;
+    invalid: number;
+    duplicates: number;
+  };
+  duplicates: string[];
+}
+
+/**
  * Sheet detection result - which sheets are available
  */
 export interface DetectedSheets {
+  areas?: {
+    sheetName: string;
+    rowCount: number;
+    headers: string[];
+  };
   lines?: {
     sheetName: string;
     rowCount: number;
@@ -419,6 +465,7 @@ export interface ModelSheetParsedData extends SheetParsedData<ModelColumnMapping
  * Multi-sheet parsed data structure
  */
 export interface MultiSheetParsedData {
+  areas?: SheetParsedData<AreaColumnMapping>;
   lines?: SheetParsedData<ColumnMapping>;
   models?: ModelSheetParsedData;
   compatibilities?: SheetParsedData<CompatibilityColumnMapping>;
@@ -474,6 +521,7 @@ export interface VolumeValidationResult {
  * Multi-sheet validation result (includes cross-sheet validation)
  */
 export interface MultiSheetValidationResult {
+  areas?: AreaValidationResult;
   lines?: ValidationResult;
   models?: ModelValidationResult;
   compatibilities?: CompatibilityValidationResult;
@@ -495,6 +543,7 @@ export interface EntityImportResult {
  * Multi-sheet import result
  */
 export interface MultiSheetImportResult {
+  areas?: EntityImportResult;
   lines?: EntityImportResult;
   models?: EntityImportResult;
   compatibilities?: EntityImportResult;

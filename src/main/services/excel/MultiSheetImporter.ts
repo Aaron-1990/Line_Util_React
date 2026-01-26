@@ -10,6 +10,7 @@ import {
   ColumnMapping,
   ModelColumnMapping,
   CompatibilityColumnMapping,
+  AreaColumnMapping,
   ExcelRow,
   DetectedSheets,
   YearColumnConfig,
@@ -35,6 +36,36 @@ export class MultiSheetImporter {
     const result: MultiSheetParsedData = {
       availableSheets: workbook.SheetNames,
     };
+
+    // Detect and parse Areas sheet (process flow order)
+    const areasSheetName = this.findSheet(workbook.SheetNames, ['area', 'areas', 'procesos', 'processes']);
+    console.log('[MultiSheetImporter] Areas sheet detection:', {
+      searchPatterns: ['area', 'areas', 'procesos', 'processes'],
+      foundSheet: areasSheetName,
+      allSheets: workbook.SheetNames,
+    });
+    if (areasSheetName) {
+      const data = this.parseSheet(workbook, areasSheetName);
+      console.log('[MultiSheetImporter] Areas sheet parsed:', {
+        headers: data.headers,
+        rowCount: data.rows.length,
+        firstRow: data.rows[0],
+      });
+      const mapping = this.detectAreaColumns(data.headers);
+      console.log('[MultiSheetImporter] Areas column mapping:', mapping);
+      if (mapping) {
+        result.areas = {
+          rows: data.rows,
+          headers: data.headers,
+          sheetName: areasSheetName,
+          mapping,
+          rowCount: data.rows.length,
+        };
+        console.log('[MultiSheetImporter] Areas added to result:', result.areas.rowCount, 'rows');
+      } else {
+        console.log('[MultiSheetImporter] Areas column mapping FAILED - required columns not found');
+      }
+    }
 
     // Detect and parse Lines sheet
     const linesSheetName = this.findSheet(workbook.SheetNames, ['line', 'lines', 'lineas', 'produccion']);
@@ -101,6 +132,17 @@ export class MultiSheetImporter {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
 
     const detected: DetectedSheets = {};
+
+    // Detect Areas sheet
+    const areasSheetName = this.findSheet(workbook.SheetNames, ['area', 'areas', 'procesos', 'processes']);
+    if (areasSheetName) {
+      const data = this.parseSheet(workbook, areasSheetName);
+      detected.areas = {
+        sheetName: areasSheetName,
+        rowCount: data.rows.length,
+        headers: data.headers,
+      };
+    }
 
     // Detect Lines sheet
     const linesSheetName = this.findSheet(workbook.SheetNames, ['line', 'lines', 'lineas', 'produccion']);
@@ -197,6 +239,57 @@ export class MultiSheetImporter {
   }
 
   /**
+   * Auto-detect column mapping for Areas sheet
+   */
+  static detectAreaColumns(headers: string[]): AreaColumnMapping | null {
+    const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
+
+    const codePatterns = ['code', 'codigo', 'areacode', 'area'];
+    const namePatterns = ['name', 'nombre', 'areaname', 'description'];
+    const sequencePatterns = ['sequence', 'secuencia', 'order', 'orden', 'seq', 'flow'];
+    const colorPatterns = ['color', 'colour'];
+
+    console.log('[detectAreaColumns] Input headers:', headers);
+    console.log('[detectAreaColumns] Normalized headers:', headers.map(h => normalize(h)));
+
+    const findMatch = (patterns: string[], fieldName: string) => {
+      const match = headers.find(h => {
+        const normalized = normalize(h);
+        const matchedPattern = patterns.find(p => normalized.includes(p));
+        if (matchedPattern) {
+          console.log(`[detectAreaColumns] ${fieldName}: "${h}" matches pattern "${matchedPattern}"`);
+        }
+        return patterns.some(p => normalized.includes(p));
+      }) || null;
+      if (!match) {
+        console.log(`[detectAreaColumns] ${fieldName}: NO MATCH found in patterns:`, patterns);
+      }
+      return match;
+    };
+
+    const code = findMatch(codePatterns, 'code');
+    const sequence = findMatch(sequencePatterns, 'sequence');
+
+    // Code and Sequence are required
+    if (!code || !sequence) {
+      console.log('[detectAreaColumns] FAILED - missing required fields:', { code, sequence });
+      return null;
+    }
+
+    const name = findMatch(namePatterns, 'name');
+    const color = findMatch(colorPatterns, 'color');
+
+    const result = {
+      code,
+      name: name || undefined,
+      sequence,
+      color: color || undefined,
+    };
+    console.log('[detectAreaColumns] SUCCESS:', result);
+    return result;
+  }
+
+  /**
    * Auto-detect column mapping for Lines sheet
    */
   static detectLineColumns(headers: string[]): ColumnMapping | null {
@@ -205,6 +298,7 @@ export class MultiSheetImporter {
     const namePatterns = ['name', 'linename', 'line', 'nombre', 'nombrelinea'];
     const areaPatterns = ['area', 'zone', 'zona', 'productionarea'];
     const timePatterns = ['time', 'hours', 'hoursavailable', 'timeavailable', 'horas', 'tiempo'];
+    const lineTypePatterns = ['linetype', 'type', 'tipo', 'tipolinea'];
 
     const findMatch = (patterns: string[]) => {
       return headers.find(h => {
@@ -216,12 +310,13 @@ export class MultiSheetImporter {
     const name = findMatch(namePatterns);
     const area = findMatch(areaPatterns);
     const timeAvailableHours = findMatch(timePatterns);
+    const lineType = findMatch(lineTypePatterns);
 
     if (!name || !area || !timeAvailableHours) {
       return null;
     }
 
-    return { name, area, timeAvailableHours };
+    return { name, area, timeAvailableHours, lineType: lineType || undefined };
   }
 
   /**

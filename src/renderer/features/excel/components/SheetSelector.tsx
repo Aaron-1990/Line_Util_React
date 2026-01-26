@@ -112,6 +112,21 @@ export const SheetSelector = ({
         </p>
       </div>
 
+      {/* Areas Auto-Import Notice */}
+      {detectedSheets.areas && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+          <span className="text-xl">🏷️</span>
+          <div>
+            <p className="text-sm font-medium text-blue-800">
+              Areas sheet detected ({detectedSheets.areas.rowCount} areas)
+            </p>
+            <p className="text-xs text-blue-700 mt-0.5">
+              Process flow order from the Areas sheet will be imported automatically
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Sheet List */}
       <div className="space-y-3">
         {SHEET_INFO.map((info) => {
