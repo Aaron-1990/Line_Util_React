@@ -4,12 +4,12 @@
 // Opens in a separate Electron window
 // ============================================
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { OptimizationResult } from '@shared/types';
-import { WINDOW_CHANNELS } from '@shared/constants';
+import { WINDOW_CHANNELS, TIMELINE_EVENTS } from '@shared/constants';
 import { ConstraintTimeline } from '../features/analysis/components/ConstraintTimeline';
 import { ResultsPanel } from '../features/analysis/components/ResultsPanel';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 interface TimelineData {
   results: OptimizationResult;
@@ -21,28 +21,52 @@ export const TimelineWindowPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showResultsPanel, setShowResultsPanel] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Load data on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const response = await window.electronAPI.invoke<TimelineData>(
-          WINDOW_CHANNELS.GET_TIMELINE_DATA
-        );
+  const loadData = useCallback(async () => {
+    try {
+      const response = await window.electronAPI.invoke<TimelineData>(
+        WINDOW_CHANNELS.GET_TIMELINE_DATA
+      );
 
-        if (response.success && response.data) {
-          setData(response.data);
-        } else {
-          setError(response.error || 'Failed to load timeline data');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setLoading(false);
+      if (response.success && response.data) {
+        setData(response.data);
+        setError(null);
+      } else {
+        setError(response.error || 'Failed to load timeline data');
       }
-    };
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
 
+  useEffect(() => {
     loadData();
+  }, [loadData]);
+
+  // Listen for data updates from main process (when new analysis is run)
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.on(
+      TIMELINE_EVENTS.DATA_UPDATED,
+      (newData: unknown) => {
+        console.log('[TimelineWindowPage] Received updated data');
+        setIsRefreshing(true);
+        // Small delay to show the refresh indicator
+        setTimeout(() => {
+          setData(newData as TimelineData);
+          setIsRefreshing(false);
+          setShowResultsPanel(false); // Close details panel on refresh
+        }, 300);
+      }
+    );
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // Handle close - close the window
@@ -93,7 +117,17 @@ export const TimelineWindowPage = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 overflow-hidden">
+    <div className="h-screen bg-gray-50 overflow-hidden relative">
+      {/* Refresh indicator overlay */}
+      {isRefreshing && (
+        <div className="absolute inset-0 bg-white/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-4 flex items-center gap-3">
+            <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
+            <span className="text-gray-700 font-medium">Updating results...</span>
+          </div>
+        </div>
+      )}
+
       {/* Main Timeline View - rendered directly, not as modal */}
       <ConstraintTimeline
         results={data.results}

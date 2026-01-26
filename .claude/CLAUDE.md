@@ -49,7 +49,7 @@ For features that span multiple layers (like a new window):
 
 ## Current State
 
-**Version:** 0.4.2 (Phase 4.2 In Progress)
+**Version:** 0.4.3 (Phase 4.2 Complete)
 **Last Updated:** 2026-01-25
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
@@ -62,13 +62,15 @@ For features that span multiple layers (like a new window):
 | Phase 3.4 | Multi-Sheet Excel Import | ✅ Complete |
 | Phase 3.5 | Analysis Control Bar | ✅ Complete |
 | Phase 4.1 | Python Optimizer Algorithm | ✅ Complete |
+| Phase 4.2 | Results UI & Multi-Window | ✅ Complete |
 
 ### Current Capabilities
 
-1. **Data Import**: Multi-sheet Excel import (Lines, Models, Compatibilities)
+1. **Data Import**: Multi-sheet Excel import (Lines, Models, Compatibilities, Areas)
 2. **Canvas**: Interactive production line visualization with drag & drop
 3. **Analysis**: Python-based optimization with 17ms execution time
-4. **Results Panel**: Modal displaying utilization by area, line, and model
+4. **Multi-Window**: Timeline window auto-opens in separate window for multi-monitor setups
+5. **Results Panel**: Detailed utilization by area, line, and model with constraint drill-down
 
 ---
 
@@ -142,6 +144,9 @@ Electron 28 + React 18 + TypeScript
 | Algorithm changelog | `Optimizer/CHANGELOG.md` |
 | Analysis store | `src/renderer/features/analysis/store/useAnalysisStore.ts` |
 | Results display | `src/renderer/features/analysis/components/ResultsPanel.tsx` |
+| Constraint timeline | `src/renderer/features/analysis/components/ConstraintTimeline.tsx` |
+| Timeline window page | `src/renderer/pages/TimelineWindowPage.tsx` |
+| Window handler | `src/main/ipc/handlers/window.handler.ts` |
 | Python bridge | `src/main/services/python/PythonBridge.ts` |
 | Data exporter | `src/main/services/analysis/DataExporter.ts` |
 
@@ -203,15 +208,23 @@ python3 Optimizer/test_priority_distribution.py
 
 ---
 
-## Next Steps (Phase 4.2)
+## Completed in Phase 4.2
 
 - [x] Dedicated line bottleneck detection (constraintType, constrainedLines)
 - [x] Constraint drill-down with Pareto analysis
-- [ ] Multi-window support (ConstraintTimeline in separate window)
+- [x] Multi-window support (ConstraintTimeline in separate window)
+- [x] Auto-open Timeline window when analysis completes
+- [x] Live updates to Timeline when re-running analysis
+- [x] Status badge in Canvas showing "Analysis Complete"
+
+## Next Steps (Phase 5)
+
 - [ ] Progress streaming from Python to UI
 - [ ] Results update canvas nodes with utilization colors
 - [ ] Error handling improvements
 - [ ] Dashboard with KPIs and charts
+- [ ] Scenario comparison (save/load scenarios)
+- [ ] Export reports (PDF/Excel)
 
 ---
 

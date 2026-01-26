@@ -246,4 +246,12 @@ export const WINDOW_CHANNELS = {
   OPEN_TIMELINE_WINDOW: 'window:open-timeline',
   GET_TIMELINE_DATA: 'window:get-timeline-data',
   CLOSE_TIMELINE_WINDOW: 'window:close-timeline',
+  IS_TIMELINE_OPEN: 'window:is-timeline-open',
+} as const;
+
+// Timeline Window Events (Phase 4.2)
+// These are events sent from main to renderer (not invoke channels)
+export const TIMELINE_EVENTS = {
+  DATA_UPDATED: 'timeline:data-updated',
+  WINDOW_CLOSED: 'timeline:window-closed',
 } as const;

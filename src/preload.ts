@@ -4,7 +4,7 @@
 // ============================================
 
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_CHANNELS, EXCEL_CHANNELS, MODELS_V2_CHANNELS, COMPATIBILITY_CHANNELS, PRODUCT_VOLUME_CHANNELS, ANALYSIS_CHANNELS, WINDOW_CHANNELS } from './shared/constants';
+import { IPC_CHANNELS, EXCEL_CHANNELS, MODELS_V2_CHANNELS, COMPATIBILITY_CHANNELS, PRODUCT_VOLUME_CHANNELS, ANALYSIS_CHANNELS, WINDOW_CHANNELS, TIMELINE_EVENTS } from './shared/constants';
 import { ApiResponse } from './shared/types';
 
 /**
@@ -16,7 +16,7 @@ import { ApiResponse } from './shared/types';
  * - No exponemos Node.js APIs directamente
  */
 
-// Collect all valid channels from all channel constants
+// Collect all valid channels from all channel constants (for invoke)
 const ALL_VALID_CHANNELS = [
   ...Object.values(IPC_CHANNELS),
   ...Object.values(EXCEL_CHANNELS),
@@ -25,6 +25,11 @@ const ALL_VALID_CHANNELS = [
   ...Object.values(PRODUCT_VOLUME_CHANNELS),
   ...Object.values(ANALYSIS_CHANNELS),
   ...Object.values(WINDOW_CHANNELS),
+] as const;
+
+// Event channels for push notifications from main to renderer
+const ALL_EVENT_CHANNELS = [
+  ...Object.values(TIMELINE_EVENTS),
 ] as const;
 
 const electronAPI = {
@@ -49,7 +54,11 @@ const electronAPI = {
   },
 
   on: (channel: string, callback: (...args: unknown[]) => void) => {
-    if (!ALL_VALID_CHANNELS.includes(channel as typeof ALL_VALID_CHANNELS[number])) {
+    // Check if channel is valid for invoke channels or event channels
+    const isValidInvokeChannel = ALL_VALID_CHANNELS.includes(channel as typeof ALL_VALID_CHANNELS[number]);
+    const isValidEventChannel = ALL_EVENT_CHANNELS.includes(channel as typeof ALL_EVENT_CHANNELS[number]);
+
+    if (!isValidInvokeChannel && !isValidEventChannel) {
       console.error(`Invalid IPC channel for listener: ${channel}`);
       return;
     }
@@ -57,7 +66,7 @@ const electronAPI = {
     const subscription = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => {
       callback(...args);
     };
-    
+
     ipcRenderer.on(channel, subscription);
 
     return () => {

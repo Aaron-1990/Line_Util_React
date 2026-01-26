@@ -674,6 +674,174 @@ elif area_utilizations:
 
 ---
 
+## Phase 4.2 (Continued): Multi-Window Support & Auto-Open Timeline
+
+**Date Completed**: 2026-01-25
+**Developer**: Aaron Zapata
+
+### Overview
+
+Implemented multi-window support allowing the ConstraintTimeline (Multi-Year Capacity Analysis) to open in a separate Electron window. This enables users with multiple monitors to view the Canvas on one screen while keeping the analysis results visible on another.
+
+### Feature: Auto-Open Timeline Window
+
+When the user runs an optimization analysis, the Timeline window now automatically opens (or updates if already open) with the results. This eliminates the need for a modal overlay on the Canvas.
+
+**Workflow:**
+```
+User clicks "Run Analysis" → Analysis completes → Timeline window auto-opens
+                                                      ↓
+                                              Canvas shows status badge
+                                                      ↓
+                                            User can focus/dismiss as needed
+```
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           MAIN PROCESS                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│  analysis.handler.ts                    window.handler.ts                │
+│  ┌─────────────────────┐               ┌─────────────────────┐          │
+│  │ RUN_OPTIMIZATION    │──────────────▶│ openOrUpdateTimeline│          │
+│  │ handler             │   on success  │ Window()            │          │
+│  └─────────────────────┘               └─────────────────────┘          │
+│                                                   │                      │
+│                                                   ▼                      │
+│                                        ┌─────────────────────┐          │
+│                                        │ BrowserWindow       │          │
+│                                        │ (Timeline Window)   │          │
+│                                        └─────────────────────┘          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                         RENDERER PROCESS(ES)                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Canvas Window                          Timeline Window                  │
+│  ┌─────────────────────┐               ┌─────────────────────┐          │
+│  │ ProductionCanvas    │               │ TimelineWindowPage  │          │
+│  │ ├── AnalysisControl │               │ ├── ConstraintTime. │          │
+│  │ └── StatusBadge     │◀──────────────│ └── ResultsPanel    │          │
+│  │     (Analysis Done) │  IPC events   │                     │          │
+│  └─────────────────────┘               └─────────────────────┘          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### IPC Channels Added
+
+| Channel | Direction | Purpose |
+|---------|-----------|---------|
+| `window:open-timeline` | Renderer → Main | Open/focus Timeline window |
+| `window:get-timeline-data` | Renderer → Main | Get cached data on window load |
+| `window:close-timeline` | Renderer → Main | Close Timeline window |
+| `window:is-timeline-open` | Renderer → Main | Check if window is open |
+| `timeline:data-updated` | Main → Renderer | Push new results to Timeline |
+| `timeline:window-closed` | Main → Renderer | Notify Canvas when Timeline closes |
+
+### Files Created/Modified
+
+| File | Change |
+|------|--------|
+| `src/shared/constants/index.ts` | Added `WINDOW_CHANNELS` and `TIMELINE_EVENTS` |
+| `src/main/ipc/handlers/window.handler.ts` | **NEW** - Window management IPC handlers |
+| `src/main/ipc/handlers/analysis.handler.ts` | Auto-open Timeline after optimization |
+| `src/preload.ts` | Added event channels for Timeline updates |
+| `src/renderer/pages/TimelineWindowPage.tsx` | **NEW** - Standalone Timeline page |
+| `src/renderer/router/index.tsx` | Added `/timeline-window` route |
+| `src/renderer/features/canvas/ProductionCanvas.tsx` | Removed modal, added StatusBadge |
+
+### UI Components
+
+#### TimelineStatusBadge (Canvas Window)
+
+Shows after analysis completes:
+```
+┌─────────────────────────────────────────────────────┐
+│  ✓ Analysis Complete  │  [Open Timeline]  │  ✕    │
+└─────────────────────────────────────────────────────┘
+```
+
+- **"Open Timeline"**: Opens or focuses the Timeline window
+- **"Focus Timeline"**: Shown when window is already open
+- **Dismiss (✕)**: Resets analysis state
+
+#### Timeline Window Features
+
+- **Auto-updates**: When new analysis runs, window updates in-place
+- **Refresh indicator**: Shows "Updating results..." overlay during update
+- **View Details**: Opens ResultsPanel within the Timeline window
+- **Standalone mode**: Full-screen layout without modal overlay
+
+### Singleton Pattern
+
+The Timeline window uses a singleton pattern:
+- Only one Timeline window can exist at a time
+- Opening again focuses the existing window
+- Data is cached in main process for window recovery
+
+```typescript
+// window.handler.ts
+let timelineWindow: BrowserWindow | null = null;
+let cachedTimelineData: TimelineWindowData | null = null;
+
+export async function openOrUpdateTimelineWindow(data: TimelineWindowData) {
+  cachedTimelineData = data;
+
+  if (timelineWindow && !timelineWindow.isDestroyed()) {
+    // Update existing window
+    timelineWindow.webContents.send(TIMELINE_EVENTS.DATA_UPDATED, data);
+    timelineWindow.focus();
+    return { success: true, action: 'updated' };
+  }
+
+  // Create new window
+  timelineWindow = new BrowserWindow({...});
+  return { success: true, action: 'opened' };
+}
+```
+
+### Event Flow: Analysis to Timeline
+
+```
+1. User clicks "Run Analysis" in Canvas
+      │
+      ▼
+2. useAnalysisStore.runOptimization() called
+      │
+      ▼
+3. IPC: analysis:run-optimization sent to main
+      │
+      ▼
+4. analysis.handler.ts runs Python optimizer
+      │
+      ▼
+5. On success, calls openOrUpdateTimelineWindow(results)
+      │
+      ├─── Window exists? → Send 'timeline:data-updated' event
+      │                         │
+      │                         ▼
+      │                    TimelineWindowPage receives event
+      │                    Shows refresh indicator, updates data
+      │
+      └─── Window closed? → Create new BrowserWindow
+                                │
+                                ▼
+                           Loads /timeline-window route
+                           Requests data via window:get-timeline-data
+```
+
+### Testing Checklist
+
+- [x] Run analysis opens Timeline window automatically
+- [x] Running analysis again updates existing window
+- [x] Canvas shows "Analysis Complete" status badge
+- [x] "Focus Timeline" button brings window to front
+- [x] Dismiss button resets analysis state
+- [x] Timeline window receives live updates
+- [x] View Details works in Timeline window
+- [x] Closing Timeline window notifies Canvas
+
+---
+
 ## Related Documentation
 
 - Phase 3.4 Summary: `docs/phases/phase-3.4-summary.md`

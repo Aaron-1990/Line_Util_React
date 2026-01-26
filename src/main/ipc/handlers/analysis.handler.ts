@@ -16,6 +16,8 @@ import {
 } from '@shared/types';
 import { DataExporter } from '../../services/analysis/DataExporter';
 import { PythonBridge } from '../../services/python/PythonBridge';
+import { openOrUpdateTimelineWindow } from './window.handler';
+import DatabaseConnection from '../../database/connection';
 
 export function registerAnalysisHandlers(): void {
   const dataExporter = new DataExporter();
@@ -88,6 +90,27 @@ export function registerAnalysisHandlers(): void {
         const result = await pythonBridge.runOptimization(inputPath, outputPath);
 
         console.log('[Analysis Handler] Optimization complete');
+
+        // 4. Auto-open Timeline window with results
+        try {
+          // Get area catalog for sequence ordering
+          const db = DatabaseConnection.getInstance();
+          const areas = db.prepare('SELECT code, sequence FROM area_catalog WHERE active = 1 ORDER BY sequence').all() as { code: string; sequence: number }[];
+
+          const areaSequences = areas.map(area => ({
+            code: area.code,
+            sequence: area.sequence,
+          }));
+
+          await openOrUpdateTimelineWindow({
+            results: result,
+            areaSequences,
+          });
+          console.log('[Analysis Handler] Timeline window opened/updated with results');
+        } catch (windowError) {
+          // Don't fail the optimization if window opening fails
+          console.error('[Analysis Handler] Failed to open timeline window:', windowError);
+        }
 
         return {
           success: true,
