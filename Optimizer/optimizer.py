@@ -58,6 +58,7 @@ class ProductionLine:
     id: str
     name: str
     area: str
+    lineType: str  # 'shared' or 'dedicated'
     timeAvailableDaily: float
     timeUsedDaily: float = 0.0
     assignments: List[ModelAssignment] = field(default_factory=list)
@@ -203,6 +204,7 @@ def run_optimization_for_year(
             id=line_data['id'],
             name=line_data['name'],
             area=line_data['area'],
+            lineType=line_data.get('lineType', 'shared'),  # Default to shared for backwards compatibility
             timeAvailableDaily=line_data['timeAvailableDaily']
         )
 
@@ -404,6 +406,7 @@ def run_optimization_for_year(
             'lineId': line.id,
             'lineName': line.name,
             'area': line.area,
+            'lineType': line.lineType,  # Include for hierarchical display
             'timeAvailableDaily': line.timeAvailableDaily,
             'timeUsedDaily': round(line.timeUsedDaily, 2),
             'utilizationPercent': round(line.utilizationPercent, 2),
@@ -492,7 +495,7 @@ def run_optimization_for_year(
             'isSystemConstraint': False  # Will be set below
         })
 
-    # Identify system constraint (bottleneck)
+    # Identify system constraint (bottleneck) with enhanced dedicated line detection
     system_constraint = None
     constraint_reason = None
 
@@ -512,16 +515,114 @@ def run_optimization_for_year(
     else:
         print("No areas with unfulfilled demand")
 
+    def build_constrained_lines(constraint_area: str, models_unfulfilled: Dict[str, float]) -> List[Dict]:
+        """Build detailed list of constrained lines with unfulfilled model breakdown"""
+        constrained_lines = []
+        area_line_ids = lines_by_area.get(constraint_area, [])
+
+        for line_id in area_line_ids:
+            line = lines[line_id]
+            # Only include lines that are at high utilization (>=85%)
+            if line.utilizationPercent < 85:
+                continue
+
+            # Calculate unfulfilled demand for this specific line
+            line_compats = compats_by_line.get(line_id, [])
+            line_unfulfilled = 0.0
+            top_models = []
+
+            for compat in line_compats:
+                model_id = compat['modelId']
+                if model_id in models_unfulfilled:
+                    model_unfulfilled = models_unfulfilled[model_id]
+                    if model_unfulfilled > 0:
+                        line_unfulfilled += model_unfulfilled
+                        vol_info = volumes_by_model.get(model_id, {})
+                        top_models.append({
+                            'modelId': model_id,
+                            'modelName': vol_info.get('modelName', 'Unknown'),
+                            'unfulfilledUnits': round(model_unfulfilled, 2),
+                            'percentOfLineUnfulfilled': 0  # Will calculate after
+                        })
+
+            # Calculate percent of line unfulfilled for each model
+            if line_unfulfilled > 0:
+                for model in top_models:
+                    model['percentOfLineUnfulfilled'] = round(
+                        (model['unfulfilledUnits'] / line_unfulfilled) * 100, 1
+                    )
+
+            # Sort by unfulfilled units and take top 5
+            top_models.sort(key=lambda x: -x['unfulfilledUnits'])
+            top_models = top_models[:5]
+
+            constrained_lines.append({
+                'lineId': line.id,
+                'lineName': line.name,
+                'lineType': line.lineType,
+                'utilizationPercent': round(line.utilizationPercent, 2),
+                'unfulfilledUnitsDaily': round(line_unfulfilled, 2),
+                'topUnfulfilledModels': top_models
+            })
+
+        # Sort by utilization (highest first)
+        constrained_lines.sort(key=lambda x: -x['utilizationPercent'])
+        return constrained_lines
+
+    def determine_constraint_type(constrained_lines: List[Dict]) -> str:
+        """Determine if bottleneck is dedicated, shared, or mixed"""
+        if not constrained_lines:
+            return 'shared_capacity_constraint'
+
+        dedicated_count = sum(1 for l in constrained_lines if l['lineType'] == 'dedicated')
+        shared_count = sum(1 for l in constrained_lines if l['lineType'] == 'shared')
+
+        if dedicated_count > 0 and shared_count == 0:
+            return 'dedicated_line_bottleneck'
+        elif shared_count > 0 and dedicated_count == 0:
+            return 'shared_capacity_constraint'
+        else:
+            return 'mixed_constraint'
+
+    def generate_constraint_reason(constraint_type: str, constrained_lines: List[Dict], constraint_area: str) -> str:
+        """Generate human-readable explanation of the constraint"""
+        if not constrained_lines:
+            return f"Area {constraint_area} is at capacity with no specific bottleneck lines identified."
+
+        if constraint_type == 'dedicated_line_bottleneck':
+            line_names = [l['lineName'] for l in constrained_lines if l['lineType'] == 'dedicated'][:3]
+            return f"Dedicated line(s) {', '.join(line_names)} are the bottleneck. These lines cannot shift work to other products - consider adding capacity or rebalancing product mix."
+        elif constraint_type == 'shared_capacity_constraint':
+            line_names = [l['lineName'] for l in constrained_lines[:3]]
+            return f"Shared lines {', '.join(line_names)} are at capacity. Work could potentially be rebalanced across other compatible lines."
+        else:  # mixed
+            dedicated = [l['lineName'] for l in constrained_lines if l['lineType'] == 'dedicated'][:2]
+            shared = [l['lineName'] for l in constrained_lines if l['lineType'] == 'shared'][:2]
+            return f"Mixed constraint: Dedicated line(s) {', '.join(dedicated)} and shared line(s) {', '.join(shared)} are both at capacity."
+
     if areas_with_unfulfilled:
         # Constraint is area with highest unfulfilled demand
         constraint_area = max(areas_with_unfulfilled.items(), key=lambda x: x[1])[0]
         constraint_reason = "unfulfilled_demand"
         print(f"Selected constraint: {constraint_area} (highest unfulfilled: {areas_with_unfulfilled[constraint_area]:.1f})")
+
+        # Build enhanced constraint details
+        models_unfulfilled = unfulfilled_demand_tracker.get(constraint_area, {})
+        constrained_lines = build_constrained_lines(constraint_area, models_unfulfilled)
+        constraint_type = determine_constraint_type(constrained_lines)
+        constraint_reason_text = generate_constraint_reason(constraint_type, constrained_lines, constraint_area)
+
+        print(f"  Constraint type: {constraint_type}")
+        print(f"  Constrained lines: {len(constrained_lines)}")
+
         system_constraint = {
             'area': constraint_area,
             'reason': constraint_reason,
             'utilizationPercent': round(area_utilizations.get(constraint_area, 0), 2),
-            'unfulfilledUnitsDaily': round(areas_with_unfulfilled[constraint_area], 2)
+            'unfulfilledUnitsDaily': round(areas_with_unfulfilled[constraint_area], 2),
+            'constraintType': constraint_type,
+            'constrainedLines': constrained_lines,
+            'constraintReason': constraint_reason_text
         }
     elif area_utilizations:
         # No unfulfilled demand - check if any area is at/over capacity (>=100%)
@@ -533,11 +634,20 @@ def run_optimization_for_year(
             # Only mark as constraint if actually at capacity
             constraint_reason = "highest_utilization"
             print(f"Highest utilization area at capacity: {constraint_area} ({max_util_percent:.1f}%)")
+
+            # Build constrained lines for utilization-based constraint
+            constrained_lines = build_constrained_lines(constraint_area, {})
+            constraint_type = determine_constraint_type(constrained_lines)
+            constraint_reason_text = generate_constraint_reason(constraint_type, constrained_lines, constraint_area)
+
             system_constraint = {
                 'area': constraint_area,
                 'reason': constraint_reason,
                 'utilizationPercent': round(max_util_percent, 2),
-                'unfulfilledUnitsDaily': 0
+                'unfulfilledUnitsDaily': 0,
+                'constraintType': constraint_type,
+                'constrainedLines': constrained_lines,
+                'constraintReason': constraint_reason_text
             }
         else:
             # All areas under 100% and no unfulfilled demand = NO CONSTRAINT

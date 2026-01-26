@@ -38,6 +38,7 @@ export class DataExporter {
       id: line.id,
       name: line.name,
       area: line.area,
+      lineType: line.lineType,  // shared or dedicated
       timeAvailableDaily: line.timeAvailableDaily,
     }));
     console.log(`[DataExporter] Exported ${linesData.length} lines`);

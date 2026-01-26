@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "timestamp": "2026-01-23T17:45:35.559319",
+    "timestamp": "2026-01-25T20:50:28.965543",
     "inputYears": [
       2024
     ],
@@ -15,6 +15,7 @@
           "lineId": "line-smt-1",
           "lineName": "SMT-1",
           "area": "SMT",
+          "lineType": "shared",
           "timeAvailableDaily": 28800,
           "timeUsedDaily": 28800.0,
           "utilizationPercent": 100.0,
@@ -47,6 +48,7 @@
           "lineId": "line-smt-2",
           "lineName": "SMT-2",
           "area": "SMT",
+          "lineType": "shared",
           "timeAvailableDaily": 28800,
           "timeUsedDaily": 23435.29,
           "utilizationPercent": 81.37,
@@ -76,6 +78,21 @@
           ]
         }
       ],
+      "unfulfilledDemand": [],
+      "areaSummary": [
+        {
+          "area": "SMT",
+          "totalDemandUnitsDaily": 148.0,
+          "totalAllocatedUnitsDaily": 148.0,
+          "totalUnfulfilledUnitsDaily": 0.0,
+          "fulfillmentPercent": 100.0,
+          "averageUtilization": 90.69,
+          "linesAtCapacity": 1,
+          "totalLines": 2,
+          "isSystemConstraint": false
+        }
+      ],
+      "systemConstraint": null,
       "summary": {
         "totalLines": 2,
         "totalAreas": 1,
@@ -87,7 +104,11 @@
         "assignedModels": 3,
         "unassignedModels": 0,
         "totalAllocatedUnits": 148.0,
-        "demandFulfillmentPercent": 95.85
+        "demandFulfillmentPercent": 95.85,
+        "totalUnfulfilledUnitsDaily": 0,
+        "totalUnfulfilledUnitsYearly": 0,
+        "overallFulfillmentPercent": 100.0,
+        "systemConstraintArea": null
       }
     }
   ],

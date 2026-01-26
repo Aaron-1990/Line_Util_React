@@ -567,6 +567,7 @@ export interface OptimizationInputData {
     id: string;
     name: string;
     area: string;
+    lineType: 'shared' | 'dedicated';  // shared can shift work, dedicated cannot
     timeAvailableDaily: number;  // seconds
   }[];
   models: {
@@ -617,6 +618,7 @@ export interface LineUtilizationResult {
   lineId: string;
   lineName: string;
   area: string;
+  lineType: 'shared' | 'dedicated';  // For hierarchical display
   timeAvailableDaily: number;
   timeUsedDaily: number;
   utilizationPercent: number;
@@ -652,13 +654,35 @@ export interface AreaSummary {
 }
 
 /**
+ * Constrained line details for enhanced bottleneck visibility
+ */
+export interface ConstrainedLineDetail {
+  lineId: string;
+  lineName: string;
+  lineType: 'shared' | 'dedicated';
+  utilizationPercent: number;
+  unfulfilledUnitsDaily: number;
+  topUnfulfilledModels: {
+    modelId: string;
+    modelName: string;
+    unfulfilledUnits: number;
+    percentOfLineUnfulfilled: number;
+  }[];
+}
+
+/**
  * System constraint (bottleneck) information
+ * Enhanced to distinguish dedicated vs shared line bottlenecks
  */
 export interface SystemConstraint {
   area: string;
   reason: 'unfulfilled_demand' | 'highest_utilization';
   utilizationPercent: number;
   unfulfilledUnitsDaily: number;
+  // Enhanced fields for dedicated line visibility
+  constraintType: 'dedicated_line_bottleneck' | 'shared_capacity_constraint' | 'mixed_constraint';
+  constrainedLines: ConstrainedLineDetail[];
+  constraintReason: string;  // Human-readable explanation
 }
 
 /**

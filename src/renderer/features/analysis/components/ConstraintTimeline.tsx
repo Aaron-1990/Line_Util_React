@@ -2,18 +2,24 @@
 // CONSTRAINT TIMELINE VIEW
 // Multi-year capacity analysis matrix
 // Shows constraint evolution across years
+// Enhanced with dedicated line visibility & unfulfilled demand drill-down
 // ============================================
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   X,
   Eye,
   AlertTriangle,
   TrendingUp,
   Clock,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  Lock,
+  Unlock,
+  Layers
 } from 'lucide-react';
-import { OptimizationResult, AreaSummary } from '@shared/types';
+import { OptimizationResult, AreaSummary, SystemConstraint, ConstrainedLineDetail } from '@shared/types';
 
 // ============================================
 // PROPS
@@ -110,6 +116,10 @@ export const ConstraintTimeline = ({
   onClose,
   onViewDetails
 }: ConstraintTimelineProps) => {
+  // State for expanded constraint detail view
+  const [expandedYear, setExpandedYear] = useState<number | null>(null);
+  const [expandedUnfulfilled, setExpandedUnfulfilled] = useState<number | null>(null);
+
   // Extract years from results
   const years = useMemo(() => {
     return results.yearResults.map(yr => yr.year).sort((a, b) => a - b);
@@ -295,11 +305,15 @@ export const ConstraintTimeline = ({
 
   // Generate constraint movement summary
   const constraintSummary = useMemo(() => {
-    const movements: { year: number; area: string }[] = [];
+    const movements: { year: number; area: string; constraint: SystemConstraint }[] = [];
 
     results.yearResults.forEach(yr => {
       if (yr.systemConstraint) {
-        movements.push({ year: yr.year, area: yr.systemConstraint.area });
+        movements.push({
+          year: yr.year,
+          area: yr.systemConstraint.area,
+          constraint: yr.systemConstraint
+        });
       }
     });
 
@@ -308,7 +322,8 @@ export const ConstraintTimeline = ({
         text: 'No constraints identified across all years.',
         hasConstraints: false,
         constraintYears: 0,
-        totalYears: years.length
+        totalYears: years.length,
+        movements: []
       };
     }
 
@@ -333,9 +348,22 @@ export const ConstraintTimeline = ({
       constraintYears: movements.length,
       totalYears: years.length,
       mostConstrainedArea: mostConstrained?.[0],
-      mostConstrainedCount: mostConstrained?.[1]
+      mostConstrainedCount: mostConstrained?.[1],
+      movements
     };
   }, [results.yearResults, years.length]);
+
+  // Get constraint for a specific year
+  const getConstraintForYear = (year: number): SystemConstraint | null => {
+    const yearResult = results.yearResults.find(yr => yr.year === year);
+    return yearResult?.systemConstraint || null;
+  };
+
+  // Get unfulfilled demand for a specific year
+  const getUnfulfilledForYear = (year: number) => {
+    const yearResult = results.yearResults.find(yr => yr.year === year);
+    return yearResult?.unfulfilledDemand || [];
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -490,6 +518,113 @@ export const ConstraintTimeline = ({
             </table>
           </div>
 
+          {/* Constraint Year Selector - Click to drill down */}
+          {constraintSummary.hasConstraints && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-100 px-4 py-2 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-gray-600" />
+                <span className="text-sm font-semibold text-gray-700">Constraint Drill-Down</span>
+                <span className="text-xs text-gray-500 ml-2">Click a year to see dedicated/shared line breakdown</span>
+              </div>
+              <div className="flex flex-wrap gap-2 p-3 bg-white">
+                {constraintSummary.movements?.map(({ year, area, constraint }) => (
+                  <button
+                    key={year}
+                    onClick={() => setExpandedYear(expandedYear === year ? null : year)}
+                    className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      expandedYear === year
+                        ? 'bg-amber-100 border-amber-400 text-amber-800'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {expandedYear === year ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4" />
+                      )}
+                      <span>{year}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                        {area}
+                      </span>
+                      {/* Show constraint type badge if available */}
+                      {constraint.constraintType && (
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                          constraint.constraintType === 'dedicated_line_bottleneck'
+                            ? 'bg-purple-100 text-purple-700'
+                            : constraint.constraintType === 'shared_capacity_constraint'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-orange-100 text-orange-700'
+                        }`}>
+                          {constraint.constraintType === 'dedicated_line_bottleneck' && '🔒 Dedicated'}
+                          {constraint.constraintType === 'shared_capacity_constraint' && '🔓 Shared'}
+                          {constraint.constraintType === 'mixed_constraint' && '⚡ Mixed'}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Expanded Constraint Detail Panel */}
+              {expandedYear !== null && (
+                <ConstraintDetailPanel
+                  year={expandedYear}
+                  constraint={getConstraintForYear(expandedYear)}
+                  unfulfilledDemand={getUnfulfilledForYear(expandedYear)}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Unfulfilled Demand Drill-Down */}
+          {years.some(year => (unfulfilledByYear.get(year)?.yearly || 0) > 0) && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-gray-100 px-4 py-2 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                <span className="text-sm font-semibold text-gray-700">Unfulfilled Demand Breakdown</span>
+                <span className="text-xs text-gray-500 ml-2">Click a year to see top models contributing to shortfall</span>
+              </div>
+              <div className="flex flex-wrap gap-2 p-3 bg-white">
+                {years.map(year => {
+                  const data = unfulfilledByYear.get(year);
+                  if (!data || data.yearly === 0) return null;
+                  return (
+                    <button
+                      key={year}
+                      onClick={() => setExpandedUnfulfilled(expandedUnfulfilled === year ? null : year)}
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                        expandedUnfulfilled === year
+                          ? 'bg-red-100 border-red-400 text-red-800'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {expandedUnfulfilled === year ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                        <span>{year}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                          {data.percent.toFixed(1)}% unmet
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Expanded Unfulfilled Detail Panel */}
+              {expandedUnfulfilled !== null && (
+                <UnfulfilledDetailPanel
+                  year={expandedUnfulfilled}
+                  unfulfilledDemand={getUnfulfilledForYear(expandedUnfulfilled)}
+                />
+              )}
+            </div>
+          )}
+
           {/* Legend */}
           <div className="flex flex-wrap items-center gap-6 text-xs">
             <span className="font-semibold text-gray-700">Risk Levels:</span>
@@ -582,6 +717,308 @@ const LegendItem = ({ color, label }: LegendItemProps) => {
         style={{ backgroundColor: color }}
       />
       <span className="text-gray-600">{label}</span>
+    </div>
+  );
+};
+
+// ============================================
+// CONSTRAINT DETAIL PANEL
+// Shows dedicated vs shared line breakdown
+// ============================================
+
+interface ConstraintDetailPanelProps {
+  year: number;
+  constraint: SystemConstraint | null;
+  // Reserved for future use - showing unfulfilled context alongside constraint
+  unfulfilledDemand?: { modelId: string; modelName: string; area: string; unfulfilledUnitsDaily: number }[];
+}
+
+const ConstraintDetailPanel = ({ year, constraint }: ConstraintDetailPanelProps) => {
+  if (!constraint) {
+    return (
+      <div className="p-4 bg-gray-50 border-t">
+        <p className="text-sm text-gray-500">No constraint data available for {year}</p>
+      </div>
+    );
+  }
+
+  // Group constrained lines by type
+  const dedicatedLines = constraint.constrainedLines?.filter(l => l.lineType === 'dedicated') || [];
+  const sharedLines = constraint.constrainedLines?.filter(l => l.lineType === 'shared') || [];
+
+  // Get constraint type label and description
+  const constraintTypeLabel = {
+    'dedicated_line_bottleneck': { label: 'Dedicated Line Bottleneck', icon: Lock, color: 'purple' },
+    'shared_capacity_constraint': { label: 'Shared Capacity Constraint', icon: Unlock, color: 'blue' },
+    'mixed_constraint': { label: 'Mixed Constraint', icon: Layers, color: 'orange' }
+  }[constraint.constraintType] || { label: 'Unknown', icon: AlertTriangle, color: 'gray' };
+
+  const IconComponent = constraintTypeLabel.icon;
+
+  return (
+    <div className="border-t bg-white">
+      {/* Constraint Header */}
+      <div className={`px-4 py-3 bg-${constraintTypeLabel.color}-50 border-b border-${constraintTypeLabel.color}-200`}>
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg bg-${constraintTypeLabel.color}-100`}>
+            <IconComponent className={`w-5 h-5 text-${constraintTypeLabel.color}-600`} />
+          </div>
+          <div>
+            <h4 className={`font-semibold text-${constraintTypeLabel.color}-800`}>
+              {constraint.area} - {constraintTypeLabel.label}
+            </h4>
+            <p className="text-sm text-gray-600 mt-0.5">
+              {constraint.constraintReason}
+            </p>
+          </div>
+        </div>
+        <div className="mt-2 flex gap-4 text-sm">
+          <span className="px-2 py-1 bg-white rounded border">
+            Utilization: <strong>{constraint.utilizationPercent.toFixed(1)}%</strong>
+          </span>
+          {constraint.unfulfilledUnitsDaily > 0 && (
+            <span className="px-2 py-1 bg-red-100 rounded border border-red-200 text-red-700">
+              Unfulfilled: <strong>{Math.round(constraint.unfulfilledUnitsDaily).toLocaleString()}</strong> units/day
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Constrained Lines Breakdown */}
+      <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Dedicated Lines */}
+        {dedicatedLines.length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-purple-50 px-3 py-2 border-b flex items-center gap-2">
+              <Lock className="w-4 h-4 text-purple-600" />
+              <span className="font-semibold text-purple-800 text-sm">
+                Dedicated Lines ({dedicatedLines.length})
+              </span>
+              <span className="text-xs text-purple-600 ml-auto">Cannot shift work</span>
+            </div>
+            <div className="divide-y">
+              {dedicatedLines.map(line => (
+                <ConstrainedLineRow key={line.lineId} line={line} type="dedicated" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Shared Lines */}
+        {sharedLines.length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="bg-blue-50 px-3 py-2 border-b flex items-center gap-2">
+              <Unlock className="w-4 h-4 text-blue-600" />
+              <span className="font-semibold text-blue-800 text-sm">
+                Shared Lines ({sharedLines.length})
+              </span>
+              <span className="text-xs text-blue-600 ml-auto">Can rebalance work</span>
+            </div>
+            <div className="divide-y">
+              {sharedLines.map(line => (
+                <ConstrainedLineRow key={line.lineId} line={line} type="shared" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No constrained lines */}
+        {dedicatedLines.length === 0 && sharedLines.length === 0 && (
+          <div className="col-span-2 text-center py-4 text-gray-500">
+            No specific line bottlenecks identified (older optimization data)
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// CONSTRAINED LINE ROW
+// ============================================
+
+interface ConstrainedLineRowProps {
+  line: ConstrainedLineDetail;
+  type: 'dedicated' | 'shared';
+}
+
+const ConstrainedLineRow = ({ line, type }: ConstrainedLineRowProps) => {
+  const [expanded, setExpanded] = useState(false);
+  const bgColor = type === 'dedicated' ? 'purple' : 'blue';
+
+  return (
+    <div className="bg-white">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-3 py-2 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {expanded ? (
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+          )}
+          <span className="font-medium text-gray-900 text-sm">{line.lineName}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-sm font-bold"
+            style={{ color: getUtilizationColor(line.utilizationPercent) }}
+          >
+            {line.utilizationPercent.toFixed(0)}%
+          </span>
+          {line.unfulfilledUnitsDaily > 0 && (
+            <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 rounded">
+              {Math.round(line.unfulfilledUnitsDaily)} unmet
+            </span>
+          )}
+        </div>
+      </button>
+
+      {/* Expanded: Top unfulfilled models for this line */}
+      {expanded && line.topUnfulfilledModels && line.topUnfulfilledModels.length > 0 && (
+        <div className={`px-3 pb-2 bg-${bgColor}-50/50`}>
+          <p className="text-xs font-semibold text-gray-600 mb-1 pl-6">Top Unfulfilled Models:</p>
+          <div className="pl-6 space-y-1">
+            {line.topUnfulfilledModels.map(model => (
+              <div
+                key={model.modelId}
+                className="flex items-center justify-between text-xs bg-white px-2 py-1 rounded border"
+              >
+                <span className="text-gray-700">{model.modelName}</span>
+                <span className="text-red-600 font-medium">
+                  {Math.round(model.unfulfilledUnits)} units ({model.percentOfLineUnfulfilled}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// UNFULFILLED DEMAND DETAIL PANEL
+// Shows top models contributing to shortfall
+// ============================================
+
+interface UnfulfilledDemand {
+  modelId: string;
+  modelName: string;
+  area: string;
+  unfulfilledUnitsDaily: number;
+  unfulfilledUnitsYearly?: number;
+  demandUnitsDaily?: number;
+  fulfillmentPercent?: number;
+}
+
+interface UnfulfilledDetailPanelProps {
+  year: number;
+  unfulfilledDemand: UnfulfilledDemand[];
+}
+
+const UnfulfilledDetailPanel = ({ year, unfulfilledDemand }: UnfulfilledDetailPanelProps) => {
+  if (!unfulfilledDemand || unfulfilledDemand.length === 0) {
+    return (
+      <div className="p-4 bg-gray-50 border-t">
+        <p className="text-sm text-gray-500">No unfulfilled demand for {year}</p>
+      </div>
+    );
+  }
+
+  // Group by area and sort by unfulfilled units
+  const byArea = new Map<string, UnfulfilledDemand[]>();
+  unfulfilledDemand.forEach(ud => {
+    if (!byArea.has(ud.area)) {
+      byArea.set(ud.area, []);
+    }
+    byArea.get(ud.area)!.push(ud);
+  });
+
+  // Sort each area's models by unfulfilled units (descending)
+  byArea.forEach(models => {
+    models.sort((a, b) => b.unfulfilledUnitsDaily - a.unfulfilledUnitsDaily);
+  });
+
+  // Sort areas by total unfulfilled (descending)
+  const sortedAreas = Array.from(byArea.entries()).sort((a, b) => {
+    const totalA = a[1].reduce((sum, m) => sum + m.unfulfilledUnitsDaily, 0);
+    const totalB = b[1].reduce((sum, m) => sum + m.unfulfilledUnitsDaily, 0);
+    return totalB - totalA;
+  });
+
+  return (
+    <div className="border-t bg-white p-4">
+      <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+        <AlertCircle className="w-4 h-4 text-red-500" />
+        {year} Unfulfilled Demand by Area
+      </h4>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {sortedAreas.map(([area, models]) => {
+          const totalAreaUnfulfilled = models.reduce((sum, m) => sum + m.unfulfilledUnitsDaily, 0);
+          // Show top 5 models per area
+          const topModels = models.slice(0, 5);
+          const remainingCount = models.length - 5;
+
+          return (
+            <div key={area} className="border rounded-lg overflow-hidden">
+              <div className="bg-red-50 px-3 py-2 border-b flex items-center justify-between">
+                <span className="font-semibold text-red-800 text-sm">{area}</span>
+                <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full">
+                  {Math.round(totalAreaUnfulfilled).toLocaleString()} units/day
+                </span>
+              </div>
+              <div className="divide-y">
+                {topModels.map((model, idx) => {
+                  // Calculate Pareto percentage (cumulative contribution)
+                  const cumulativeUnfulfilled = models
+                    .slice(0, idx + 1)
+                    .reduce((sum, m) => sum + m.unfulfilledUnitsDaily, 0);
+                  const paretoPercent = (cumulativeUnfulfilled / totalAreaUnfulfilled) * 100;
+
+                  return (
+                    <div
+                      key={model.modelId}
+                      className="px-3 py-2 flex items-center justify-between text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-4">#{idx + 1}</span>
+                        <span className="text-gray-800">{model.modelName}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-red-600 font-medium">
+                          {Math.round(model.unfulfilledUnitsDaily).toLocaleString()}
+                        </span>
+                        {model.fulfillmentPercent !== undefined && (
+                          <span className="text-xs text-gray-500">
+                            ({model.fulfillmentPercent.toFixed(0)}% fulfilled)
+                          </span>
+                        )}
+                        <span className="text-xs px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">
+                          Σ {paretoPercent.toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {remainingCount > 0 && (
+                  <div className="px-3 py-2 text-xs text-gray-500 bg-gray-50">
+                    +{remainingCount} more models with unfulfilled demand
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Pareto Note */}
+      <p className="text-xs text-gray-500 mt-3 flex items-center gap-1">
+        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded">Σ %</span>
+        shows cumulative contribution (Pareto) - focus on top models to address majority of shortfall
+      </p>
     </div>
   );
 };
