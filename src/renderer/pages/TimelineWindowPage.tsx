@@ -107,6 +107,7 @@ export const TimelineWindowPage = () => {
       {showResultsPanel && (
         <ResultsPanel
           results={data.results}
+          areaSequences={data.areaSequences}
           onClose={() => setShowResultsPanel(false)}
         />
       )}

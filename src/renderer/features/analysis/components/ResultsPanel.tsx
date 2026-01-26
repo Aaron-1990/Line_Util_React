@@ -50,15 +50,18 @@ interface ResultsPanelProps {
   onClose?: () => void;
   onViewDashboard?: () => void;
   results?: OptimizationResult;  // Optional - overrides store (for standalone window)
+  areaSequences?: { code: string; sequence: number }[];  // Optional area ordering
 }
 
-export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults }: ResultsPanelProps) => {
-  const { results: storeResults, resetAnalysis } = useAnalysisStore();
+export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, areaSequences: propAreaSequences }: ResultsPanelProps) => {
+  const { results: storeResults, resetAnalysis, areaCatalog } = useAnalysisStore();
   // Use prop results if provided, otherwise use store
   const results = propResults || storeResults;
+  // Use prop area sequences if provided, otherwise use store catalog
+  const areaSequences = propAreaSequences || areaCatalog.map(a => ({ code: a.code, sequence: a.sequence }));
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
-  // Group results by area
+  // Group results by area, sorted by process sequence
   const areaGroups = useMemo(() => {
     if (!results || !results.yearResults.length) return [];
 
@@ -69,8 +72,20 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults }:
     const areas = new Set<string>();
     firstYear.lines.forEach(line => areas.add(line.area));
 
-    return Array.from(areas).sort();
-  }, [results]);
+    // Build sequence map for sorting
+    const sequenceMap = new Map<string, number>();
+    areaSequences.forEach(area => {
+      sequenceMap.set(area.code.toUpperCase(), area.sequence);
+    });
+
+    // Sort by sequence (unknown areas go last)
+    return Array.from(areas).sort((a, b) => {
+      const aSeq = sequenceMap.get(a.toUpperCase()) ?? 999;
+      const bSeq = sequenceMap.get(b.toUpperCase()) ?? 999;
+      if (aSeq !== bSeq) return aSeq - bSeq;
+      return a.localeCompare(b);
+    });
+  }, [results, areaSequences]);
 
   // Get lines for selected area across all years
   const areaResults = useMemo(() => {
@@ -134,32 +149,6 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults }:
     return null;
   }
 
-  // Calculate summary metrics with fallbacks for backward compatibility
-  const summaryMetrics = useMemo(() => {
-    if (!results) return null;
-
-    const firstYear = results.yearResults[0];
-    if (!firstYear) return null;
-
-    // Use new fields if available, otherwise calculate from existing data
-    const overallFulfillment = firstYear.summary.overallFulfillmentPercent
-      ?? firstYear.summary.demandFulfillmentPercent
-      ?? 100;
-
-    const totalUnfulfilled = firstYear.summary.totalUnfulfilledUnitsYearly
-      ?? 0;
-
-    const systemConstraint = firstYear.systemConstraint?.area
-      ?? firstYear.summary.systemConstraintArea
-      ?? null;
-
-    return {
-      overallFulfillment,
-      systemConstraint,
-      totalUnfulfilled,
-    };
-  }, [results]);
-
   const handleClose = () => {
     if (onClose) {
       onClose();
@@ -203,44 +192,7 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults }:
           </div>
         </div>
 
-        {/* Summary Header */}
-        {summaryMetrics && (
-          <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-600 uppercase tracking-wide mb-1">
-                  Overall Fulfillment
-                </span>
-                <span className={`text-2xl font-bold ${
-                  (summaryMetrics.overallFulfillment ?? 100) >= 95 ? 'text-green-600' :
-                  (summaryMetrics.overallFulfillment ?? 100) >= 85 ? 'text-yellow-600' :
-                  'text-red-600'
-                }`}>
-                  {(summaryMetrics.overallFulfillment ?? 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-600 uppercase tracking-wide mb-1">
-                  System Constraint
-                </span>
-                <span className={`text-2xl font-bold ${summaryMetrics.systemConstraint ? 'text-red-600' : 'text-green-600'}`}>
-                  {summaryMetrics.systemConstraint || 'None'}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-600 uppercase tracking-wide mb-1">
-                  Total Unfulfilled
-                </span>
-                <span className={`text-2xl font-bold ${(summaryMetrics.totalUnfulfilled ?? 0) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                  {(summaryMetrics.totalUnfulfilled ?? 0).toLocaleString()}
-                  <span className="text-sm text-gray-500 ml-1">units</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Area Tabs */}
+        {/* Area Tabs - sorted by process sequence */}
         <div className="flex gap-1 px-6 py-3 border-b bg-gray-50 overflow-x-auto">
           {areaGroups.map(area => (
             <button
