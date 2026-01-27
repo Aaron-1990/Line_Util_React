@@ -25,6 +25,7 @@ import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
 import { AnalysisControlBar, useAnalysisStore } from '../analysis';
+import { ChangeoverMatrixModal } from '../changeover';
 import { TIMELINE_EVENTS, WINDOW_CHANNELS } from '@shared/constants';
 import { ExternalLink, CheckCircle } from 'lucide-react';
 
@@ -149,6 +150,9 @@ export const ProductionCanvas = () => {
 
       {/* Status Badge - Shows when results are available in Timeline Window */}
       <TimelineStatusBadge />
+
+      {/* Changeover Matrix Modal */}
+      <ChangeoverMatrixModal />
     </div>
   );
 };

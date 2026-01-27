@@ -11,15 +11,18 @@ import {
   CompatibilityValidationResult,
   VolumeValidationResult,
   AreaValidationResult,
+  ChangeoverValidationResult,
   ValidatedModel,
   ValidatedCompatibility,
   ValidatedVolume,
   ValidatedArea,
+  ValidatedChangeover,
   ValidationError,
   ExcelRow,
   ModelColumnMapping,
   CompatibilityColumnMapping,
   AreaColumnMapping,
+  ChangeoverColumnMapping,
   YearColumnConfig,
 } from '@shared/types';
 import { ExcelValidator } from './ExcelValidator';
@@ -85,7 +88,20 @@ export class MultiSheetValidator {
       );
     }
 
-    // 5. Cross-sheet validation
+    // 5. Validate Changeover sheet (if present)
+    if (data.changeover) {
+      result.changeover = this.validateChangeovers(
+        data.changeover.rows,
+        data.changeover.mapping
+      );
+      console.log('[MultiSheetValidator] Changeover validation result:', {
+        valid: result.changeover.validChangeovers.length,
+        errors: result.changeover.errors.length,
+        uniqueFamilies: result.changeover.stats.uniqueFamilies,
+      });
+    }
+
+    // 6. Cross-sheet validation
 
     // Build set of all valid lines (existing + from current import)
     const allValidLineNames = new Set<string>([
@@ -142,7 +158,8 @@ export class MultiSheetValidator {
       (result.lines?.stats.invalid || 0) === 0 &&
       (result.models?.stats.invalid || 0) === 0 &&
       (result.compatibilities?.stats.invalid || 0) === 0 &&
-      (result.volumes?.stats.invalid || 0) === 0;
+      (result.volumes?.stats.invalid || 0) === 0 &&
+      (result.changeover?.stats.invalid || 0) === 0;
 
     return result;
   }
@@ -552,6 +569,119 @@ export class MultiSheetValidator {
         valid: validCompatibilities.length,
         invalid: errors.length,
         duplicates: duplicates.length,
+      },
+      duplicates,
+    };
+  }
+
+  /**
+   * Validate Changeover sheet data (family-to-family defaults)
+   */
+  static validateChangeovers(
+    rows: ExcelRow[],
+    mapping: ChangeoverColumnMapping
+  ): ChangeoverValidationResult {
+    const validChangeovers: ValidatedChangeover[] = [];
+    const errors: ValidationError[] = [];
+    const seenPairs = new Set<string>();
+    const duplicates: string[] = [];
+    const uniqueFamilies = new Set<string>();
+
+    rows.forEach((row, index) => {
+      const rowNum = (row.__rowNum__ as number) || index + 2;
+
+      try {
+        // Extract values
+        const fromFamily = this.extractString(row[mapping.fromFamily]);
+        const toFamily = this.extractString(row[mapping.toFamily]);
+        const changeoverMinutes = this.extractNumber(row[mapping.changeoverMinutes]);
+
+        // Validate required fields
+        if (!fromFamily) {
+          errors.push({
+            row: rowNum,
+            field: mapping.fromFamily,
+            message: 'From Family is required',
+            value: row[mapping.fromFamily],
+          });
+          return;
+        }
+
+        if (!toFamily) {
+          errors.push({
+            row: rowNum,
+            field: mapping.toFamily,
+            message: 'To Family is required',
+            value: row[mapping.toFamily],
+          });
+          return;
+        }
+
+        // Validate changeover time
+        if (changeoverMinutes === null) {
+          errors.push({
+            row: rowNum,
+            field: mapping.changeoverMinutes,
+            message: 'Changeover time is required',
+            value: row[mapping.changeoverMinutes],
+          });
+          return;
+        }
+
+        if (changeoverMinutes < 0) {
+          errors.push({
+            row: rowNum,
+            field: mapping.changeoverMinutes,
+            message: 'Changeover time must be >= 0',
+            value: row[mapping.changeoverMinutes],
+          });
+          return;
+        }
+
+        // Check for duplicate family pairs
+        const pairKey = `${fromFamily.toLowerCase()} -> ${toFamily.toLowerCase()}`;
+        if (seenPairs.has(pairKey)) {
+          errors.push({
+            row: rowNum,
+            field: 'Family Pair',
+            message: `Duplicate changeover entry for "${fromFamily}" -> "${toFamily}"`,
+            value: pairKey,
+          });
+          duplicates.push(pairKey);
+          return;
+        }
+        seenPairs.add(pairKey);
+
+        // Track unique families
+        uniqueFamilies.add(fromFamily.toUpperCase());
+        uniqueFamilies.add(toFamily.toUpperCase());
+
+        validChangeovers.push({
+          fromFamily,
+          toFamily,
+          changeoverMinutes,
+          row: rowNum,
+        });
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+        errors.push({
+          row: rowNum,
+          field: 'Multiple',
+          message: errorMessage,
+          value: null,
+        });
+      }
+    });
+
+    return {
+      validChangeovers,
+      errors,
+      stats: {
+        total: rows.length,
+        valid: validChangeovers.length,
+        invalid: errors.length,
+        duplicates: duplicates.length,
+        uniqueFamilies: uniqueFamilies.size,
       },
       duplicates,
     };

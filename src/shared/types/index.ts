@@ -417,6 +417,45 @@ export interface AreaValidationResult {
   duplicates: string[];
 }
 
+// ============================================
+// CHANGEOVER EXCEL IMPORT TYPES (Phase 5.3)
+// ============================================
+
+/**
+ * Column mapping for Changeover sheet (family-to-family defaults)
+ */
+export interface ChangeoverColumnMapping {
+  fromFamily: string;      // "From Family" column
+  toFamily: string;        // "To Family" column
+  changeoverMinutes: string; // "Changeover (min)" column
+}
+
+/**
+ * Validated changeover entry from Excel
+ */
+export interface ValidatedChangeover {
+  fromFamily: string;
+  toFamily: string;
+  changeoverMinutes: number;
+  row: number;
+}
+
+/**
+ * Validation result for Changeover sheet
+ */
+export interface ChangeoverValidationResult {
+  validChangeovers: ValidatedChangeover[];
+  errors: ValidationError[];
+  stats: {
+    total: number;
+    valid: number;
+    invalid: number;
+    duplicates: number;
+    uniqueFamilies: number;
+  };
+  duplicates: string[];  // "FamilyA -> FamilyB" format
+}
+
 /**
  * Sheet detection result - which sheets are available
  */
@@ -437,6 +476,11 @@ export interface DetectedSheets {
     headers: string[];
   };
   compatibilities?: {
+    sheetName: string;
+    rowCount: number;
+    headers: string[];
+  };
+  changeover?: {
     sheetName: string;
     rowCount: number;
     headers: string[];
@@ -469,6 +513,7 @@ export interface MultiSheetParsedData {
   lines?: SheetParsedData<ColumnMapping>;
   models?: ModelSheetParsedData;
   compatibilities?: SheetParsedData<CompatibilityColumnMapping>;
+  changeover?: SheetParsedData<ChangeoverColumnMapping>;
   availableSheets: string[];
 }
 
@@ -526,6 +571,7 @@ export interface MultiSheetValidationResult {
   models?: ModelValidationResult;
   compatibilities?: CompatibilityValidationResult;
   volumes?: VolumeValidationResult;
+  changeover?: ChangeoverValidationResult;
   crossSheetErrors: string[];
   isValid: boolean;
 }
@@ -550,6 +596,7 @@ export interface MultiSheetImportResult {
   volumes?: EntityImportResult & {
     yearRange?: { min: number; max: number };
   };
+  changeover?: EntityImportResult;
   totalTime: number;
   success: boolean;
 }
@@ -594,6 +641,22 @@ export interface OptimizationInputData {
     priority: number;       // lower = higher priority
   }[];
   selectedYears: number[];
+  // Phase 5: Changeover data
+  changeover?: {
+    globalDefaultMinutes: number;
+    calculationMethod: 'probability_weighted' | 'simple_average' | 'worst_case';
+    familyDefaults: {
+      fromFamily: string;
+      toFamily: string;
+      changeoverMinutes: number;
+    }[];
+    lineOverrides: {
+      lineId: string;
+      fromModelId: string;
+      toModelId: string;
+      changeoverMinutes: number;
+    }[];
+  };
 }
 
 /**
@@ -623,6 +686,15 @@ export interface LineUtilizationResult {
   timeUsedDaily: number;
   utilizationPercent: number;
   assignments: ModelAssignment[];
+  // Phase 5: Changeover impact (optional for backwards compatibility)
+  changeover?: {
+    timeUsedChangeover: number;        // seconds spent on changeovers
+    estimatedChangeoverCount: number;  // number of changeovers per day
+    expectedChangeoverTime: number;    // expected time per changeover (seconds)
+    utilizationWithChangeover: number; // utilization % including changeover
+    changeoverImpactPercent: number;   // percentage points lost to changeover
+    methodUsed: string;                // calculation method used
+  };
 }
 
 /**
@@ -756,3 +828,10 @@ export interface RunOptimizationRequest {
   selectedYears: number[];
   mode?: 'json' | 'db';  // Output mode
 }
+
+// ============================================
+// CHANGEOVER MATRIX TYPES (Phase 5)
+// ============================================
+
+// Re-export all changeover types from dedicated module
+export * from './changeover';

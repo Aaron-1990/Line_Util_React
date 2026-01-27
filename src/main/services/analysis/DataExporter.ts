@@ -8,6 +8,7 @@ import { SQLiteProductionLineRepository } from '../../database/repositories/SQLi
 import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLiteProductModelV2Repository';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
 import { SQLiteLineModelCompatibilityRepository } from '../../database/repositories/SQLiteLineModelCompatibilityRepository';
+import { SQLiteChangeoverRepository } from '../../database/repositories/SQLiteChangeoverRepository';
 import { OptimizationInputData } from '@shared/types';
 
 export class DataExporter {
@@ -15,6 +16,7 @@ export class DataExporter {
   private modelRepository: SQLiteProductModelV2Repository;
   private volumeRepository: SQLiteProductVolumeRepository;
   private compatibilityRepository: SQLiteLineModelCompatibilityRepository;
+  private changeoverRepository: SQLiteChangeoverRepository;
 
   constructor() {
     const db = DatabaseConnection.getInstance();
@@ -22,6 +24,7 @@ export class DataExporter {
     this.modelRepository = new SQLiteProductModelV2Repository(db);
     this.volumeRepository = new SQLiteProductVolumeRepository(db);
     this.compatibilityRepository = new SQLiteLineModelCompatibilityRepository(db);
+    this.changeoverRepository = new SQLiteChangeoverRepository(db);
   }
 
   /**
@@ -83,15 +86,67 @@ export class DataExporter {
     }));
     console.log(`[DataExporter] Exported ${compatibilitiesData.length} compatibilities`);
 
+    // 5. Get changeover data
+    const [globalDefault, familyDefaults, lineOverrides, methodConfig] = await Promise.all([
+      this.changeoverRepository.getGlobalDefault(),
+      this.changeoverRepository.getAllFamilyDefaults(),
+      this.getLineOverridesForAllLines(lines.map(l => l.id)),
+      this.changeoverRepository.getCalculationMethod('global'),
+    ]);
+
+    const changeoverData = {
+      globalDefaultMinutes: globalDefault,
+      calculationMethod: methodConfig.methodId as 'probability_weighted' | 'simple_average' | 'worst_case',
+      familyDefaults: familyDefaults.map(fd => ({
+        fromFamily: fd.fromFamily,
+        toFamily: fd.toFamily,
+        changeoverMinutes: fd.changeoverMinutes,
+      })),
+      lineOverrides: lineOverrides,
+    };
+    console.log(`[DataExporter] Exported changeover data: ${familyDefaults.length} family defaults, ${lineOverrides.length} line overrides`);
+
     const result: OptimizationInputData = {
       lines: linesData,
       models: modelsData,
       volumes: volumesData,
       compatibilities: compatibilitiesData,
       selectedYears,
+      changeover: changeoverData,
     };
 
     return result;
+  }
+
+  /**
+   * Get all line overrides for multiple lines
+   */
+  private async getLineOverridesForAllLines(lineIds: string[]): Promise<{
+    lineId: string;
+    fromModelId: string;
+    toModelId: string;
+    changeoverMinutes: number;
+  }[]> {
+    const allOverrides: {
+      lineId: string;
+      fromModelId: string;
+      toModelId: string;
+      changeoverMinutes: number;
+    }[] = [];
+
+    for (const lineId of lineIds) {
+      const overrides = await this.changeoverRepository.getLineOverrides(lineId);
+      for (const override of overrides) {
+        allOverrides.push({
+          lineId: override.lineId,
+          fromModelId: override.fromModelId,
+          toModelId: override.toModelId,
+          changeoverMinutes: override.changeoverMinutes,
+        });
+      }
+    }
+
+    return allOverrides;
   }
 
   /**

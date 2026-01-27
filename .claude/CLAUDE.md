@@ -49,8 +49,8 @@ For features that span multiple layers (like a new window):
 
 ## Current State
 
-**Version:** 0.4.3 (Phase 4.2 Complete)
-**Last Updated:** 2026-01-25
+**Version:** 0.5.0 (Phase 5 Complete)
+**Last Updated:** 2026-01-27
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
 ### Completed Phases
@@ -63,14 +63,16 @@ For features that span multiple layers (like a new window):
 | Phase 3.5 | Analysis Control Bar | ✅ Complete |
 | Phase 4.1 | Python Optimizer Algorithm | ✅ Complete |
 | Phase 4.2 | Results UI & Multi-Window | ✅ Complete |
+| Phase 5 | Changeover Matrix | ✅ Complete |
 
 ### Current Capabilities
 
-1. **Data Import**: Multi-sheet Excel import (Lines, Models, Compatibilities, Areas)
+1. **Data Import**: Multi-sheet Excel import (Lines, Models, Compatibilities, Areas, **Changeover**)
 2. **Canvas**: Interactive production line visualization with drag & drop
 3. **Analysis**: Python-based optimization with 17ms execution time
 4. **Multi-Window**: Timeline window auto-opens in separate window for multi-monitor setups
 5. **Results Panel**: Detailed utilization by area, line, and model with constraint drill-down
+6. **Changeover Matrix**: Three-tier resolution (Global → Family → Line) with Excel import and UI editor
 
 ---
 
@@ -138,7 +140,8 @@ Electron 28 + React 18 + TypeScript
 
 | Purpose | Location |
 |---------|----------|
-| Main documentation | `docs/phases/phase-3.5-summary.md` |
+| **Phase 5 Changeover** | `docs/phases/phase-5-changeover-matrix.md` |
+| Phase 3.5 Summary | `docs/phases/phase-3.5-summary.md` |
 | Excel import spec | `docs/phases/phase-3.4-summary.md` |
 | Python optimizer | `Optimizer/optimizer.py` |
 | Algorithm changelog | `Optimizer/CHANGELOG.md` |
@@ -149,16 +152,29 @@ Electron 28 + React 18 + TypeScript
 | Window handler | `src/main/ipc/handlers/window.handler.ts` |
 | Python bridge | `src/main/services/python/PythonBridge.ts` |
 | Data exporter | `src/main/services/analysis/DataExporter.ts` |
+| **Changeover types** | `src/shared/types/changeover.ts` |
+| **Changeover repository** | `src/main/database/repositories/SQLiteChangeoverRepository.ts` |
+| **Changeover handler** | `src/main/ipc/handlers/changeover.handler.ts` |
+| **Changeover store** | `src/renderer/features/changeover/store/useChangeoverStore.ts` |
+| **Changeover migrations** | `src/main/database/migrations/005_changeover.sql`, `006_fix_changeover_view.sql` |
 
 ---
 
 ## Database Schema
 
 ```sql
+-- Core tables
 production_lines          -- Line metadata (name, area, time_available_daily)
 product_models_v2         -- Model metadata (name, customer, program, family)
 product_volumes           -- Multi-year volumes (model_id, year, volume, operations_days)
 line_model_compatibilities -- Line-model pairs (cycle_time, efficiency, priority)
+
+-- Phase 5: Changeover tables ✅
+user_preferences              -- Global settings (changeover_default_minutes, smed_benchmark)
+family_changeover_defaults    -- Family-to-family default changeover times
+line_changeover_overrides     -- Line-specific changeover exceptions (sparse)
+changeover_method_configs     -- Calculation method preferences
+v_resolved_changeover_times   -- VIEW: Three-tier resolution (line > family > global)
 ```
 
 **Database location:** `~/Library/Application Support/Line Optimizer/line-optimizer.db`
@@ -186,6 +202,31 @@ adjusted_cycle_time = cycle_time / (efficiency / 100)
 max_units = available_time / adjusted_cycle_time
 allocated_units = min(max_units, daily_demand)
 ```
+
+### Changeover Matrix (Phase 5)
+
+**Problem**: Current optimizer assumes zero changeover time (unrealistic).
+
+**Solution**: N×N matrix per line capturing time to switch from Model A to Model B.
+
+**Three-Tier Resolution** (single database, priority lookup):
+1. **Line Override** (highest): Specific line+model pair → Use this value
+2. **Family Default** (medium): Family-to-family baseline → Use if no override
+3. **Global Default** (fallback): 30 minutes → Use if nothing else matches
+
+**Probability-Weighted Formula**:
+```python
+# Weight each transition by likelihood based on demand mix
+Expected_per_changeover = Σ P[i] × P[j] × Time[i,j] / (1 - HHI)
+Total_changeover_loss = Expected_per_changeover × num_changeovers
+
+# Where:
+# P[i] = proportion of demand for model i
+# HHI = Σ P[i]² (concentration index)
+# Time[i,j] = changeover time from model i to j (from matrix)
+```
+
+**Full specification**: `docs/phases/phase-5-changeover-matrix.md`
 
 ---
 
@@ -217,14 +258,52 @@ python3 Optimizer/test_priority_distribution.py
 - [x] Live updates to Timeline when re-running analysis
 - [x] Status badge in Canvas showing "Analysis Complete"
 
-## Next Steps (Phase 5)
+## Completed in Phase 5: Changeover Matrix ✅
 
+**Full specification**: `docs/phases/phase-5-changeover-matrix.md`
+
+### Phase 5.1: Foundation ✅
+- [x] TypeScript types (`src/shared/types/changeover.ts`)
+- [x] Database migration (`005_changeover.sql`, `006_fix_changeover_view.sql`)
+- [x] Repository (`SQLiteChangeoverRepository.ts`) + IPC handlers
+- [x] IPC channels registered in `preload.ts`
+
+### Phase 5.2: UI Components ✅
+- [x] Changeover button on canvas nodes
+- [x] Matrix editor modal (`ChangeoverMatrixModal.tsx`)
+- [x] Zustand store (`useChangeoverStore.ts`)
+
+### Phase 5.3: Excel Import ✅
+- [x] "Changeover" sheet detection and parsing in `MultiSheetImporter.ts`
+- [x] Validation in `MultiSheetValidator.ts`
+- [x] Import handler in `multi-sheet-excel.handler.ts`
+- [x] Test data: 433 family-to-family entries in test fixture
+
+### Phase 5.4: Optimizer Integration ✅
+- [x] Changeover data exported via `DataExporter.ts`
+- [x] Changeover impact calculated in `optimizer.py`
+- [x] Results shown in `ResultsPanel.tsx`
+
+## Future Phases
+
+### Phase 6: Enhanced Visualization
+- [ ] Canvas nodes colored by utilization (green/yellow/red)
+- [ ] Process flow visualization (connections/arrows between areas)
+
+### Phase 7: Scenario Management
+- [ ] Save/load analysis scenarios
+- [ ] Compare scenarios side-by-side
+- [ ] What-if analysis
+
+### Phase 8: Reports & Export
+- [ ] PDF report generation (executive summary)
+- [ ] Excel export (detailed results)
+- [ ] SMED priority report (top costly transitions)
+
+### Phase 9: Advanced Features
 - [ ] Progress streaming from Python to UI
-- [ ] Results update canvas nodes with utilization colors
-- [ ] Error handling improvements
-- [ ] Dashboard with KPIs and charts
-- [ ] Scenario comparison (save/load scenarios)
-- [ ] Export reports (PDF/Excel)
+- [ ] TSP-optimal sequencing method
+- [ ] Multi-year analysis dashboard
 
 ---
 

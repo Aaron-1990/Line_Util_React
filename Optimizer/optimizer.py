@@ -37,6 +37,14 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field, asdict
 
+# Import changeover calculation module
+try:
+    from changeover import registry, ChangeoverInput, ModelInfo
+    CHANGEOVER_AVAILABLE = True
+except ImportError:
+    CHANGEOVER_AVAILABLE = False
+    print("Warning: Changeover module not available, skipping changeover calculations")
+
 
 @dataclass
 class ModelAssignment:
@@ -175,11 +183,118 @@ def get_compatibilities_by_line(compatibilities: List[Dict]) -> Dict[str, List[D
     return result
 
 
+def calculate_changeover_for_line(
+    line: 'ProductionLine',
+    models_data: Dict[str, Dict],  # model_id -> {name, family}
+    changeover_data: Optional[Dict[str, Any]],
+    method_id: str = 'probability_weighted'
+) -> Optional[Dict[str, Any]]:
+    """
+    Calculate changeover impact for a single line.
+
+    Returns changeover result dict or None if not applicable.
+    """
+    if not CHANGEOVER_AVAILABLE or changeover_data is None:
+        return None
+
+    # Skip if less than 2 models assigned
+    if len(line.assignments) < 2:
+        return None
+
+    # Build model info list from assignments
+    model_infos = []
+    for assignment in line.assignments:
+        model_data = models_data.get(assignment.modelId, {})
+        model_infos.append(ModelInfo(
+            model_id=assignment.modelId,
+            model_name=assignment.modelName,
+            family=model_data.get('family', 'Unknown'),
+            allocated_units_daily=assignment.allocatedUnitsDaily,
+            demand_units_daily=assignment.demandUnitsDaily
+        ))
+
+    # Build changeover matrix for this line
+    # Priority: line_override > family_default > global_default
+    changeover_matrix: Dict[tuple, float] = {}
+    global_default = changeover_data.get('globalDefaultMinutes', 30)
+
+    # Index family defaults
+    family_defaults: Dict[tuple, float] = {}
+    for fd in changeover_data.get('familyDefaults', []):
+        key = (fd['fromFamily'], fd['toFamily'])
+        family_defaults[key] = fd['changeoverMinutes']
+
+    # Index line overrides for this line
+    line_overrides: Dict[tuple, float] = {}
+    for lo in changeover_data.get('lineOverrides', []):
+        if lo['lineId'] == line.id:
+            key = (lo['fromModelId'], lo['toModelId'])
+            line_overrides[key] = lo['changeoverMinutes']
+
+    # Build matrix for all model pairs
+    for from_model in model_infos:
+        for to_model in model_infos:
+            if from_model.model_id == to_model.model_id:
+                changeover_matrix[(from_model.model_id, to_model.model_id)] = 0
+                continue
+
+            key = (from_model.model_id, to_model.model_id)
+
+            # Priority lookup
+            if key in line_overrides:
+                changeover_matrix[key] = line_overrides[key]
+            else:
+                family_key = (from_model.family, to_model.family)
+                if family_key in family_defaults:
+                    changeover_matrix[key] = family_defaults[family_key]
+                else:
+                    changeover_matrix[key] = global_default
+
+    # Estimate number of changeovers per day
+    # Heuristic: (N-1) changeovers for N models, scaled by production diversity
+    num_models = len(model_infos)
+    estimated_changeovers = max(1, num_models - 1)
+
+    # Create changeover input
+    changeover_input = ChangeoverInput(
+        line_id=line.id,
+        line_name=line.name,
+        area=line.area,
+        models=model_infos,
+        changeover_matrix=changeover_matrix,
+        num_changeovers_per_day=estimated_changeovers,
+        time_available_daily=line.timeAvailableDaily
+    )
+
+    # Calculate using the registry
+    try:
+        result = registry.calculate(method_id, changeover_input)
+
+        # Calculate utilization with changeover
+        total_time_with_changeover = line.timeUsedDaily + result.time_used_changeover
+        util_with_changeover = (total_time_with_changeover / line.timeAvailableDaily * 100) \
+            if line.timeAvailableDaily > 0 else 0
+
+        return {
+            'timeUsedChangeover': round(result.time_used_changeover, 2),
+            'estimatedChangeoverCount': result.estimated_changeover_count,
+            'expectedChangeoverTime': round(result.expected_changeover_time, 2),
+            'utilizationWithChangeover': round(util_with_changeover, 2),
+            'changeoverImpactPercent': round(util_with_changeover - line.utilizationPercent, 2),
+            'methodUsed': method_id
+        }
+    except Exception as e:
+        print(f"Warning: Changeover calculation failed for {line.name}: {e}")
+        return None
+
+
 def run_optimization_for_year(
     lines_data: List[Dict],
     volumes_by_model: Dict[str, Dict],
     compats_by_line: Dict[str, List[Dict]],
-    year: int
+    year: int,
+    changeover_data: Optional[Dict[str, Any]] = None,
+    models_data: Optional[Dict[str, Dict]] = None
 ) -> Dict[str, Any]:
     """
     Run optimization for a single year.
@@ -401,8 +516,10 @@ def run_optimization_for_year(
 
     # Build result structure
     lines_result = []
+    changeover_method = changeover_data.get('calculationMethod', 'probability_weighted') if changeover_data else None
+
     for line in lines.values():
-        lines_result.append({
+        line_result = {
             'lineId': line.id,
             'lineName': line.name,
             'area': line.area,
@@ -411,7 +528,20 @@ def run_optimization_for_year(
             'timeUsedDaily': round(line.timeUsedDaily, 2),
             'utilizationPercent': round(line.utilizationPercent, 2),
             'assignments': [asdict(a) for a in line.assignments]
-        })
+        }
+
+        # Calculate changeover impact if available
+        if changeover_data and models_data:
+            changeover_result = calculate_changeover_for_line(
+                line=line,
+                models_data=models_data,
+                changeover_data=changeover_data,
+                method_id=changeover_method
+            )
+            if changeover_result:
+                line_result['changeover'] = changeover_result
+
+        lines_result.append(line_result)
 
     # Sort lines by name for consistent output
     lines_result.sort(key=lambda x: x['lineName'])
@@ -728,6 +858,27 @@ def main():
         # Index compatibilities by line
         compats_by_line = get_compatibilities_by_line(data['compatibilities'])
 
+        # Build models lookup for changeover calculations
+        models_data: Dict[str, Dict] = {}
+        for model in data['models']:
+            models_data[model['id']] = {
+                'name': model['name'],
+                'family': model.get('family', 'Unknown'),
+                'customer': model.get('customer', ''),
+                'program': model.get('program', '')
+            }
+
+        # Extract changeover data if present
+        changeover_data = data.get('changeover')
+        if changeover_data:
+            print(f"\nChangeover data loaded:")
+            print(f"  Global default: {changeover_data.get('globalDefaultMinutes', 30)} minutes")
+            print(f"  Calculation method: {changeover_data.get('calculationMethod', 'probability_weighted')}")
+            print(f"  Family defaults: {len(changeover_data.get('familyDefaults', []))}")
+            print(f"  Line overrides: {len(changeover_data.get('lineOverrides', []))}")
+        else:
+            print("\nNo changeover data provided - skipping changeover calculations")
+
         # Process each selected year
         year_results = []
         total_avg_util = 0.0
@@ -745,7 +896,9 @@ def main():
                 lines_data=data['lines'],
                 volumes_by_model=volumes_by_model,
                 compats_by_line=compats_by_line,
-                year=year
+                year=year,
+                changeover_data=changeover_data,
+                models_data=models_data
             )
 
             year_results.append(result)

@@ -11,6 +11,7 @@ import {
   ModelColumnMapping,
   CompatibilityColumnMapping,
   AreaColumnMapping,
+  ChangeoverColumnMapping,
   ExcelRow,
   DetectedSheets,
   YearColumnConfig,
@@ -117,6 +118,23 @@ export class MultiSheetImporter {
       }
     }
 
+    // Detect and parse Changeover sheet (family-to-family defaults)
+    const changeoverSheetName = this.findSheet(workbook.SheetNames, ['changeover', 'changeovers', 'cambio', 'cambios', 'setup', 'setups']);
+    if (changeoverSheetName) {
+      const data = this.parseSheet(workbook, changeoverSheetName);
+      const mapping = this.detectChangeoverColumns(data.headers);
+      if (mapping) {
+        result.changeover = {
+          rows: data.rows,
+          headers: data.headers,
+          sheetName: changeoverSheetName,
+          mapping,
+          rowCount: data.rows.length,
+        };
+        console.log('[MultiSheetImporter] Changeover sheet parsed:', data.rows.length, 'rows');
+      }
+    }
+
     return result;
   }
 
@@ -172,6 +190,17 @@ export class MultiSheetImporter {
       const data = this.parseSheet(workbook, compatSheetName);
       detected.compatibilities = {
         sheetName: compatSheetName,
+        rowCount: data.rows.length,
+        headers: data.headers,
+      };
+    }
+
+    // Detect Changeover sheet
+    const changeoverSheetName = this.findSheet(workbook.SheetNames, ['changeover', 'changeovers', 'cambio', 'cambios', 'setup', 'setups']);
+    if (changeoverSheetName) {
+      const data = this.parseSheet(workbook, changeoverSheetName);
+      detected.changeover = {
+        sheetName: changeoverSheetName,
         rowCount: data.rows.length,
         headers: data.headers,
       };
@@ -475,6 +504,52 @@ export class MultiSheetImporter {
   }
 
   /**
+   * Auto-detect column mapping for Changeover sheet (family-to-family defaults)
+   * Expected columns: From Family, To Family, Changeover Time (minutes)
+   */
+  static detectChangeoverColumns(headers: string[]): ChangeoverColumnMapping | null {
+    const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
+
+    const fromFamilyPatterns = ['fromfamily', 'from', 'defamilia', 'origen', 'source', 'familyorigen'];
+    const toFamilyPatterns = ['tofamily', 'to', 'afamilia', 'destino', 'target', 'familydestino'];
+    const changeoverPatterns = ['changeover', 'cambio', 'setup', 'time', 'tiempo', 'minutes', 'minutos', 'min'];
+
+    const findMatch = (patterns: string[]) => {
+      return headers.find(h => {
+        const normalized = normalize(h);
+        return patterns.some(p => normalized.includes(p));
+      }) || null;
+    };
+
+    const fromFamily = findMatch(fromFamilyPatterns);
+    const toFamily = findMatch(toFamilyPatterns);
+    const changeoverMinutes = findMatch(changeoverPatterns);
+
+    // All fields are required
+    if (!fromFamily || !toFamily || !changeoverMinutes) {
+      console.log('[MultiSheetImporter] Changeover column detection failed:', {
+        fromFamily,
+        toFamily,
+        changeoverMinutes,
+        headers,
+      });
+      return null;
+    }
+
+    console.log('[MultiSheetImporter] Changeover columns detected:', {
+      fromFamily,
+      toFamily,
+      changeoverMinutes,
+    });
+
+    return {
+      fromFamily,
+      toFamily,
+      changeoverMinutes,
+    };
+  }
+
+  /**
    * Check if file is multi-sheet (has more than one detectable sheet)
    */
   static isMultiSheet(filePath: string): boolean {
@@ -483,6 +558,7 @@ export class MultiSheetImporter {
     if (detected.lines) count++;
     if (detected.models) count++;
     if (detected.compatibilities) count++;
+    if (detected.changeover) count++;
     return count > 1;
   }
 

@@ -296,6 +296,11 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, a
                             {year} Utilizacion (%)
                           </th>
                         ))}
+                        {areaResults.years.map(year => (
+                          <th key={`changeover-${year}`} className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider border-l">
+                            {year} C/O Impact (%)
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -367,6 +372,37 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, a
                                     }}
                                   >
                                     {label}
+                                  </span>
+                                </div>
+                              </td>
+                            );
+                          })}
+                          {/* Changeover impact per year */}
+                          {areaResults.years.map(year => {
+                            const yearData = line.yearData.get(year);
+                            const changeover = yearData?.changeover;
+                            if (!changeover) {
+                              return (
+                                <td key={`changeover-${year}`} className="px-4 py-2 text-sm text-center text-gray-400 border-l">
+                                  -
+                                </td>
+                              );
+                            }
+                            const impact = changeover.changeoverImpactPercent;
+                            const utilWithChangeover = changeover.utilizationWithChangeover;
+                            // Color based on impact severity
+                            const impactColor = impact > 10 ? '#EF4444' : impact > 5 ? '#F59E0B' : '#22C55E';
+                            return (
+                              <td key={`changeover-${year}`} className="px-4 py-2 border-l">
+                                <div className="flex flex-col items-end gap-1">
+                                  <span
+                                    className="text-sm font-medium"
+                                    style={{ color: impactColor }}
+                                  >
+                                    +{impact.toFixed(1)}%
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    ({utilWithChangeover.toFixed(1)}% total)
                                   </span>
                                 </div>
                               </td>

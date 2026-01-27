@@ -20,6 +20,7 @@ import { SQLiteProductionLineRepository } from '../../database/repositories/SQLi
 import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLiteProductModelV2Repository';
 import { SQLiteLineModelCompatibilityRepository } from '../../database/repositories/SQLiteLineModelCompatibilityRepository';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
+import { SQLiteChangeoverRepository } from '../../database/repositories/SQLiteChangeoverRepository';
 import { ProductionLine, ProductModelV2, LineModelCompatibility, ProductVolume } from '@domain/entities';
 
 export function registerMultiSheetExcelHandlers(): void {
@@ -28,6 +29,7 @@ export function registerMultiSheetExcelHandlers(): void {
   const modelRepository = new SQLiteProductModelV2Repository(db);
   const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(db);
   const volumeRepository = new SQLiteProductVolumeRepository(db);
+  const changeoverRepository = new SQLiteChangeoverRepository(db);
 
   // ===== DETECT SHEETS =====
   ipcMain.handle(
@@ -50,6 +52,7 @@ export function registerMultiSheetExcelHandlers(): void {
           lines: detected.lines?.sheetName,
           models: detected.models?.sheetName,
           compatibilities: detected.compatibilities?.sheetName,
+          changeover: detected.changeover?.sheetName,
         });
 
         return {
@@ -88,6 +91,7 @@ export function registerMultiSheetExcelHandlers(): void {
           lines: parsed.lines?.rowCount || 0,
           models: parsed.models?.rowCount || 0,
           compatibilities: parsed.compatibilities?.rowCount || 0,
+          changeover: parsed.changeover?.rowCount || 0,
           availableSheets: parsed.availableSheets,
         });
 
@@ -137,6 +141,7 @@ export function registerMultiSheetExcelHandlers(): void {
           linesValid: validationResult.lines?.stats.valid || 0,
           modelsValid: validationResult.models?.stats.valid || 0,
           compatibilitiesValid: validationResult.compatibilities?.stats.valid || 0,
+          changeoverValid: validationResult.changeover?.stats.valid || 0,
           crossSheetErrors: validationResult.crossSheetErrors.length,
           isValid: validationResult.isValid,
         });
@@ -534,6 +539,53 @@ export function registerMultiSheetExcelHandlers(): void {
 
             result.compatibilities = { created, updated, errors };
             console.log('[Multi-Sheet Handler] Compatibilities imported:', result.compatibilities);
+          }
+
+          // 5. Import Changeover family defaults (if present)
+          if (validationResult.changeover && validationResult.changeover.validChangeovers.length > 0) {
+            console.log('[Multi-Sheet Handler] Importing changeover defaults:', validationResult.changeover.validChangeovers.length);
+
+            let created = 0;
+            let updated = 0;
+            let errors = 0;
+
+            for (const validChangeover of validationResult.changeover.validChangeovers) {
+              try {
+                // Check if this family pair already has a default
+                const existingDefault = await changeoverRepository.getFamilyDefault(
+                  validChangeover.fromFamily,
+                  validChangeover.toFamily
+                );
+                const exists = existingDefault !== null;
+
+                if (mode === 'create' && exists) {
+                  continue;
+                }
+
+                if (mode === 'update' && !exists) {
+                  continue;
+                }
+
+                // Set family default (this handles both create and update)
+                await changeoverRepository.setFamilyDefault(
+                  validChangeover.fromFamily,
+                  validChangeover.toFamily,
+                  validChangeover.changeoverMinutes
+                );
+
+                if (exists) {
+                  updated++;
+                } else {
+                  created++;
+                }
+              } catch (error) {
+                console.error(`[Multi-Sheet Handler] Error importing changeover ${validChangeover.fromFamily}->${validChangeover.toFamily}:`, error);
+                errors++;
+              }
+            }
+
+            result.changeover = { created, updated, errors };
+            console.log('[Multi-Sheet Handler] Changeover defaults imported:', result.changeover);
           }
 
           // Commit transaction

@@ -255,3 +255,43 @@ export const TIMELINE_EVENTS = {
   DATA_UPDATED: 'timeline:data-updated',
   WINDOW_CLOSED: 'timeline:window-closed',
 } as const;
+
+// Changeover Matrix (Phase 5)
+export const CHANGEOVER_CHANNELS = {
+  // Global Settings
+  GET_GLOBAL_DEFAULT: 'changeover:get-global-default',
+  SET_GLOBAL_DEFAULT: 'changeover:set-global-default',
+  GET_SMED_BENCHMARK: 'changeover:get-smed-benchmark',
+  SET_SMED_BENCHMARK: 'changeover:set-smed-benchmark',
+
+  // Family Defaults
+  GET_ALL_FAMILY_DEFAULTS: 'changeover:get-all-family-defaults',
+  GET_FAMILY_DEFAULT: 'changeover:get-family-default',
+  SET_FAMILY_DEFAULT: 'changeover:set-family-default',
+  DELETE_FAMILY_DEFAULT: 'changeover:delete-family-default',
+  BULK_SET_FAMILY_DEFAULTS: 'changeover:bulk-set-family-defaults',
+
+  // Line Overrides
+  GET_LINE_OVERRIDES: 'changeover:get-line-overrides',
+  GET_LINE_OVERRIDE: 'changeover:get-line-override',
+  SET_LINE_OVERRIDE: 'changeover:set-line-override',
+  DELETE_LINE_OVERRIDE: 'changeover:delete-line-override',
+  DELETE_ALL_LINE_OVERRIDES: 'changeover:delete-all-line-overrides',
+  BULK_SET_LINE_OVERRIDES: 'changeover:bulk-set-line-overrides',
+
+  // Resolved Times
+  GET_RESOLVED_TIMES: 'changeover:get-resolved-times',
+  GET_RESOLVED_TIME: 'changeover:get-resolved-time',
+
+  // Matrix
+  GET_MATRIX: 'changeover:get-matrix',
+  COPY_MATRIX: 'changeover:copy-matrix',
+
+  // Calculation Method
+  GET_CALCULATION_METHOD: 'changeover:get-calculation-method',
+  SET_CALCULATION_METHOD: 'changeover:set-calculation-method',
+
+  // Utilities
+  GET_ALL_FAMILIES: 'changeover:get-all-families',
+  GET_LINES_WITH_DATA: 'changeover:get-lines-with-data',
+} as const;

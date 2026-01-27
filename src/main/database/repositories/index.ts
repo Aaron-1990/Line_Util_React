@@ -11,3 +11,6 @@ export { SQLiteProductionVolumeRepository } from './SQLiteProductionVolumeReposi
 export { SQLiteProductModelV2Repository } from './SQLiteProductModelV2Repository';
 export { SQLiteLineModelCompatibilityRepository } from './SQLiteLineModelCompatibilityRepository';
 export { SQLiteProductVolumeRepository } from './SQLiteProductVolumeRepository';
+
+// Phase 5: Changeover
+export { SQLiteChangeoverRepository } from './SQLiteChangeoverRepository';

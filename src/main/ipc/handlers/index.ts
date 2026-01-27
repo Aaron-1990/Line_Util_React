@@ -15,6 +15,7 @@ import { registerModelsV2Handlers } from './models-v2.handler';
 import { registerCompatibilityHandlers } from './compatibility.handler';
 import { registerAnalysisHandlers } from './analysis.handler';
 import { registerWindowHandlers } from './window.handler';
+import { registerChangeoverHandlers } from './changeover.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -31,6 +32,7 @@ export function registerAllHandlers(): void {
   registerCompatibilityHandlers();
   registerAnalysisHandlers();
   registerWindowHandlers();
+  registerChangeoverHandlers();
 
   console.log('IPC handlers registered successfully');
 }

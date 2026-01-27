@@ -5,6 +5,8 @@
 
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
+import { Settings2 } from 'lucide-react';
+import { useChangeoverStore } from '../../../changeover/store/useChangeoverStore';
 
 interface ProductionLineData {
   id: string;
@@ -28,11 +30,17 @@ interface ProductionLineData {
 export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
   ({ data, selected }) => {
     const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(1);
+    const openChangeoverModal = useChangeoverStore((state) => state.openModal);
 
     // Efficiency (Blended OEE) will be calculated in Phase 4 after optimization
     // For now, show placeholder if not available
     const hasEfficiency = data.efficiency != null && !isNaN(data.efficiency) && data.efficiency > 0;
     const efficiencyDisplay = hasEfficiency ? `${(data.efficiency * 100).toFixed(0)}%` : '--';
+
+    const handleChangeoverClick = (e: React.MouseEvent) => {
+      e.stopPropagation(); // Prevent node selection
+      openChangeoverModal(data.id, data.name);
+    };
 
     return (
       <div
@@ -43,9 +51,19 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
         `}
       >
         {/* Header con status */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span className="font-semibold text-gray-900 text-sm">{data.name}</span>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-green-500" />
+            <span className="font-semibold text-gray-900 text-sm">{data.name}</span>
+          </div>
+          {/* Changeover button */}
+          <button
+            onClick={handleChangeoverClick}
+            className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            title="Edit changeover matrix"
+          >
+            <Settings2 className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Info secundaria */}
