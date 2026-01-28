@@ -4,10 +4,34 @@
 // Phase 5.2: UI Components
 // ============================================
 
-import { X, Save, RotateCcw, AlertTriangle, Clock, Layers } from 'lucide-react';
+import { X, Save, RotateCcw, AlertTriangle, Clock, Layers, Calculator } from 'lucide-react';
 import { useChangeoverStore } from '../store/useChangeoverStore';
 import { MatrixTable } from './MatrixTable';
 import { FamilyMatrixView } from './FamilyMatrixView';
+import type { ChangeoverMethodId } from '@shared/types/changeover';
+
+// Calculation method options with descriptions
+const CALCULATION_METHODS: {
+  id: ChangeoverMethodId;
+  name: string;
+  description: string;
+}[] = [
+  {
+    id: 'probability_weighted',
+    name: 'Probability-Weighted',
+    description: 'Weights changeover times by demand mix (Recommended)',
+  },
+  {
+    id: 'simple_average',
+    name: 'Simple Average',
+    description: 'Uses arithmetic mean of all changeover times',
+  },
+  {
+    id: 'worst_case',
+    name: 'Worst Case',
+    description: 'Uses maximum changeover time (Conservative)',
+  },
+];
 
 export const ChangeoverMatrixModal = () => {
   const {
@@ -17,12 +41,14 @@ export const ChangeoverMatrixModal = () => {
     viewMode,
     globalDefault,
     smedBenchmark,
+    calculationMethod,
     isLoading,
     isSaving,
     error,
     hasUnsavedChanges,
     closeModal,
     setViewMode,
+    setCalculationMethod,
     saveChanges,
     discardChanges,
     resetToFamilyDefaults,
@@ -102,6 +128,25 @@ export const ChangeoverMatrixModal = () => {
                 By Model
               </button>
             </div>
+          </div>
+
+          {/* Calculation Method Selector */}
+          <div className="flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-600">Method:</span>
+            <select
+              value={calculationMethod}
+              onChange={(e) => setCalculationMethod(e.target.value as ChangeoverMethodId)}
+              disabled={isSaving || isLoading}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-50"
+              title={CALCULATION_METHODS.find((m) => m.id === calculationMethod)?.description}
+            >
+              {CALCULATION_METHODS.map((method) => (
+                <option key={method.id} value={method.id}>
+                  {method.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Stats */}

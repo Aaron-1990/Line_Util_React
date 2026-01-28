@@ -250,10 +250,41 @@ def calculate_changeover_for_line(
                 else:
                     changeover_matrix[key] = global_default
 
-    # Estimate number of changeovers per day
-    # Heuristic: (N-1) changeovers for N models, scaled by production diversity
+    # Estimate number of changeovers per day using effective model count
+    # Theory: N_eff = 1/HHI gives "equivalent number of equal-sized models"
+    # Changeovers needed ≈ N_eff - 1, bounded by practical constraints
     num_models = len(model_infos)
-    estimated_changeovers = max(1, num_models - 1)
+
+    # Calculate demand proportions and HHI
+    total_allocated = sum(m.allocated_units_daily for m in model_infos)
+    if total_allocated > 0:
+        proportions = [m.allocated_units_daily / total_allocated for m in model_infos]
+        hhi = sum(p ** 2 for p in proportions)
+    else:
+        hhi = 1.0  # Single model equivalent if no demand
+
+    # Effective number of models (numbers equivalent from economics)
+    n_effective = 1.0 / hhi if hhi > 0 else num_models
+
+    # Base changeover count from effective models
+    base_changeovers = n_effective - 1
+
+    # Apply practical constraints
+    available_hours = line.timeAvailableDaily / 3600  # Convert seconds to hours
+    min_lot_hours = 1.0  # Minimum practical lot size = 1 hour
+    max_changeovers = 12  # Practical daily limit (equipment/operator fatigue)
+
+    estimated_changeovers = min(
+        base_changeovers,
+        num_models - 1,                              # Can't exceed actual models - 1
+        max(0, (available_hours / min_lot_hours) - 1),  # Lot size constraint
+        max_changeovers                              # Practical upper limit
+    )
+
+    # Floor: at least 1 if multiple meaningful models (>5% demand each)
+    meaningful_models = sum(1 for p in proportions if p > 0.05) if total_allocated > 0 else 0
+    if meaningful_models > 1:
+        estimated_changeovers = max(estimated_changeovers, 1.0)
 
     # Create changeover input
     changeover_input = ChangeoverInput(
@@ -281,11 +312,134 @@ def calculate_changeover_for_line(
             'expectedChangeoverTime': round(result.expected_changeover_time, 2),
             'utilizationWithChangeover': round(util_with_changeover, 2),
             'changeoverImpactPercent': round(util_with_changeover - line.utilizationPercent, 2),
-            'methodUsed': method_id
+            'methodUsed': method_id,
+            # New metrics for transparency (effective model count heuristic)
+            'hhi': round(hhi, 4),
+            'effectiveModels': round(n_effective, 2)
         }
     except Exception as e:
         print(f"Warning: Changeover calculation failed for {line.name}: {e}")
         return None
+
+
+def apply_changeover_capacity_reduction(
+    lines: Dict[str, 'ProductionLine'],
+    models_data: Dict[str, Dict],
+    changeover_data: Optional[Dict[str, Any]],
+    unfulfilled_demand_tracker: Dict[str, Dict[str, float]],
+    volumes_by_model: Dict[str, Dict],
+    lines_by_area: Dict[str, List[str]]
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Apply changeover time as a capacity constraint.
+
+    For each line:
+    1. Calculate expected changeover time based on assigned models
+    2. If (production_time + changeover_time) > available_time:
+       - Scale down production proportionally
+       - Track reduction as additional unfulfilled demand
+
+    Returns:
+        Dict mapping line_id to changeover results
+    """
+    if not CHANGEOVER_AVAILABLE or changeover_data is None:
+        return {}
+
+    changeover_results: Dict[str, Dict[str, Any]] = {}
+    method_id = changeover_data.get('calculationMethod', 'probability_weighted')
+
+    print(f"\n--- Applying Changeover Capacity Constraints ---")
+
+    for line_id, line in lines.items():
+        # Skip lines with less than 2 models (no changeover needed)
+        if len(line.assignments) < 2:
+            continue
+
+        # Calculate changeover for this line
+        changeover_result = calculate_changeover_for_line(
+            line=line,
+            models_data=models_data,
+            changeover_data=changeover_data,
+            method_id=method_id
+        )
+
+        if not changeover_result:
+            continue
+
+        changeover_time = changeover_result['timeUsedChangeover']  # in seconds
+        production_time = line.timeUsedDaily
+        total_time_needed = production_time + changeover_time
+        available_time = line.timeAvailableDaily
+
+        print(f"  {line.name}: production={production_time:.0f}s, changeover={changeover_time:.0f}s, total={total_time_needed:.0f}s, available={available_time:.0f}s")
+
+        # Check if we exceed capacity
+        if total_time_needed > available_time:
+            # Calculate scale factor to fit within available time
+            # We need: (production * scale) + changeover <= available
+            # So: scale <= (available - changeover) / production
+            net_available_for_production = available_time - changeover_time
+
+            if net_available_for_production <= 0:
+                # Changeover alone exceeds available time - extreme case
+                scale_factor = 0.1  # Keep 10% minimum
+                print(f"    WARNING: Changeover alone exceeds available time!")
+            else:
+                scale_factor = net_available_for_production / production_time
+
+            print(f"    OVER CAPACITY: scaling down by {scale_factor:.2%}")
+
+            # Scale down each assignment
+            time_reduction = 0.0
+            for assignment in line.assignments:
+                original_allocated = assignment.allocatedUnitsDaily
+                new_allocated = original_allocated * scale_factor
+                units_lost = original_allocated - new_allocated
+
+                # Update assignment
+                assignment.allocatedUnitsDaily = round(new_allocated, 2)
+
+                # Calculate time saved
+                adjusted_cycle_time = assignment.cycleTime / (assignment.efficiency / 100.0)
+                time_saved = units_lost * adjusted_cycle_time
+                time_reduction += time_saved
+
+                # Update fulfillment percent
+                if assignment.demandUnitsDaily > 0:
+                    assignment.fulfillmentPercent = round(
+                        (new_allocated / assignment.demandUnitsDaily) * 100, 2
+                    )
+
+                # Track as additional unfulfilled demand
+                if units_lost > 0.01:
+                    area = line.area
+                    if area not in unfulfilled_demand_tracker:
+                        unfulfilled_demand_tracker[area] = {}
+
+                    model_id = assignment.modelId
+                    if model_id not in unfulfilled_demand_tracker[area]:
+                        unfulfilled_demand_tracker[area][model_id] = 0.0
+                    unfulfilled_demand_tracker[area][model_id] += units_lost
+
+                    print(f"      {assignment.modelName}: {original_allocated:.0f} -> {new_allocated:.0f} (-{units_lost:.0f} units)")
+
+            # Update line's time used
+            line.timeUsedDaily -= time_reduction
+
+            # Recalculate changeover with updated assignments
+            changeover_result = calculate_changeover_for_line(
+                line=line,
+                models_data=models_data,
+                changeover_data=changeover_data,
+                method_id=method_id
+            )
+
+        if changeover_result:
+            # Store changeover result with capacity-adjusted flag
+            changeover_result['capacityAdjusted'] = total_time_needed > available_time
+            changeover_results[line_id] = changeover_result
+
+    return changeover_results
 
 
 def run_optimization_for_year(
@@ -306,7 +460,8 @@ def run_optimization_for_year(
        - Distribute the FULL demand for each model across lines in that area
        - Each area processes the complete volume (products go through all processes)
     3. Track remaining demand PER AREA (not globally)
-    4. Calculate unfulfilled demand and identify bottleneck area
+    4. Apply changeover constraints (reduce capacity if changeover exceeds available time)
+    5. Calculate unfulfilled demand and identify bottleneck area
     """
     print(f"\n{'='*60}")
     print(f"Processing year: {year}")
@@ -447,6 +602,20 @@ def run_optimization_for_year(
                 fulfillment = ((total_demand - remaining_units) / total_demand * 100) if total_demand > 0 else 0
                 print(f"  Unfulfilled: {model_name} - {remaining_units:.1f} units/day ({100-fulfillment:.1f}% unmet)")
 
+    # =========================================================================
+    # PHASE 2: Apply Changeover Capacity Constraints
+    # =========================================================================
+    # After initial allocation, calculate changeover time for each line.
+    # If (production + changeover) > available time, scale down production.
+    changeover_results = apply_changeover_capacity_reduction(
+        lines=lines,
+        models_data=models_data or {},
+        changeover_data=changeover_data,
+        unfulfilled_demand_tracker=unfulfilled_demand_tracker,
+        volumes_by_model=volumes_by_model,
+        lines_by_area=lines_by_area
+    )
+
     # Calculate summary statistics
     total_utilization = 0.0
     overloaded = 0
@@ -530,16 +699,9 @@ def run_optimization_for_year(
             'assignments': [asdict(a) for a in line.assignments]
         }
 
-        # Calculate changeover impact if available
-        if changeover_data and models_data:
-            changeover_result = calculate_changeover_for_line(
-                line=line,
-                models_data=models_data,
-                changeover_data=changeover_data,
-                method_id=changeover_method
-            )
-            if changeover_result:
-                line_result['changeover'] = changeover_result
+        # Use pre-calculated changeover from capacity reduction phase
+        if line.id in changeover_results:
+            line_result['changeover'] = changeover_results[line.id]
 
         lines_result.append(line_result)
 

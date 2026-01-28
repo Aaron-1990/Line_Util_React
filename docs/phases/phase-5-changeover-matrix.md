@@ -705,6 +705,153 @@ v_resolved_changeover_times   -- View that resolves three-tier hierarchy
 
 ---
 
+## Phase 5.5: Changeover Enhancements (2026-01-27)
+
+### Bug Fixes
+
+| Bug | Fix |
+|-----|-----|
+| Double-keypress in matrix editor | Replaced `useEffect` focus with callback ref for immediate input focus |
+
+### UI Improvements: Calculation Method Selector
+
+Users can now select the changeover calculation method directly in the Changeover Modal:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ View: [By Family][By Model]   🧮 Method: [▼ Probability-Weighted    ]  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Available Methods:**
+
+| Method | Description | Use Case |
+|--------|-------------|----------|
+| Probability-Weighted | Weights by demand mix (P[i] × P[j]) | Default for capacity planning |
+| Simple Average | Arithmetic mean of all changeover times | Fallback when demand unknown |
+| Worst Case | Uses maximum changeover time | Conservative risk analysis |
+
+### Algorithm Improvement: Effective Model Count Heuristic
+
+**Problem:** The original heuristic `num_changeovers = N - 1` was too simplistic. It didn't account for demand concentration.
+
+**Solution:** Use Effective Model Count based on HHI (Herfindahl-Hirschman Index):
+
+```python
+# Calculate HHI (concentration index)
+HHI = Σ P[i]²  # Where P[i] = demand proportion for model i
+
+# Effective number of equal-sized models
+N_eff = 1 / HHI
+
+# Base changeover count
+estimated_changeovers = N_eff - 1
+
+# Apply practical bounds
+estimated_changeovers = min(
+    N_eff - 1,
+    actual_models - 1,      # Can't exceed actual models
+    available_hours - 1,    # Lot size constraint (1hr min)
+    12                      # Practical daily limit
+)
+```
+
+**Behavior Examples:**
+
+| Scenario | Models | HHI | N_eff | Changeovers/day |
+|----------|--------|-----|-------|-----------------|
+| Balanced (5×20%) | 5 | 0.20 | 5.0 | 4.0 |
+| Dominated (70/10/10/5/5) | 5 | 0.51 | 1.9 | 1.0 |
+| Near-single (90/5/5) | 3 | 0.82 | 1.2 | 1.0 |
+| High-mix (10×10%) | 10 | 0.10 | 10.0 | 9.0 |
+
+**Theory:** This formula is grounded in economics (numbers equivalent) and information theory. It naturally adjusts for demand concentration - if one model dominates (high HHI), fewer changeovers are needed.
+
+### Algorithm Improvement: Changeover as Capacity Constraint
+
+**Problem:** Previously, changeover was calculated as an informational metric only. It showed "+X% impact" but didn't actually reduce production capacity.
+
+**Solution:** Two-phase allocation with capacity adjustment:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1: Initial Allocation                                             │
+│ • Allocate models to lines by priority                                  │
+│ • Uses full available time                                              │
+│ • Tracks initial unfulfilled demand                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PHASE 2: Changeover Capacity Constraints                                │
+│ • Calculate expected changeover time for each line                      │
+│ • If (production + changeover) > available time:                        │
+│   - Scale down production proportionally                                │
+│   - Track reduction as additional unfulfilled demand                    │
+│ • Recalculate changeover with adjusted assignments                      │
+└─────────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ PHASE 3: Results & Constraint Analysis                                  │
+│ • Final utilization includes changeover impact                          │
+│ • Identify system constraints                                           │
+│ • Build output JSON                                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Example Impact:**
+
+```
+Line: SMT-1 (57,600s = 16 hours available)
+├─ Initial allocation: 50,400s production (87.5%)
+├─ Changeover calculated: 10,800s (3 hours)
+├─ Total needed: 61,200s > 57,600s available
+├─ OVER CAPACITY → Scale factor = 0.77
+├─ Final production: 38,808s
+├─ Changeover: 8,316s (recalculated with fewer models)
+├─ Total: 47,124s (81.8% utilization)
+└─ Additional unfulfilled demand tracked
+```
+
+### New Output Fields
+
+The optimizer now returns additional metrics for transparency:
+
+```json
+{
+  "changeover": {
+    "timeUsedChangeover": 10800.0,
+    "estimatedChangeoverCount": 3.33,
+    "expectedChangeoverTime": 3240.0,
+    "utilizationWithChangeover": 95.5,
+    "changeoverImpactPercent": 8.2,
+    "methodUsed": "probability_weighted",
+    "hhi": 0.30,
+    "effectiveModels": 3.33,
+    "capacityAdjusted": true
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `hhi` | Herfindahl-Hirschman Index (0-1, higher = more concentrated) |
+| `effectiveModels` | Numbers equivalent = 1/HHI |
+| `capacityAdjusted` | `true` if production was scaled down due to changeover |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `Optimizer/optimizer.py` | Added `apply_changeover_capacity_reduction()` function |
+| `src/renderer/features/changeover/components/ChangeoverMatrixModal.tsx` | Added method selector dropdown |
+| `src/renderer/features/changeover/components/MatrixTable.tsx` | Fixed input focus with callback ref |
+| `src/renderer/features/changeover/components/FamilyMatrixView.tsx` | Fixed input focus with callback ref |
+| `src/renderer/features/changeover/store/useChangeoverStore.ts` | Added `setCalculationMethod` action |
+
+---
+
 ## Next Steps (Future Phases)
 
 ### Phase 6: Enhanced Visualization
@@ -737,6 +884,6 @@ v_resolved_changeover_times   -- View that resolves three-tier hierarchy
 
 ---
 
-**Document Version**: 2.0
+**Document Version**: 2.1
 **Last Updated**: 2026-01-27
-**Phase Status**: ✅ Complete
+**Phase Status**: ✅ Complete (including Phase 5.5 enhancements)

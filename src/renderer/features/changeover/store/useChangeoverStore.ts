@@ -74,6 +74,9 @@ export interface ChangeoverState {
 
   // Actions - Reset
   resetToFamilyDefaults: () => Promise<void>;
+
+  // Actions - Calculation Method
+  setCalculationMethod: (methodId: ChangeoverMethodId) => Promise<void>;
 }
 
 // ============================================
@@ -458,6 +461,32 @@ export const useChangeoverStore = create<ChangeoverState>((set, get) => ({
       }
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to reset' });
+    } finally {
+      set({ isSaving: false });
+    }
+  },
+
+  // ============================================
+  // CALCULATION METHOD ACTIONS
+  // ============================================
+
+  setCalculationMethod: async (methodId: ChangeoverMethodId) => {
+    set({ isSaving: true, error: null });
+
+    try {
+      const response = await window.electronAPI.invoke<void>(
+        CHANGEOVER_CHANNELS.SET_CALCULATION_METHOD,
+        'global',
+        methodId
+      );
+
+      if (response.success) {
+        set({ calculationMethod: methodId });
+      } else {
+        throw new Error(response.error || 'Failed to set calculation method');
+      }
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to save' });
     } finally {
       set({ isSaving: false });
     }

@@ -218,12 +218,24 @@ allocated_units = min(max_units, daily_demand)
 ```python
 # Weight each transition by likelihood based on demand mix
 Expected_per_changeover = Σ P[i] × P[j] × Time[i,j] / (1 - HHI)
+
+# Estimate changeovers using effective model count (Phase 5.5)
+N_eff = 1 / HHI  # Effective number of equal-sized models
+num_changeovers = (N_eff - 1), bounded by practical constraints
+
 Total_changeover_loss = Expected_per_changeover × num_changeovers
 
 # Where:
 # P[i] = proportion of demand for model i
 # HHI = Σ P[i]² (concentration index)
 # Time[i,j] = changeover time from model i to j (from matrix)
+```
+
+**Capacity-Reducing Behavior** (Phase 5.5):
+```
+Phase 1: Initial allocation (full available time)
+Phase 2: Calculate changeover → If over capacity, scale down production
+Phase 3: Track additional unfulfilled demand
 ```
 
 **Full specification**: `docs/phases/phase-5-changeover-matrix.md`
@@ -283,6 +295,50 @@ python3 Optimizer/test_priority_distribution.py
 - [x] Changeover data exported via `DataExporter.ts`
 - [x] Changeover impact calculated in `optimizer.py`
 - [x] Results shown in `ResultsPanel.tsx`
+
+### Phase 5.5: Changeover Enhancements ✅ (2026-01-27)
+
+**Bug Fixes:**
+- [x] Fixed matrix editor input focus timing (double-keypress bug) - callback ref instead of useEffect
+
+**UI Improvements:**
+- [x] Added calculation method selector dropdown in Changeover Modal
+- [x] Users can now choose: Probability-Weighted, Simple Average, or Worst Case
+- [x] Method preference saved to database via IPC
+
+**Algorithm Improvements (validated by Industrial Engineer agent):**
+
+1. **Improved Changeover Count Heuristic**:
+   ```python
+   # Old: estimated_changeovers = max(1, num_models - 1)  # Too simplistic
+   # New: Uses effective model count based on HHI
+   N_eff = 1 / HHI  # Effective number of equal-sized models
+   estimated_changeovers = (N_eff - 1), bounded by practical constraints
+   ```
+
+   | Scenario | HHI | N_eff | Changeovers/day |
+   |----------|-----|-------|-----------------|
+   | Balanced (5×20%) | 0.20 | 5.0 | 4.0 |
+   | Dominated (70/10/10/5/5) | 0.51 | 1.9 | 1.0 |
+   | High-mix (10×10%) | 0.10 | 10.0 | 9.0 |
+
+2. **Changeover as Capacity Constraint**:
+   - Previously: Changeover was informational only (didn't affect allocation)
+   - Now: Changeover **reduces available capacity**
+   - If (production + changeover) > available time → scale down production
+   - Additional unfulfilled demand tracked automatically
+
+**New Output Fields:**
+- `hhi` - Herfindahl-Hirschman Index (demand concentration)
+- `effectiveModels` - Numbers equivalent (1/HHI)
+- `capacityAdjusted` - Boolean flag if line was scaled down
+
+**Files Modified:**
+- `Optimizer/optimizer.py` - Added `apply_changeover_capacity_reduction()` function
+- `src/renderer/features/changeover/components/ChangeoverMatrixModal.tsx` - Method selector
+- `src/renderer/features/changeover/components/MatrixTable.tsx` - Focus fix
+- `src/renderer/features/changeover/components/FamilyMatrixView.tsx` - Focus fix
+- `src/renderer/features/changeover/store/useChangeoverStore.ts` - `setCalculationMethod` action
 
 ## Future Phases
 

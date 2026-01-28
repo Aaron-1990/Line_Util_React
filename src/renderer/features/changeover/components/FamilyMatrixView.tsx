@@ -4,7 +4,7 @@
 // Phase 5.2: UI Components
 // ============================================
 
-import { useState, useCallback, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useCallback, useRef, KeyboardEvent } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useChangeoverStore } from '../store/useChangeoverStore';
 
@@ -27,13 +27,14 @@ export const FamilyMatrixView = () => {
   const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus input when editing starts
-  useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+  // Callback ref to focus input immediately when it mounts
+  const setInputRef = useCallback((node: HTMLInputElement | null) => {
+    if (node) {
+      node.focus();
+      node.select();
     }
-  }, [editingCell]);
+    (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = node;
+  }, []);
 
   const toggleFamily = useCallback((family: string) => {
     setExpandedFamilies((prev) => {
@@ -220,7 +221,7 @@ export const FamilyMatrixView = () => {
                       >
                         {isEditing ? (
                           <input
-                            ref={inputRef}
+                            ref={setInputRef}
                             type="text"
                             value={editingCell.value}
                             onChange={(e) => handleInputChange(e.target.value)}
