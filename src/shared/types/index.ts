@@ -19,6 +19,7 @@ export interface ProductionLine {
   active: boolean;
   xPosition: number;
   yPosition: number;
+  changeoverEnabled: boolean;  // Phase 5.6: Per-line changeover toggle
   createdAt: Date;
   updatedAt: Date;
 }
@@ -645,6 +646,9 @@ export interface OptimizationInputData {
   changeover?: {
     globalDefaultMinutes: number;
     calculationMethod: 'probability_weighted' | 'simple_average' | 'worst_case';
+    // Phase 5.6: Toggle states
+    globalEnabled: boolean;  // Master toggle for changeover calculation
+    lineToggles: { [lineId: string]: boolean };  // Per-line toggle overrides
     familyDefaults: {
       fromFamily: string;
       toFamily: string;

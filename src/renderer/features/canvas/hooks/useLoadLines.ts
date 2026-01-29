@@ -28,6 +28,7 @@ export function useLoadLines() {
                 name: line.name,
                 area: line.area,
                 timeAvailableDaily: line.timeAvailableDaily,
+                changeoverEnabled: line.changeoverEnabled,  // Phase 5.6
                 assignedModelsCount: 0,
               },
             });

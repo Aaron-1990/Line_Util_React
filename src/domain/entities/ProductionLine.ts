@@ -26,6 +26,7 @@ export class ProductionLine {
     private _active: boolean,
     private _xPosition: number,
     private _yPosition: number,
+    private _changeoverEnabled: boolean,  // Phase 5.6
     private _createdAt: Date,
     private _updatedAt: Date
   ) {
@@ -41,6 +42,7 @@ export class ProductionLine {
     timeAvailableDaily: number;
     xPosition?: number;
     yPosition?: number;
+    changeoverEnabled?: boolean;  // Phase 5.6
   }): ProductionLine {
     return new ProductionLine(
       nanoid(),
@@ -51,6 +53,7 @@ export class ProductionLine {
       true,
       params.xPosition ?? 0,
       params.yPosition ?? 0,
+      params.changeoverEnabled ?? true,  // Phase 5.6: default ON
       new Date(),
       new Date()
     );
@@ -66,6 +69,7 @@ export class ProductionLine {
       data.active,
       data.xPosition,
       data.yPosition,
+      data.changeoverEnabled ?? true,  // Phase 5.6: default ON
       data.createdAt,
       data.updatedAt
     );
@@ -111,6 +115,10 @@ export class ProductionLine {
 
   get updatedAt(): Date {
     return this._updatedAt;
+  }
+
+  get changeoverEnabled(): boolean {
+    return this._changeoverEnabled;
   }
 
   // ===== Business Logic =====
@@ -179,6 +187,7 @@ export class ProductionLine {
       active: this._active,
       xPosition: this._xPosition,
       yPosition: this._yPosition,
+      changeoverEnabled: this._changeoverEnabled,  // Phase 5.6
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
     };

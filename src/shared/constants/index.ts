@@ -45,6 +45,7 @@ export const IPC_CHANNELS = {
   LINES_UPDATE: 'lines:update',
   LINES_DELETE: 'lines:delete',
   LINES_UPDATE_POSITION: 'lines:update-position',
+  LINES_UPDATE_CHANGEOVER_ENABLED: 'lines:update-changeover-enabled',  // Phase 5.6
 
   // Models
   MODELS_GET_ALL: 'models:get-all',
@@ -263,6 +264,10 @@ export const CHANGEOVER_CHANNELS = {
   SET_GLOBAL_DEFAULT: 'changeover:set-global-default',
   GET_SMED_BENCHMARK: 'changeover:get-smed-benchmark',
   SET_SMED_BENCHMARK: 'changeover:set-smed-benchmark',
+
+  // Phase 5.6: Toggle Controls
+  GET_GLOBAL_ENABLED: 'changeover:get-global-enabled',
+  SET_GLOBAL_ENABLED: 'changeover:set-global-enabled',
 
   // Family Defaults
   GET_ALL_FAMILY_DEFAULTS: 'changeover:get-all-family-defaults',

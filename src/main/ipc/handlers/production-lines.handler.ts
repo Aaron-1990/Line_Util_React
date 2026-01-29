@@ -192,4 +192,35 @@ export function registerProductionLinesHandlers(): void {
       }
     }
   );
+
+  // Phase 5.6: Per-line changeover toggle
+  ipcMain.handle(
+    IPC_CHANNELS.LINES_UPDATE_CHANGEOVER_ENABLED,
+    async (_event, id: string, enabled: boolean): Promise<ApiResponse<void>> => {
+      try {
+        console.log(`[Lines Handler] Updating changeover enabled for line ${id}: ${enabled}`);
+
+        const line = await repository.findById(id);
+        if (!line) {
+          return {
+            success: false,
+            error: 'Line not found',
+          };
+        }
+
+        await repository.updateChangeoverEnabled(id, enabled);
+
+        return {
+          success: true,
+          message: 'Changeover toggle updated successfully',
+        };
+      } catch (error) {
+        console.error('Error updating changeover enabled:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
 }

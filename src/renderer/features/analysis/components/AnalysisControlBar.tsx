@@ -7,6 +7,7 @@
 import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { DataStatusPanel } from './DataStatusPanel';
+import { ChangeoverToggle } from './ChangeoverToggle';
 import { YearRangeSelector } from './YearRangeSelector';
 import { RunAnalysisButton } from './RunAnalysisButton';
 import { useAnalysisStore } from '../store/useAnalysisStore';
@@ -29,7 +30,7 @@ export const AnalysisControlBar = () => {
       <div className="bg-white border-t border-gray-200 shadow-lg">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
-            {/* Left Section: Data Status */}
+            {/* Left Section: Data Status + Changeover Toggle */}
             <div className="flex items-center gap-4">
               <DataStatusPanel />
 
@@ -42,6 +43,12 @@ export const AnalysisControlBar = () => {
               >
                 <RefreshCw className={`w-4 h-4 ${isDataLoading ? 'animate-spin' : ''}`} />
               </button>
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-gray-200" />
+
+              {/* Phase 5.6: Global Changeover Toggle */}
+              <ChangeoverToggle />
             </div>
 
             {/* Center Section: Year Range Selector */}

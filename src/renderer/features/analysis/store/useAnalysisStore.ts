@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { OptimizationResult, RunOptimizationRequest, AreaCatalogItem } from '@shared/types';
-import { ANALYSIS_CHANNELS, IPC_CHANNELS } from '@shared/constants';
+import { ANALYSIS_CHANNELS, IPC_CHANNELS, CHANGEOVER_CHANNELS } from '@shared/constants';
 
 // ===== Types =====
 
@@ -42,6 +42,9 @@ interface AnalysisState {
   // Area Catalog (for ordering)
   areaCatalog: AreaCatalogItem[];
 
+  // Phase 5.6: Global changeover toggle
+  globalChangeoverEnabled: boolean;
+
   // Available Years (from database)
   availableYears: number[];
   yearRange: { min: number; max: number } | null;
@@ -66,6 +69,10 @@ interface AnalysisState {
   setDataLoading: (loading: boolean) => void;
   setDataError: (error: string | null) => void;
   setAreaCatalog: (areas: AreaCatalogItem[]) => void;
+
+  // Phase 5.6: Global changeover toggle
+  setGlobalChangeoverEnabled: (enabled: boolean) => Promise<void>;
+  loadGlobalChangeoverEnabled: () => Promise<void>;
 
   // Actions - Years
   setAvailableYears: (years: number[]) => void;
@@ -151,6 +158,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
   areaCatalog: [],
 
+  // Phase 5.6: Global changeover toggle (default ON)
+  globalChangeoverEnabled: true,
+
   availableYears: [],
   yearRange: null,
 
@@ -180,6 +190,35 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   setDataError: (error) => set({ dataError: error }),
 
   setAreaCatalog: (areas) => set({ areaCatalog: areas }),
+
+  // ===== Phase 5.6: Global Changeover Toggle =====
+
+  setGlobalChangeoverEnabled: async (enabled) => {
+    try {
+      const response = await window.electronAPI.invoke<void>(
+        CHANGEOVER_CHANNELS.SET_GLOBAL_ENABLED,
+        enabled
+      );
+      if (response.success) {
+        set({ globalChangeoverEnabled: enabled });
+      }
+    } catch (error) {
+      console.error('Failed to set global changeover enabled:', error);
+    }
+  },
+
+  loadGlobalChangeoverEnabled: async () => {
+    try {
+      const response = await window.electronAPI.invoke<boolean>(
+        CHANGEOVER_CHANNELS.GET_GLOBAL_ENABLED
+      );
+      if (response.success && response.data !== undefined) {
+        set({ globalChangeoverEnabled: response.data });
+      }
+    } catch (error) {
+      console.error('Failed to load global changeover enabled:', error);
+    }
+  },
 
   // ===== Year Actions =====
 
@@ -340,8 +379,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     setDataError(null);
 
     try {
-      // Fetch all counts in parallel
-      const [linesRes, modelsRes, volumesRes, compatsRes, yearsRes, rangeRes, areasRes] = await Promise.all([
+      // Fetch all counts in parallel (including global changeover toggle)
+      const [linesRes, modelsRes, volumesRes, compatsRes, yearsRes, rangeRes, areasRes, changeoverEnabledRes] = await Promise.all([
         window.electronAPI.invoke<unknown[]>('lines:get-all'),
         window.electronAPI.invoke<unknown[]>('models-v2:get-all'),
         window.electronAPI.invoke<unknown[]>('product-volumes:get-all'),
@@ -349,6 +388,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         window.electronAPI.invoke<number[]>('product-volumes:get-available-years'),
         window.electronAPI.invoke<{ min: number; max: number } | null>('product-volumes:get-year-range'),
         window.electronAPI.invoke<AreaCatalogItem[]>(IPC_CHANNELS.CATALOG_AREAS_GET_ALL),
+        window.electronAPI.invoke<boolean>(CHANGEOVER_CHANNELS.GET_GLOBAL_ENABLED),
       ]);
 
       // Extract counts
@@ -374,6 +414,11 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       // Set area catalog for ordering
       if (areasRes.success && Array.isArray(areasRes.data)) {
         setAreaCatalog(areasRes.data);
+      }
+
+      // Phase 5.6: Set global changeover enabled
+      if (changeoverEnabledRes.success && changeoverEnabledRes.data !== undefined) {
+        set({ globalChangeoverEnabled: changeoverEnabledRes.data });
       }
     } catch (error) {
       setDataError(error instanceof Error ? error.message : 'Failed to load data');

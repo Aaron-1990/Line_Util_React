@@ -49,8 +49,8 @@ For features that span multiple layers (like a new window):
 
 ## Current State
 
-**Version:** 0.5.0 (Phase 5 Complete)
-**Last Updated:** 2026-01-27
+**Version:** 0.5.6 (Phase 5.6 Complete)
+**Last Updated:** 2026-01-28
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
 ### Completed Phases
@@ -64,6 +64,8 @@ For features that span multiple layers (like a new window):
 | Phase 4.1 | Python Optimizer Algorithm | ✅ Complete |
 | Phase 4.2 | Results UI & Multi-Window | ✅ Complete |
 | Phase 5 | Changeover Matrix | ✅ Complete |
+| Phase 5.5 | Changeover Capacity Constraints | ✅ Complete |
+| Phase 5.6 | Changeover Toggle Controls | ✅ Complete |
 
 ### Current Capabilities
 
@@ -140,7 +142,8 @@ Electron 28 + React 18 + TypeScript
 
 | Purpose | Location |
 |---------|----------|
-| **Phase 5 Changeover** | `docs/phases/phase-5-changeover-matrix.md` |
+| **Phase 5.6 Toggle Controls** | `docs/phases/phase-5.6-changeover-toggle-controls.md` |
+| Phase 5 Changeover | `docs/phases/phase-5-changeover-matrix.md` |
 | Phase 3.5 Summary | `docs/phases/phase-3.5-summary.md` |
 | Excel import spec | `docs/phases/phase-3.4-summary.md` |
 | Python optimizer | `Optimizer/optimizer.py` |
@@ -340,10 +343,81 @@ python3 Optimizer/test_priority_distribution.py
 - `src/renderer/features/changeover/components/FamilyMatrixView.tsx` - Focus fix
 - `src/renderer/features/changeover/store/useChangeoverStore.ts` - `setCalculationMethod` action
 
+## Phase 5.6: Changeover Toggle Controls ✅ (2026-01-28)
+
+**Full specification**: `docs/phases/phase-5.6-changeover-toggle-controls.md`
+
+### Feature Overview
+
+Toggle controls for changeover calculation at two levels:
+1. **Global Toggle** (Analysis Control Bar): Enable/disable changeover for entire analysis
+2. **Per-Line Toggle** (Canvas Nodes): Enable/disable changeover for specific lines
+
+### Toggle Hierarchy (True Override)
+
+| Global | Line | Result |
+|--------|------|--------|
+| OFF | OFF | No changeover (theoretical) |
+| OFF | **ON** | Changeover calculated (critical override) |
+| ON | OFF | No changeover (exclusion) |
+| ON | ON | Changeover calculated (realistic) |
+
+### Stacked Bar Visualization
+
+Canvas nodes show time allocation after analysis:
+```
+┌─────────────────────────────────────┐
+│  SMT Line 1                🔴 🔄   │
+│  ██████████████░░░░░░░░░░  87%     │
+│   Production  CO    Available      │
+│     70.5%    16.5%    13%          │
+└─────────────────────────────────────┘
+```
+
+**Color Scheme:**
+- Blue (`#3B82F6`): Production time
+- Amber (`#F59E0B`): Changeover time
+- Gray (`#E5E7EB`): Available capacity
+
+**Border Color by Utilization:**
+- Gray: < 70% (underutilized)
+- Blue: 70-85% (healthy)
+- Amber: 85-95% (approaching constraint)
+- Red: > 95% (at/over capacity)
+
+### Implementation Tasks
+
+- [x] Database migration (`007_changeover_toggles.sql`)
+- [x] Per-line `changeover_enabled` column
+- [x] Global `changeover_global_enabled` preference
+- [x] IPC handlers for toggle state
+- [x] Global toggle in Analysis Control Bar
+- [x] Per-line toggle icon on canvas nodes
+- [x] Stacked bar visualization
+- [x] Optimizer respects toggle flags
+
+**Files Added:**
+- `src/main/database/migrations/007_changeover_toggles.sql`
+- `src/renderer/features/analysis/components/ChangeoverToggle.tsx`
+
+**Files Modified:**
+- `src/shared/types/index.ts` - Added `changeoverEnabled` to ProductionLine, toggle states to changeover data
+- `src/shared/constants/index.ts` - Added IPC channels for toggle operations
+- `src/domain/entities/ProductionLine.ts` - Added `changeoverEnabled` field
+- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Added toggle methods
+- `src/main/database/repositories/SQLiteChangeoverRepository.ts` - Added global toggle methods
+- `src/main/ipc/handlers/production-lines.handler.ts` - Added per-line toggle handler
+- `src/main/ipc/handlers/changeover.handler.ts` - Added global toggle handlers
+- `src/main/services/analysis/DataExporter.ts` - Export toggle states to Python
+- `Optimizer/optimizer.py` - Added `should_calculate_changeover()` function
+- `src/renderer/features/analysis/store/useAnalysisStore.ts` - Global toggle state
+- `src/renderer/features/analysis/components/AnalysisControlBar.tsx` - Added ChangeoverToggle
+- `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Per-line toggle + stacked bar
+- `src/renderer/features/canvas/hooks/useLoadLines.ts` - Load changeoverEnabled
+
 ## Future Phases
 
 ### Phase 6: Enhanced Visualization
-- [ ] Canvas nodes colored by utilization (green/yellow/red)
 - [ ] Process flow visualization (connections/arrows between areas)
 
 ### Phase 7: Scenario Management

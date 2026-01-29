@@ -128,6 +128,36 @@ export class SQLiteChangeoverRepository {
   }
 
   // ============================================
+  // GLOBAL CHANGEOVER TOGGLE (Phase 5.6)
+  // ============================================
+
+  async getGlobalEnabled(): Promise<boolean> {
+    const row = this.db
+      .prepare('SELECT value FROM user_preferences WHERE key = ?')
+      .get('changeover_global_enabled') as { value: string } | undefined;
+
+    // Default to true (enabled) if not found
+    return row ? row.value === '1' : true;
+  }
+
+  async setGlobalEnabled(enabled: boolean): Promise<void> {
+    this.db
+      .prepare(
+        `INSERT INTO user_preferences (id, key, value, description, created_at, updated_at)
+         VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET
+           value = excluded.value,
+           updated_at = datetime('now')`
+      )
+      .run(
+        'pref-changeover-global-enabled',
+        'changeover_global_enabled',
+        enabled ? '1' : '0',
+        'Global toggle for changeover calculation (1=ON, 0=OFF)'
+      );
+  }
+
+  // ============================================
   // FAMILY CHANGEOVER DEFAULTS
   // ============================================
 

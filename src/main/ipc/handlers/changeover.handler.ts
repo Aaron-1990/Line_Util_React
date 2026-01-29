@@ -104,6 +104,49 @@ export function registerChangeoverHandlers(): void {
   );
 
   // ============================================
+  // GLOBAL CHANGEOVER TOGGLE (Phase 5.6)
+  // ============================================
+
+  ipcMain.handle(
+    CHANGEOVER_CHANNELS.GET_GLOBAL_ENABLED,
+    async (): Promise<ApiResponse<boolean>> => {
+      try {
+        console.log('[Changeover Handler] Getting global enabled');
+        const enabled = await changeoverRepository.getGlobalEnabled();
+        return { success: true, data: enabled };
+      } catch (error) {
+        console.error('[Changeover Handler] Get global enabled error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  ipcMain.handle(
+    CHANGEOVER_CHANNELS.SET_GLOBAL_ENABLED,
+    async (_event, enabled: boolean): Promise<ApiResponse<void>> => {
+      try {
+        console.log('[Changeover Handler] Setting global enabled:', enabled);
+
+        if (typeof enabled !== 'boolean') {
+          return { success: false, error: 'Invalid enabled value (must be boolean)' };
+        }
+
+        await changeoverRepository.setGlobalEnabled(enabled);
+        return { success: true, data: undefined };
+      } catch (error) {
+        console.error('[Changeover Handler] Set global enabled error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ============================================
   // FAMILY DEFAULTS
   // ============================================
 

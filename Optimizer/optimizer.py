@@ -183,6 +183,34 @@ def get_compatibilities_by_line(compatibilities: List[Dict]) -> Dict[str, List[D
     return result
 
 
+def should_calculate_changeover(line_id: str, changeover_data: Optional[Dict[str, Any]]) -> bool:
+    """
+    Phase 5.6: Determine if changeover should be calculated for a line.
+
+    Toggle Hierarchy (True Override):
+    | Global | Line | Result |
+    |--------|------|--------|
+    | OFF | OFF | No changeover |
+    | OFF | ON  | Changeover calculated (critical override) |
+    | ON  | OFF | No changeover (exclusion) |
+    | ON  | ON  | Changeover calculated |
+
+    The per-line toggle is the TRUE override - it always wins.
+    """
+    if changeover_data is None:
+        return False
+
+    # Get toggle states
+    global_enabled = changeover_data.get('globalEnabled', True)  # Default ON
+    line_toggles = changeover_data.get('lineToggles', {})
+    line_enabled = line_toggles.get(line_id, True)  # Default ON (follows global)
+
+    # Per-line toggle is the true override
+    # If line is explicitly OFF, no changeover regardless of global
+    # If line is ON, calculate changeover regardless of global
+    return line_enabled
+
+
 def calculate_changeover_for_line(
     line: 'ProductionLine',
     models_data: Dict[str, Dict],  # model_id -> {name, family}
@@ -195,6 +223,10 @@ def calculate_changeover_for_line(
     Returns changeover result dict or None if not applicable.
     """
     if not CHANGEOVER_AVAILABLE or changeover_data is None:
+        return None
+
+    # Phase 5.6: Check toggle state
+    if not should_calculate_changeover(line.id, changeover_data):
         return None
 
     # Skip if less than 2 models assigned
@@ -353,6 +385,11 @@ def apply_changeover_capacity_reduction(
     for line_id, line in lines.items():
         # Skip lines with less than 2 models (no changeover needed)
         if len(line.assignments) < 2:
+            continue
+
+        # Phase 5.6: Skip if changeover is disabled for this line
+        if not should_calculate_changeover(line_id, changeover_data):
+            print(f"  {line.name}: changeover DISABLED by toggle")
             continue
 
         # Calculate changeover for this line
@@ -1036,6 +1073,12 @@ def main():
             print(f"\nChangeover data loaded:")
             print(f"  Global default: {changeover_data.get('globalDefaultMinutes', 30)} minutes")
             print(f"  Calculation method: {changeover_data.get('calculationMethod', 'probability_weighted')}")
+            # Phase 5.6: Toggle states
+            global_enabled = changeover_data.get('globalEnabled', True)
+            line_toggles = changeover_data.get('lineToggles', {})
+            lines_disabled = sum(1 for v in line_toggles.values() if not v)
+            print(f"  Global toggle: {'ON' if global_enabled else 'OFF'}")
+            print(f"  Line toggles: {len(line_toggles)} lines, {lines_disabled} disabled")
             print(f"  Family defaults: {len(changeover_data.get('familyDefaults', []))}")
             print(f"  Line overrides: {len(changeover_data.get('lineOverrides', []))}")
         else:

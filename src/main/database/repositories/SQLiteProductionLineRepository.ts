@@ -16,6 +16,7 @@ interface LineRow {
   active: number;
   x_position: number;
   y_position: number;
+  changeover_enabled: number | null;  // Phase 5.6
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +34,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
       active: Boolean(row.active),
       xPosition: row.x_position,
       yPosition: row.y_position,
+      changeoverEnabled: row.changeover_enabled !== 0,  // Phase 5.6: default true if null
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });
@@ -144,5 +146,29 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
     this.db
       .prepare('UPDATE production_lines SET x_position = ?, y_position = ? WHERE id = ?')
       .run(x, y, id);
+  }
+
+  /**
+   * Phase 5.6: Update changeover toggle for a specific line
+   */
+  async updateChangeoverEnabled(id: string, enabled: boolean): Promise<void> {
+    this.db
+      .prepare('UPDATE production_lines SET changeover_enabled = ? WHERE id = ?')
+      .run(enabled ? 1 : 0, id);
+  }
+
+  /**
+   * Phase 5.6: Get all lines with their changeover toggle states
+   */
+  async getChangeoverToggles(): Promise<{ [lineId: string]: boolean }> {
+    const rows = this.db
+      .prepare('SELECT id, changeover_enabled FROM production_lines WHERE active = 1')
+      .all() as { id: string; changeover_enabled: number | null }[];
+
+    const toggles: { [lineId: string]: boolean } = {};
+    for (const row of rows) {
+      toggles[row.id] = row.changeover_enabled !== 0;  // default true if null
+    }
+    return toggles;
   }
 }

@@ -87,16 +87,21 @@ export class DataExporter {
     console.log(`[DataExporter] Exported ${compatibilitiesData.length} compatibilities`);
 
     // 5. Get changeover data
-    const [globalDefault, familyDefaults, lineOverrides, methodConfig] = await Promise.all([
+    const [globalDefault, familyDefaults, lineOverrides, methodConfig, globalEnabled, lineToggles] = await Promise.all([
       this.changeoverRepository.getGlobalDefault(),
       this.changeoverRepository.getAllFamilyDefaults(),
       this.getLineOverridesForAllLines(lines.map(l => l.id)),
       this.changeoverRepository.getCalculationMethod('global'),
+      this.changeoverRepository.getGlobalEnabled(),
+      this.lineRepository.getChangeoverToggles(),
     ]);
 
     const changeoverData = {
       globalDefaultMinutes: globalDefault,
       calculationMethod: methodConfig.methodId as 'probability_weighted' | 'simple_average' | 'worst_case',
+      // Phase 5.6: Toggle states
+      globalEnabled: globalEnabled,
+      lineToggles: lineToggles,
       familyDefaults: familyDefaults.map(fd => ({
         fromFamily: fd.fromFamily,
         toFamily: fd.toFamily,
@@ -104,7 +109,7 @@ export class DataExporter {
       })),
       lineOverrides: lineOverrides,
     };
-    console.log(`[DataExporter] Exported changeover data: ${familyDefaults.length} family defaults, ${lineOverrides.length} line overrides`);
+    console.log(`[DataExporter] Exported changeover data: ${familyDefaults.length} family defaults, ${lineOverrides.length} line overrides, globalEnabled=${globalEnabled}`);
 
     const result: OptimizationInputData = {
       lines: linesData,
