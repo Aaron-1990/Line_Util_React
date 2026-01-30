@@ -384,28 +384,36 @@ The stacked bar visualization on canvas nodes displays data from the **first sel
 
 **Future Enhancement**: Consider adding a year selector or showing multiple years in a condensed view.
 
-### Toggle Logic (MVP)
+### Toggle Logic (True Override - Phase 5.6.1)
 
-The current implementation uses simplified toggle logic:
+The implementation uses **true override** logic with explicit tracking:
 
-| Global | Line | Result | Explanation |
-|--------|------|--------|-------------|
-| OFF | OFF | No changeover | Theoretical capacity view |
-| OFF | ON | No changeover | Global OFF = master switch |
-| ON | OFF | No changeover | Per-line exclusion works |
-| ON | ON | Changeover calculated | Realistic capacity view |
+| Global | Line | Explicit | Result | Explanation |
+|--------|------|----------|--------|-------------|
+| OFF | OFF | - | No changeover | Theoretical capacity view |
+| OFF | ON | false | No changeover | Follows global setting |
+| OFF | ON | **true** | **Changeover calculated** | CRITICAL OVERRIDE |
+| ON | OFF | - | No changeover | Per-line exclusion works |
+| ON | ON | - | Changeover calculated | Realistic capacity view |
 
-**MVP Decision**: When global is OFF, no changeover is calculated for ANY line. This provides clear "theoretical vs. realistic" comparison.
+**Critical Override Feature**: When a user explicitly enables changeover on a line (by clicking the toggle), it sets `changeoverExplicit = true`. This allows that line to calculate changeover **even when global is OFF**, enabling focused analysis of specific bottleneck lines.
 
-**Future Enhancement**: Track explicit per-line overrides to enable "critical override" feature (calculate changeover for specific lines even when global is OFF).
+**Use Case**: Turn global OFF for theoretical capacity, then enable specific lines (like critical bottlenecks) to see their changeover impact in isolation.
 
 ### Visual Feedback
 
-When global changeover is OFF:
-- All per-line toggle icons become **dimmed** (gray, 50% opacity)
-- Icons show `TimerOff` state
-- Buttons are **disabled** (cannot click)
-- Tooltip explains: "Global changeover is OFF - enable in control bar first"
+**When global changeover is OFF:**
+- Per-line toggle icons are **gray** but remain **clickable**
+- Tooltip explains: "Global changeover is OFF. Click to set as critical override."
+
+**Critical Override indicator:**
+- Lines with explicit override show **red ring** around the timer icon
+- Icon shows Timer (enabled) state with red color
+- Tooltip: "CRITICAL OVERRIDE: Changeover calculated even though global is OFF"
+
+**When global changeover is ON:**
+- Enabled lines show **amber** timer icon
+- Disabled lines show **gray** timer off icon
 
 ---
 
@@ -430,6 +438,24 @@ return line_enabled  # Global ON = per-line controls
 
 **Commit**: `4caa128`
 
+### Enhancement: Critical Override (Phase 5.6.1 - 2026-01-29)
+
+**Feature**: Allow per-line changeover toggles to act as "true overrides" in both directions.
+
+**Implementation**:
+1. Added `changeover_explicit` column to `production_lines` table (migration 008)
+2. When user clicks a per-line toggle, sets `changeover_explicit = 1`
+3. Python optimizer checks explicit flag: if global OFF but line is ON + explicit → calculate changeover
+4. UI shows critical override with red ring indicator
+
+**Files Modified**:
+- `src/main/database/migrations/008_changeover_explicit.sql` - New migration
+- `src/shared/types/index.ts` - Added `changeoverExplicit` to types
+- `src/domain/entities/ProductionLine.ts` - Added field
+- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Updated toggle methods
+- `Optimizer/optimizer.py` - True override logic in `should_calculate_changeover()`
+- `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Critical override UI
+
 ---
 
 ## Related Documents
@@ -439,6 +465,6 @@ return line_enabled  # Global ON = per-line controls
 
 ---
 
-**Document Version**: 1.1
-**Last Updated**: 2026-01-28
-**Phase Status**: ✅ Complete
+**Document Version**: 1.2
+**Last Updated**: 2026-01-29
+**Phase Status**: ✅ Complete (including Phase 5.6.1 Critical Override)

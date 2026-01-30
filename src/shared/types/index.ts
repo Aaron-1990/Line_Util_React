@@ -20,6 +20,7 @@ export interface ProductionLine {
   xPosition: number;
   yPosition: number;
   changeoverEnabled: boolean;  // Phase 5.6: Per-line changeover toggle
+  changeoverExplicit: boolean; // Phase 5.6.1: True if user explicitly set toggle (override)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -648,7 +649,7 @@ export interface OptimizationInputData {
     calculationMethod: 'probability_weighted' | 'simple_average' | 'worst_case';
     // Phase 5.6: Toggle states
     globalEnabled: boolean;  // Master toggle for changeover calculation
-    lineToggles: { [lineId: string]: boolean };  // Per-line toggle overrides
+    lineToggles: { [lineId: string]: { enabled: boolean; explicit: boolean } };  // Per-line toggle with explicit flag
     familyDefaults: {
       fromFamily: string;
       toFamily: string;

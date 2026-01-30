@@ -17,6 +17,7 @@ interface LineRow {
   x_position: number;
   y_position: number;
   changeover_enabled: number | null;  // Phase 5.6
+  changeover_explicit: number | null; // Phase 5.6.1: True if user explicitly set toggle
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +36,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
       xPosition: row.x_position,
       yPosition: row.y_position,
       changeoverEnabled: row.changeover_enabled !== 0,  // Phase 5.6: default true if null
+      changeoverExplicit: row.changeover_explicit === 1, // Phase 5.6.1: default false
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });
@@ -150,24 +152,29 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   /**
    * Phase 5.6: Update changeover toggle for a specific line
+   * Phase 5.6.1: Also marks the toggle as explicitly set by user
    */
   async updateChangeoverEnabled(id: string, enabled: boolean): Promise<void> {
     this.db
-      .prepare('UPDATE production_lines SET changeover_enabled = ? WHERE id = ?')
+      .prepare('UPDATE production_lines SET changeover_enabled = ?, changeover_explicit = 1 WHERE id = ?')
       .run(enabled ? 1 : 0, id);
   }
 
   /**
    * Phase 5.6: Get all lines with their changeover toggle states
+   * Phase 5.6.1: Also returns explicit flag for true override logic
    */
-  async getChangeoverToggles(): Promise<{ [lineId: string]: boolean }> {
+  async getChangeoverToggles(): Promise<{ [lineId: string]: { enabled: boolean; explicit: boolean } }> {
     const rows = this.db
-      .prepare('SELECT id, changeover_enabled FROM production_lines WHERE active = 1')
-      .all() as { id: string; changeover_enabled: number | null }[];
+      .prepare('SELECT id, changeover_enabled, changeover_explicit FROM production_lines WHERE active = 1')
+      .all() as { id: string; changeover_enabled: number | null; changeover_explicit: number | null }[];
 
-    const toggles: { [lineId: string]: boolean } = {};
+    const toggles: { [lineId: string]: { enabled: boolean; explicit: boolean } } = {};
     for (const row of rows) {
-      toggles[row.id] = row.changeover_enabled !== 0;  // default true if null
+      toggles[row.id] = {
+        enabled: row.changeover_enabled !== 0,  // default true if null
+        explicit: row.changeover_explicit === 1, // default false if null
+      };
     }
     return toggles;
   }

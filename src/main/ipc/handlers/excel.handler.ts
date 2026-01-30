@@ -302,6 +302,7 @@ export function registerExcelHandlers(): void {
                 xPosition: existingLine.xPosition,
                 yPosition: existingLine.yPosition,
                 changeoverEnabled: existingLine.changeoverEnabled,  // Phase 5.6
+                changeoverExplicit: existingLine.changeoverExplicit, // Phase 5.6.1
                 createdAt: existingLine.createdAt,
                 updatedAt: new Date(),
               });
@@ -325,6 +326,7 @@ export function registerExcelHandlers(): void {
                   xPosition: existingLine.xPosition,
                   yPosition: existingLine.yPosition,
                   changeoverEnabled: existingLine.changeoverEnabled,  // Phase 5.6
+                  changeoverExplicit: existingLine.changeoverExplicit, // Phase 5.6.1
                   createdAt: existingLine.createdAt,
                   updatedAt: new Date(),
                 });

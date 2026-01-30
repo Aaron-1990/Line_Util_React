@@ -20,6 +20,7 @@ interface ProductionLineData {
   efficiency: number;
   assignedModelsCount?: number;
   changeoverEnabled?: boolean;  // Phase 5.6
+  changeoverExplicit?: boolean; // Phase 5.6.1: True if user explicitly set toggle
 }
 
 // Utilization thresholds for border colors
@@ -104,10 +105,17 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
 
     // Phase 5.6: Changeover toggle state
     const changeoverEnabled = data.changeoverEnabled ?? true;
+    // Phase 5.6.1: Explicit override flag (true if user explicitly set the toggle)
+    const changeoverExplicit = data.changeoverExplicit ?? false;
 
-    // Effective changeover state (considers global toggle)
-    // When global is OFF, changeover is disabled regardless of per-line setting
-    const effectiveChangeoverEnabled = globalChangeoverEnabled && changeoverEnabled;
+    // Effective changeover state (considers global toggle and explicit override)
+    // Critical override: Global OFF + Line ON + Explicit = changeover calculated
+    const effectiveChangeoverEnabled = globalChangeoverEnabled
+      ? changeoverEnabled
+      : (changeoverExplicit && changeoverEnabled);  // Critical override
+
+    // Is this line a critical override? (calculating changeover when global is OFF)
+    const isCriticalOverride = !globalChangeoverEnabled && changeoverExplicit && changeoverEnabled;
 
     const handleChangeoverClick = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -118,18 +126,18 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
       e.stopPropagation();
       const newEnabled = !changeoverEnabled;
 
-      // Optimistically update the UI
-      updateNode(data.id, { changeoverEnabled: newEnabled });
+      // Optimistically update the UI - also mark as explicit since user is setting it
+      updateNode(data.id, { changeoverEnabled: newEnabled, changeoverExplicit: true });
 
-      // Persist to database
+      // Persist to database (the repository will set explicit=1)
       try {
         await window.electronAPI.invoke(IPC_CHANNELS.LINES_UPDATE_CHANGEOVER_ENABLED, data.id, newEnabled);
       } catch (error) {
         console.error('Failed to update changeover toggle:', error);
         // Revert on error
-        updateNode(data.id, { changeoverEnabled });
+        updateNode(data.id, { changeoverEnabled, changeoverExplicit });
       }
-    }, [changeoverEnabled, data.id, updateNode]);
+    }, [changeoverEnabled, changeoverExplicit, data.id, updateNode]);
 
     // Border color based on utilization
     const borderClass = getBorderColorClass(totalUtilization, selected ?? false);
@@ -161,20 +169,23 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
             <button
               onClick={handleChangeoverToggle}
               className={`p-1 rounded transition-colors ${
-                !globalChangeoverEnabled
-                  ? 'text-gray-300 opacity-50 cursor-not-allowed'  // Dimmed when global is OFF
-                  : changeoverEnabled
-                    ? 'text-amber-500 hover:bg-amber-50'
-                    : 'text-gray-300 hover:bg-gray-100'
+                isCriticalOverride
+                  ? 'text-red-500 hover:bg-red-50 ring-1 ring-red-300'  // Critical override
+                  : !globalChangeoverEnabled
+                    ? 'text-gray-400 hover:bg-gray-100 hover:text-amber-500'  // Global OFF but clickable
+                    : changeoverEnabled
+                      ? 'text-amber-500 hover:bg-amber-50'
+                      : 'text-gray-300 hover:bg-gray-100'
               }`}
               title={
-                !globalChangeoverEnabled
-                  ? 'Global changeover is OFF - enable in control bar first'
-                  : changeoverEnabled
-                    ? 'Changeover enabled - click to exclude this line'
-                    : 'Changeover disabled - click to include this line'
+                isCriticalOverride
+                  ? 'CRITICAL OVERRIDE: Changeover calculated even though global is OFF'
+                  : !globalChangeoverEnabled
+                    ? 'Global changeover is OFF. Click to set as critical override.'
+                    : changeoverEnabled
+                      ? 'Changeover enabled - click to exclude this line'
+                      : 'Changeover disabled - click to include this line'
               }
-              disabled={!globalChangeoverEnabled}  // Disable when global is OFF
             >
               {effectiveChangeoverEnabled ? (
                 <Timer className="w-4 h-4" />

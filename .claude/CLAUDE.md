@@ -50,7 +50,7 @@ For features that span multiple layers (like a new window):
 ## Current State
 
 **Version:** 0.5.6 (Phase 5.6 Complete)
-**Last Updated:** 2026-01-28
+**Last Updated:** 2026-01-29
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
 ### Completed Phases
@@ -396,24 +396,32 @@ Canvas nodes show time allocation after analysis:
 - [x] Stacked bar visualization
 - [x] Optimizer respects toggle flags
 
+### Phase 5.6.1: Critical Override Enhancement (2026-01-29)
+
+- [x] Database migration (`008_changeover_explicit.sql`) - Track explicit user toggles
+- [x] `changeoverExplicit` field to track user-set overrides
+- [x] True override logic in Python optimizer
+- [x] Critical override UI indicator (red ring when global OFF but line explicitly ON)
+
 **Files Added:**
 - `src/main/database/migrations/007_changeover_toggles.sql`
+- `src/main/database/migrations/008_changeover_explicit.sql` - Phase 5.6.1
 - `src/renderer/features/analysis/components/ChangeoverToggle.tsx`
 
 **Files Modified:**
-- `src/shared/types/index.ts` - Added `changeoverEnabled` to ProductionLine, toggle states to changeover data
+- `src/shared/types/index.ts` - Added `changeoverEnabled` and `changeoverExplicit` to ProductionLine
 - `src/shared/constants/index.ts` - Added IPC channels for toggle operations
-- `src/domain/entities/ProductionLine.ts` - Added `changeoverEnabled` field
-- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Added toggle methods
+- `src/domain/entities/ProductionLine.ts` - Added `changeoverEnabled` and `changeoverExplicit` fields
+- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Toggle methods with explicit tracking
 - `src/main/database/repositories/SQLiteChangeoverRepository.ts` - Added global toggle methods
 - `src/main/ipc/handlers/production-lines.handler.ts` - Added per-line toggle handler
 - `src/main/ipc/handlers/changeover.handler.ts` - Added global toggle handlers
 - `src/main/services/analysis/DataExporter.ts` - Export toggle states to Python
-- `Optimizer/optimizer.py` - Added `should_calculate_changeover()` function
+- `Optimizer/optimizer.py` - True override logic in `should_calculate_changeover()`
 - `src/renderer/features/analysis/store/useAnalysisStore.ts` - Global toggle state
 - `src/renderer/features/analysis/components/AnalysisControlBar.tsx` - Added ChangeoverToggle
-- `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Per-line toggle + stacked bar
-- `src/renderer/features/canvas/hooks/useLoadLines.ts` - Load changeoverEnabled
+- `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Per-line toggle + stacked bar + critical override UI
+- `src/renderer/features/canvas/hooks/useLoadLines.ts` - Load changeoverEnabled and changeoverExplicit
 
 ## Future Phases
 

@@ -185,22 +185,21 @@ def get_compatibilities_by_line(compatibilities: List[Dict]) -> Dict[str, List[D
 
 def should_calculate_changeover(line_id: str, changeover_data: Optional[Dict[str, Any]]) -> bool:
     """
-    Phase 5.6: Determine if changeover should be calculated for a line.
+    Phase 5.6.1: Determine if changeover should be calculated for a line.
 
-    Toggle Hierarchy:
-    | Global | Line | Result |
-    |--------|------|--------|
-    | OFF | OFF | No changeover |
-    | OFF | ON  | No changeover (MVP: global OFF = all off) |
-    | ON  | OFF | No changeover (exclusion) |
-    | ON  | ON  | Changeover calculated |
+    Toggle Hierarchy (True Override):
+    | Global | Line | Explicit | Result |
+    |--------|------|----------|--------|
+    | OFF | OFF | - | No changeover |
+    | OFF | ON  | false | No changeover (follows global) |
+    | OFF | ON  | true | Changeover calculated (CRITICAL OVERRIDE) |
+    | ON  | OFF | - | No changeover (exclusion) |
+    | ON  | ON  | - | Changeover calculated |
 
-    MVP Logic:
-    - Global OFF → No changeover for ANY line (theoretical capacity view)
+    Logic:
+    - Per-line toggle with explicit=true is a TRUE OVERRIDE in both directions
+    - Global OFF + Line ON + explicit → Calculate changeover (critical override)
     - Global ON → Per-line toggle controls exclusions
-
-    Future Enhancement: Track explicit per-line overrides to enable
-    "critical override" feature (line ON when global OFF).
     """
     if changeover_data is None:
         return False
@@ -208,14 +207,26 @@ def should_calculate_changeover(line_id: str, changeover_data: Optional[Dict[str
     # Get toggle states
     global_enabled = changeover_data.get('globalEnabled', True)  # Default ON
     line_toggles = changeover_data.get('lineToggles', {})
-    line_enabled = line_toggles.get(line_id, True)  # Default ON
 
-    # MVP Logic: Global toggle is the master switch
-    # When global is OFF, no changeover for any line (theoretical view)
+    # lineToggles is now { lineId: { enabled: bool, explicit: bool } }
+    line_toggle = line_toggles.get(line_id, {'enabled': True, 'explicit': False})
+
+    # Handle legacy format (just boolean) for backwards compatibility
+    if isinstance(line_toggle, bool):
+        line_enabled = line_toggle
+        line_explicit = False
+    else:
+        line_enabled = line_toggle.get('enabled', True)
+        line_explicit = line_toggle.get('explicit', False)
+
+    # True Override Logic
     if not global_enabled:
-        return False
+        # Global OFF: Only calculate if line is explicitly enabled (critical override)
+        if line_explicit and line_enabled:
+            return True  # Critical override - calculate even when global is OFF
+        return False  # Follow global setting
 
-    # When global is ON, per-line toggle can exclude specific lines
+    # Global ON: Per-line toggle can exclude specific lines
     return line_enabled
 
 
@@ -1081,12 +1092,22 @@ def main():
             print(f"\nChangeover data loaded:")
             print(f"  Global default: {changeover_data.get('globalDefaultMinutes', 30)} minutes")
             print(f"  Calculation method: {changeover_data.get('calculationMethod', 'probability_weighted')}")
-            # Phase 5.6: Toggle states
+            # Phase 5.6.1: Toggle states with explicit override tracking
             global_enabled = changeover_data.get('globalEnabled', True)
             line_toggles = changeover_data.get('lineToggles', {})
-            lines_disabled = sum(1 for v in line_toggles.values() if not v)
+            # Handle new format: { lineId: { enabled: bool, explicit: bool } }
+            lines_disabled = 0
+            lines_explicit = 0
+            for toggle_value in line_toggles.values():
+                if isinstance(toggle_value, dict):
+                    if not toggle_value.get('enabled', True):
+                        lines_disabled += 1
+                    if toggle_value.get('explicit', False):
+                        lines_explicit += 1
+                elif not toggle_value:  # Legacy boolean format
+                    lines_disabled += 1
             print(f"  Global toggle: {'ON' if global_enabled else 'OFF'}")
-            print(f"  Line toggles: {len(line_toggles)} lines, {lines_disabled} disabled")
+            print(f"  Line toggles: {len(line_toggles)} lines, {lines_disabled} disabled, {lines_explicit} explicit overrides")
             print(f"  Family defaults: {len(changeover_data.get('familyDefaults', []))}")
             print(f"  Line overrides: {len(changeover_data.get('lineOverrides', []))}")
         else:
