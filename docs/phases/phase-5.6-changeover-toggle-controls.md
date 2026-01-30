@@ -384,6 +384,52 @@ The stacked bar visualization on canvas nodes displays data from the **first sel
 
 **Future Enhancement**: Consider adding a year selector or showing multiple years in a condensed view.
 
+### Toggle Logic (MVP)
+
+The current implementation uses simplified toggle logic:
+
+| Global | Line | Result | Explanation |
+|--------|------|--------|-------------|
+| OFF | OFF | No changeover | Theoretical capacity view |
+| OFF | ON | No changeover | Global OFF = master switch |
+| ON | OFF | No changeover | Per-line exclusion works |
+| ON | ON | Changeover calculated | Realistic capacity view |
+
+**MVP Decision**: When global is OFF, no changeover is calculated for ANY line. This provides clear "theoretical vs. realistic" comparison.
+
+**Future Enhancement**: Track explicit per-line overrides to enable "critical override" feature (calculate changeover for specific lines even when global is OFF).
+
+### Visual Feedback
+
+When global changeover is OFF:
+- All per-line toggle icons become **dimmed** (gray, 50% opacity)
+- Icons show `TimerOff` state
+- Buttons are **disabled** (cannot click)
+- Tooltip explains: "Global changeover is OFF - enable in control bar first"
+
+---
+
+## Bug Fixes
+
+### Fix: Global Toggle Not Working (2026-01-28)
+
+**Problem**: Toggling the global changeover button had no effect on analysis results.
+
+**Root Cause**: The `should_calculate_changeover()` function in Python fetched `global_enabled` but never used it - it only returned `line_enabled`. Since all lines default to `changeover_enabled = 1`, the global toggle was ignored.
+
+**Solution**:
+```python
+# Before (broken):
+return line_enabled  # Ignores global!
+
+# After (fixed):
+if not global_enabled:
+    return False  # Global OFF = no changeover
+return line_enabled  # Global ON = per-line controls
+```
+
+**Commit**: `4caa128`
+
 ---
 
 ## Related Documents
