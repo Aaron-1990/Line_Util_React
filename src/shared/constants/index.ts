@@ -46,6 +46,8 @@ export const IPC_CHANNELS = {
   LINES_DELETE: 'lines:delete',
   LINES_UPDATE_POSITION: 'lines:update-position',
   LINES_UPDATE_CHANGEOVER_ENABLED: 'lines:update-changeover-enabled',  // Phase 5.6
+  LINES_RESET_ALL_CHANGEOVER: 'lines:reset-all-changeover',  // Phase 5.6.2
+  LINES_SET_ALL_CHANGEOVER: 'lines:set-all-changeover',  // Phase 5.6.2
 
   // Models
   MODELS_GET_ALL: 'models:get-all',

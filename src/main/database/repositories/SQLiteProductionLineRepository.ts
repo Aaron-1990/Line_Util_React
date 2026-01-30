@@ -178,4 +178,26 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
     }
     return toggles;
   }
+
+  /**
+   * Phase 5.6.2: Reset all changeover toggles to default state
+   * Sets all lines to enabled=true, explicit=false (follow global)
+   */
+  async resetAllChangeoverToggles(): Promise<number> {
+    const result = this.db
+      .prepare('UPDATE production_lines SET changeover_enabled = 1, changeover_explicit = 0 WHERE active = 1')
+      .run();
+    return result.changes;
+  }
+
+  /**
+   * Phase 5.6.2: Set changeover enabled for all lines
+   * Marks all as explicit since this is a user action
+   */
+  async setAllChangeoverEnabled(enabled: boolean): Promise<number> {
+    const result = this.db
+      .prepare('UPDATE production_lines SET changeover_enabled = ?, changeover_explicit = 1 WHERE active = 1')
+      .run(enabled ? 1 : 0);
+    return result.changes;
+  }
 }

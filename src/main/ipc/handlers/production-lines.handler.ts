@@ -223,4 +223,48 @@ export function registerProductionLinesHandlers(): void {
       }
     }
   );
+
+  // Phase 5.6.2: Reset all changeover toggles to default
+  ipcMain.handle(
+    IPC_CHANNELS.LINES_RESET_ALL_CHANGEOVER,
+    async (): Promise<ApiResponse<number>> => {
+      try {
+        console.log('[Lines Handler] Resetting all changeover toggles to default');
+        const count = await repository.resetAllChangeoverToggles();
+        return {
+          success: true,
+          data: count,
+          message: `Reset ${count} lines to default changeover settings`,
+        };
+      } catch (error) {
+        console.error('Error resetting changeover toggles:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // Phase 5.6.2: Set all changeover toggles to enabled/disabled
+  ipcMain.handle(
+    IPC_CHANNELS.LINES_SET_ALL_CHANGEOVER,
+    async (_event, enabled: boolean): Promise<ApiResponse<number>> => {
+      try {
+        console.log(`[Lines Handler] Setting all changeover toggles to: ${enabled}`);
+        const count = await repository.setAllChangeoverEnabled(enabled);
+        return {
+          success: true,
+          data: count,
+          message: `Updated ${count} lines`,
+        };
+      } catch (error) {
+        console.error('Error setting all changeover toggles:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
 }

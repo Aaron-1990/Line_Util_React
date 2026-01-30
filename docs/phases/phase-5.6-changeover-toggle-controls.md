@@ -456,6 +456,44 @@ return line_enabled  # Global ON = per-line controls
 - `Optimizer/optimizer.py` - True override logic in `should_calculate_changeover()`
 - `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Critical override UI
 
+### Enhancement: Dropdown Menu with Batch Actions (Phase 5.6.2 - 2026-01-29)
+
+**Feature**: Replace simple toggle with split button + dropdown menu for advanced controls.
+
+**UI Design**:
+```
+┌─────────────────────────────────────────┐
+│ [🔄 Changeover ON ▼]                    │
+│           └────────────────────────┐    │
+│                                    │    │
+│  Global: Enabled                   │    │
+│  ─────────────────                 │    │
+│  🔄 Disable Global                 │    │
+│  ─────────────────                 │    │
+│  PER-LINE TOGGLES                  │    │
+│  ☑️ Enable All Lines               │    │
+│  ☐ Disable All Lines               │    │
+│  ─────────────────                 │    │
+│  ↺ Reset to Defaults               │    │
+│                                    │    │
+│  Reset clears all explicit overrides│   │
+└────────────────────────────────────┘    │
+```
+
+**Batch Actions**:
+| Action | Effect |
+|--------|--------|
+| Enable All Lines | Sets `changeover_enabled = 1, changeover_explicit = 1` for all lines |
+| Disable All Lines | Sets `changeover_enabled = 0, changeover_explicit = 1` for all lines |
+| Reset to Defaults | Sets `changeover_enabled = 1, changeover_explicit = 0` for all lines |
+
+**Files Modified**:
+- `src/shared/constants/index.ts` - Added IPC channels for batch operations
+- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Added batch methods
+- `src/main/ipc/handlers/production-lines.handler.ts` - Added batch handlers
+- `src/renderer/features/analysis/components/ChangeoverToggle.tsx` - Dropdown menu UI
+- `src/renderer/features/canvas/store/useCanvasStore.ts` - Added `refreshNodes()` action
+
 ---
 
 ## Related Documents
@@ -465,6 +503,6 @@ return line_enabled  # Global ON = per-line controls
 
 ---
 
-**Document Version**: 1.2
+**Document Version**: 1.3
 **Last Updated**: 2026-01-29
-**Phase Status**: ✅ Complete (including Phase 5.6.1 Critical Override)
+**Phase Status**: ✅ Complete (including Phase 5.6.1 Critical Override + Phase 5.6.2 Dropdown Menu)
