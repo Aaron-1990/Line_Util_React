@@ -70,8 +70,9 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
     const openChangeoverModal = useChangeoverStore((state) => state.openModal);
     const updateNode = useCanvasStore((state) => state.updateNode);
 
-    // Get analysis results to find this line's utilization
+    // Get analysis results and global changeover state
     const results = useAnalysisStore((state) => state.results);
+    const globalChangeoverEnabled = useAnalysisStore((state) => state.globalChangeoverEnabled);
 
     // Find this line's result from the analysis
     const lineResult = results?.yearResults?.[0]?.lines?.find(l => l.lineId === data.id);
@@ -103,6 +104,10 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
 
     // Phase 5.6: Changeover toggle state
     const changeoverEnabled = data.changeoverEnabled ?? true;
+
+    // Effective changeover state (considers global toggle)
+    // When global is OFF, changeover is disabled regardless of per-line setting
+    const effectiveChangeoverEnabled = globalChangeoverEnabled && changeoverEnabled;
 
     const handleChangeoverClick = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -156,13 +161,22 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
             <button
               onClick={handleChangeoverToggle}
               className={`p-1 rounded transition-colors ${
-                changeoverEnabled
-                  ? 'text-amber-500 hover:bg-amber-50'
-                  : 'text-gray-300 hover:bg-gray-100'
+                !globalChangeoverEnabled
+                  ? 'text-gray-300 opacity-50 cursor-not-allowed'  // Dimmed when global is OFF
+                  : changeoverEnabled
+                    ? 'text-amber-500 hover:bg-amber-50'
+                    : 'text-gray-300 hover:bg-gray-100'
               }`}
-              title={changeoverEnabled ? 'Changeover enabled - click to disable' : 'Changeover disabled - click to enable'}
+              title={
+                !globalChangeoverEnabled
+                  ? 'Global changeover is OFF - enable in control bar first'
+                  : changeoverEnabled
+                    ? 'Changeover enabled - click to exclude this line'
+                    : 'Changeover disabled - click to include this line'
+              }
+              disabled={!globalChangeoverEnabled}  // Disable when global is OFF
             >
-              {changeoverEnabled ? (
+              {effectiveChangeoverEnabled ? (
                 <Timer className="w-4 h-4" />
               ) : (
                 <TimerOff className="w-4 h-4" />

@@ -187,15 +187,20 @@ def should_calculate_changeover(line_id: str, changeover_data: Optional[Dict[str
     """
     Phase 5.6: Determine if changeover should be calculated for a line.
 
-    Toggle Hierarchy (True Override):
+    Toggle Hierarchy:
     | Global | Line | Result |
     |--------|------|--------|
     | OFF | OFF | No changeover |
-    | OFF | ON  | Changeover calculated (critical override) |
+    | OFF | ON  | No changeover (MVP: global OFF = all off) |
     | ON  | OFF | No changeover (exclusion) |
     | ON  | ON  | Changeover calculated |
 
-    The per-line toggle is the TRUE override - it always wins.
+    MVP Logic:
+    - Global OFF → No changeover for ANY line (theoretical capacity view)
+    - Global ON → Per-line toggle controls exclusions
+
+    Future Enhancement: Track explicit per-line overrides to enable
+    "critical override" feature (line ON when global OFF).
     """
     if changeover_data is None:
         return False
@@ -203,11 +208,14 @@ def should_calculate_changeover(line_id: str, changeover_data: Optional[Dict[str
     # Get toggle states
     global_enabled = changeover_data.get('globalEnabled', True)  # Default ON
     line_toggles = changeover_data.get('lineToggles', {})
-    line_enabled = line_toggles.get(line_id, True)  # Default ON (follows global)
+    line_enabled = line_toggles.get(line_id, True)  # Default ON
 
-    # Per-line toggle is the true override
-    # If line is explicitly OFF, no changeover regardless of global
-    # If line is ON, calculate changeover regardless of global
+    # MVP Logic: Global toggle is the master switch
+    # When global is OFF, no changeover for any line (theoretical view)
+    if not global_enabled:
+        return False
+
+    # When global is ON, per-line toggle can exclude specific lines
     return line_enabled
 
 
