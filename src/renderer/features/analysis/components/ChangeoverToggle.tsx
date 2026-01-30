@@ -41,9 +41,10 @@ export const ChangeoverToggle = () => {
     try {
       const response = await window.electronAPI.invoke<number>(IPC_CHANNELS.LINES_RESET_ALL_CHANGEOVER);
       if (response.success) {
-        console.log(`Reset ${response.data} lines to default`);
+        console.log(`[ChangeoverToggle] Reset ${response.data} lines to default`);
         // Refresh canvas nodes to reflect changes
-        refreshNodes();
+        await refreshNodes();
+        console.log('[ChangeoverToggle] Nodes refreshed after reset');
       }
     } catch (error) {
       console.error('Failed to reset changeover toggles:', error);
@@ -58,8 +59,9 @@ export const ChangeoverToggle = () => {
     try {
       const response = await window.electronAPI.invoke<number>(IPC_CHANNELS.LINES_SET_ALL_CHANGEOVER, true);
       if (response.success) {
-        console.log(`Enabled changeover for ${response.data} lines`);
-        refreshNodes();
+        console.log(`[ChangeoverToggle] Enabled changeover for ${response.data} lines`);
+        await refreshNodes();
+        console.log('[ChangeoverToggle] Nodes refreshed after enable all');
       }
     } catch (error) {
       console.error('Failed to enable all changeover toggles:', error);
@@ -74,8 +76,9 @@ export const ChangeoverToggle = () => {
     try {
       const response = await window.electronAPI.invoke<number>(IPC_CHANNELS.LINES_SET_ALL_CHANGEOVER, false);
       if (response.success) {
-        console.log(`Disabled changeover for ${response.data} lines`);
-        refreshNodes();
+        console.log(`[ChangeoverToggle] Disabled changeover for ${response.data} lines`);
+        await refreshNodes();
+        console.log('[ChangeoverToggle] Nodes refreshed after disable all');
       }
     } catch (error) {
       console.error('Failed to disable all changeover toggles:', error);

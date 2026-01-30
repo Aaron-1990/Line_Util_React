@@ -79,13 +79,21 @@ export const useCanvasStore = create<CanvasState>((set) => ({
 
   refreshNodes: async () => {
     try {
+      console.log('[CanvasStore] Refreshing nodes from database...');
       const response = await window.electronAPI.invoke<ProductionLine[]>('lines:get-all');
       if (response.success && response.data) {
         const linesData = response.data;
-        set((state) => ({
-          nodes: state.nodes.map((node) => {
+        console.log('[CanvasStore] Fetched lines:', linesData.map(l => ({
+          id: l.id,
+          name: l.name,
+          changeoverEnabled: l.changeoverEnabled,
+          changeoverExplicit: l.changeoverExplicit,
+        })));
+        set((state) => {
+          const updatedNodes = state.nodes.map((node) => {
             const lineData = linesData.find((l) => l.id === node.id);
             if (lineData) {
+              console.log(`[CanvasStore] Updating node ${node.id}: enabled=${lineData.changeoverEnabled}, explicit=${lineData.changeoverExplicit}`);
               return {
                 ...node,
                 data: {
@@ -96,8 +104,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
               };
             }
             return node;
-          }),
-        }));
+          });
+          return { nodes: updatedNodes };
+        });
       }
     } catch (error) {
       console.error('Error refreshing nodes:', error);
