@@ -189,6 +189,26 @@ v_resolved_changeover_times   -- VIEW: Three-tier resolution (line > family > gl
 ### Per-Area Processing
 Each manufacturing area (SMT, ICT, Conformal, Router, Final Assembly) processes the FULL demand independently because products flow through ALL areas sequentially.
 
+### Sequential Operations Must Be Separate Areas
+
+**CRITICAL DATA MODELING RULE**: If operations are **sequential** (every unit must pass through each), they must be modeled as **separate areas**.
+
+**Wrong** (treats operations as interchangeable alternatives):
+```
+Area: SUBASSEMBLY
+Lines: HVDC 1, HVAC 1, GDB 1, FSW 1  ← Optimizer picks fastest, others show 0%
+```
+
+**Correct** (each operation processes full demand):
+```
+Area: SUB-HVDC  → Lines: HVDC 1, HVDC 2
+Area: SUB-HVAC  → Lines: HVAC 1, HVAC 2
+Area: SUB-GDB   → Lines: GDB 1, GDB 2
+Area: SUB-FSW   → Lines: FSW 1, FSW 2
+```
+
+When operations are in the **same area**, the optimizer treats them as alternative paths and allocates all demand to the most efficient line (fastest cycle time), leaving other lines at 0% utilization.
+
 ### Priority Distribution (Area-Wide)
 Priority is respected across the entire area, not just within each line:
 ```
