@@ -35,8 +35,8 @@ export class DataExporter {
   async exportForOptimization(selectedYears: number[]): Promise<OptimizationInputData> {
     console.log('[DataExporter] Exporting data for years:', selectedYears);
 
-    // 1. Get all production lines
-    const lines = await this.lineRepository.findAll();
+    // 1. Get all ACTIVE production lines (matching what's shown on canvas)
+    const lines = await this.lineRepository.findActive();
     const linesData = lines.map(line => ({
       id: line.id,
       name: line.name,
