@@ -494,6 +494,67 @@ return line_enabled  # Global ON = per-line controls
 - `src/renderer/features/analysis/components/ChangeoverToggle.tsx` - Dropdown menu UI
 - `src/renderer/features/canvas/store/useCanvasStore.ts` - Added `refreshNodes()` action
 
+### Enhancement: Simplified UI (Phase 5.6.3 - 2026-01-30)
+
+**Problem**: The dropdown menu with multiple options was too complex. Users wanted a simpler interaction model.
+
+**Solution**: Replace the dropdown menu with three clear buttons:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🕐 Changeover:  [All ON]  [All OFF]  [↺ Reset]                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Button Behaviors**:
+
+| Button | Action |
+|--------|--------|
+| **All ON** | Enables changeover for ALL lines + sets global to ON |
+| **All OFF** | Disables changeover for ALL lines + sets global to OFF |
+| **Reset** | Resets ALL lines to match current global state + clears sticky flags |
+
+**The "Sticky" Behavior**:
+- When you manually toggle a line on the canvas, it becomes "sticky" (explicit)
+- Sticky lines won't change when you click All ON or All OFF
+- The **Reset** button clears all sticky flags and makes all lines match the current global state
+
+**Example Flow**:
+```
+1. Click [All OFF]         → Global = OFF, all lines = OFF
+2. Enable SMT-1 on canvas  → SMT-1 becomes "sticky" ON
+3. Click [All ON]          → Global = ON, other lines = ON, SMT-1 stays ON (sticky)
+4. Click [↺ Reset]         → ALL lines = ON (matches global), sticky flags cleared
+```
+
+**Files Modified**:
+- `src/renderer/features/analysis/components/ChangeoverToggle.tsx` - Replaced dropdown with 3 buttons
+- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Reset now accepts target state
+- `src/main/ipc/handlers/production-lines.handler.ts` - Handler passes state to repository
+
+**Bug Fixes (Phase 5.6.3)**:
+
+1. **Sticky lines not preserved**: Fixed `setAllChangeoverEnabled()` to only update non-sticky lines:
+   ```sql
+   -- Before: Updated ALL lines
+   UPDATE SET changeover_enabled = ? WHERE active = 1
+
+   -- After: Only non-sticky lines
+   UPDATE SET changeover_enabled = ? WHERE active = 1
+     AND (changeover_explicit = 0 OR changeover_explicit IS NULL)
+   ```
+
+2. **Icon not updating on batch toggle**: Added custom memo comparison to `ProductionLineNode` to ensure re-render when `changeoverEnabled` changes.
+
+3. **Icon showing wrong state**: Changed icon to show line's own state (`changeoverEnabled`) instead of calculated effective state:
+   ```typescript
+   // Before: Icon based on complex calculation
+   {effectiveChangeoverEnabled ? <Timer /> : <TimerOff />}
+
+   // After: Icon shows line's direct ON/OFF state
+   {changeoverEnabled ? <Timer /> : <TimerOff />}
+   ```
+
 ---
 
 ## Related Documents
@@ -503,6 +564,6 @@ return line_enabled  # Global ON = per-line controls
 
 ---
 
-**Document Version**: 1.3
-**Last Updated**: 2026-01-29
-**Phase Status**: ✅ Complete (including Phase 5.6.1 Critical Override + Phase 5.6.2 Dropdown Menu)
+**Document Version**: 1.5
+**Last Updated**: 2026-01-30
+**Phase Status**: ✅ Complete (Phase 5.6.3 Simplified UI + Bug Fixes)

@@ -108,13 +108,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
     // Phase 5.6.1: Explicit override flag (true if user explicitly set the toggle)
     const changeoverExplicit = data.changeoverExplicit ?? false;
 
-    // Effective changeover state (considers global toggle and explicit override)
-    // Critical override: Global OFF + Line ON + Explicit = changeover calculated
-    const effectiveChangeoverEnabled = globalChangeoverEnabled
-      ? changeoverEnabled
-      : (changeoverExplicit && changeoverEnabled);  // Critical override
-
-    // Is this line a critical override? (calculating changeover when global is OFF)
+    // Is this line a critical override? (calculating changeover when global is OFF but line is explicitly ON)
     const isCriticalOverride = !globalChangeoverEnabled && changeoverExplicit && changeoverEnabled;
 
     const handleChangeoverClick = (e: React.MouseEvent) => {
@@ -187,7 +181,8 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
                       : 'Changeover disabled - click to include this line'
               }
             >
-              {effectiveChangeoverEnabled ? (
+              {/* Icon shows line's own state (ON/OFF), not effective state */}
+              {changeoverEnabled ? (
                 <Timer className="w-4 h-4" />
               ) : (
                 <TimerOff className="w-4 h-4" />
@@ -286,6 +281,23 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
           className="w-3 h-3 !bg-gray-400 hover:!bg-primary-500"
         />
       </div>
+    );
+  },
+  // Custom comparison to ensure re-render when changeover fields change
+  (prevProps, nextProps) => {
+    // Return true if props are equal (skip re-render), false if different (re-render)
+    const prevData = prevProps.data;
+    const nextData = nextProps.data;
+
+    return (
+      prevProps.selected === nextProps.selected &&
+      prevData.id === nextData.id &&
+      prevData.name === nextData.name &&
+      prevData.area === nextData.area &&
+      prevData.timeAvailableDaily === nextData.timeAvailableDaily &&
+      prevData.changeoverEnabled === nextData.changeoverEnabled &&
+      prevData.changeoverExplicit === nextData.changeoverExplicit &&
+      prevData.assignedModelsCount === nextData.assignedModelsCount
     );
   }
 );

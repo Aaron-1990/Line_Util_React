@@ -224,17 +224,17 @@ export function registerProductionLinesHandlers(): void {
     }
   );
 
-  // Phase 5.6.2: Reset all changeover toggles to default
+  // Phase 5.6.3: Reset all changeover toggles to a specific state
   ipcMain.handle(
     IPC_CHANNELS.LINES_RESET_ALL_CHANGEOVER,
-    async (): Promise<ApiResponse<number>> => {
+    async (_event, enabled: boolean = true): Promise<ApiResponse<number>> => {
       try {
-        console.log('[Lines Handler] Resetting all changeover toggles to default');
-        const count = await repository.resetAllChangeoverToggles();
+        console.log(`[Lines Handler] Resetting all changeover toggles to: ${enabled ? 'ON' : 'OFF'}`);
+        const count = await repository.resetAllChangeoverToggles(enabled);
         return {
           success: true,
           data: count,
-          message: `Reset ${count} lines to default changeover settings`,
+          message: `Reset ${count} lines to ${enabled ? 'ON' : 'OFF'}`,
         };
       } catch (error) {
         console.error('Error resetting changeover toggles:', error);

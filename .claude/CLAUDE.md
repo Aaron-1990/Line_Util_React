@@ -49,8 +49,8 @@ For features that span multiple layers (like a new window):
 
 ## Current State
 
-**Version:** 0.5.6 (Phase 5.6 Complete)
-**Last Updated:** 2026-01-29
+**Version:** 0.5.6.3 (Phase 5.6.3 - Simplified UI)
+**Last Updated:** 2026-01-30
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
 ### Completed Phases
@@ -422,6 +422,29 @@ Canvas nodes show time allocation after analysis:
 - `src/renderer/features/analysis/components/AnalysisControlBar.tsx` - Added ChangeoverToggle
 - `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Per-line toggle + stacked bar + critical override UI
 - `src/renderer/features/canvas/hooks/useLoadLines.ts` - Load changeoverEnabled and changeoverExplicit
+
+### Phase 5.6.3: Simplified UI (2026-01-30)
+
+Simplified the changeover toggle UI from a dropdown menu to three clear buttons:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🕐 Changeover:  [All ON]  [All OFF]  [↺ Reset]                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| Button | Action |
+|--------|--------|
+| **All ON** | Enables changeover for ALL lines + sets global to ON |
+| **All OFF** | Disables changeover for ALL lines + sets global to OFF |
+| **Reset** | Resets ALL lines to match current global state + clears sticky flags |
+
+**Sticky Behavior**: Lines manually toggled on canvas become "sticky" and ignore All ON/All OFF. Reset clears sticky flags.
+
+**Files Modified:**
+- `src/renderer/features/analysis/components/ChangeoverToggle.tsx` - Replaced dropdown with 3 buttons
+- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Reset accepts target state
+- `src/main/ipc/handlers/production-lines.handler.ts` - Handler passes state to repository
 
 ## Future Phases
 
