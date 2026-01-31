@@ -16,6 +16,7 @@ import ReactFlow, {
   applyNodeChanges,
   applyEdgeChanges,
   BackgroundVariant,
+  SelectionMode,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -112,6 +113,13 @@ export const ProductionCanvas = () => {
         fitView
         attributionPosition="bottom-right"
         className="bg-gray-50"
+        // AutoCAD-style selection: left-click drag = selection box
+        selectionOnDrag={true}
+        selectionMode={SelectionMode.Partial}
+        // Pan with middle mouse button (1) or right mouse button (2)
+        panOnDrag={[1, 2]}
+        // Allow multi-select with Ctrl/Cmd+click
+        multiSelectionKeyCode="Meta"
       >
         <Background
           variant={BackgroundVariant.Dots}

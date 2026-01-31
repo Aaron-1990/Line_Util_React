@@ -74,3 +74,32 @@
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+/* ============================================
+   REACTFLOW CANVAS - CAD-STYLE CURSORS
+   ============================================ */
+
+/* Default cursor: crosshair for precision (like AutoCAD) */
+.react-flow__pane {
+  cursor: crosshair !important;
+}
+
+/* When panning (middle/right mouse button drag): grab cursor */
+.react-flow__pane.dragging {
+  cursor: grabbing !important;
+}
+
+/* Selection box cursor */
+.react-flow__selectionpane {
+  cursor: crosshair !important;
+}
+
+/* Nodes: pointer cursor for clickable elements */
+.react-flow__node {
+  cursor: pointer !important;
+}
+
+/* When dragging a node: grabbing cursor */
+.react-flow__node.dragging {
+  cursor: grabbing !important;
+}

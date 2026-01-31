@@ -49,7 +49,7 @@ For features that span multiple layers (like a new window):
 
 ## Current State
 
-**Version:** 0.5.6.3 (Phase 5.6.3 - Simplified UI)
+**Version:** 0.5.6.4 (Canvas UX Improvements)
 **Last Updated:** 2026-01-30
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
@@ -445,6 +445,31 @@ Simplified the changeover toggle UI from a dropdown menu to three clear buttons:
 - `src/renderer/features/analysis/components/ChangeoverToggle.tsx` - Replaced dropdown with 3 buttons
 - `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Reset accepts target state
 - `src/main/ipc/handlers/production-lines.handler.ts` - Handler passes state to repository
+
+### Canvas UX Improvements (2026-01-30)
+
+Added AutoCAD-style selection and cursor behavior:
+
+**Box Selection:**
+- Left-click + drag on empty space creates a selection rectangle
+- All nodes touching the rectangle are selected (`SelectionMode.Partial`)
+- Cmd/Ctrl + click to add to selection
+
+**Panning:**
+- Middle-click + drag to pan
+- Right-click + drag to pan
+
+**CAD-Style Cursors:**
+| Context | Cursor |
+|---------|--------|
+| Canvas (default) | Crosshair `+` |
+| Panning | Grabbing hand |
+| Hovering node | Pointer |
+| Dragging node | Grabbing hand |
+
+**Files Modified:**
+- `src/renderer/features/canvas/ProductionCanvas.tsx` - Selection and pan settings
+- `src/renderer/styles/globals.css` - CAD-style cursor CSS
 
 ## Future Phases
 
