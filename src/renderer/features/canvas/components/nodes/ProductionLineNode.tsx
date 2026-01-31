@@ -71,12 +71,13 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
     const openChangeoverModal = useChangeoverStore((state) => state.openModal);
     const updateNode = useCanvasStore((state) => state.updateNode);
 
-    // Get analysis results and global changeover state
+    // Get analysis results, displayed year, and global changeover state
     const results = useAnalysisStore((state) => state.results);
+    const displayedYearIndex = useAnalysisStore((state) => state.displayedYearIndex);
     const globalChangeoverEnabled = useAnalysisStore((state) => state.globalChangeoverEnabled);
 
-    // Find this line's result from the analysis
-    const lineResult = results?.yearResults?.[0]?.lines?.find(l => l.lineId === data.id);
+    // Find this line's result from the analysis (for the currently displayed year)
+    const lineResult = results?.yearResults?.[displayedYearIndex]?.lines?.find(l => l.lineId === data.id);
 
     // Calculate percentages for stacked bar
     const utilizationPercent = lineResult?.utilizationPercent ?? null;

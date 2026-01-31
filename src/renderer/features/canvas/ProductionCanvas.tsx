@@ -25,6 +25,7 @@ import { useLoadLines } from './hooks/useLoadLines';
 import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
+import { YearNavigator } from './components/YearNavigator';
 import { AnalysisControlBar, useAnalysisStore } from '../analysis';
 import { ChangeoverMatrixModal } from '../changeover';
 import { TIMELINE_EVENTS, WINDOW_CHANNELS } from '@shared/constants';
@@ -152,6 +153,9 @@ export const ProductionCanvas = () => {
       </ReactFlow>
 
       <LinePropertiesPanel />
+
+      {/* Year Navigator - Shows when multi-year results available */}
+      <YearNavigator />
 
       {/* Analysis Control Bar - Fixed at bottom */}
       <AnalysisControlBar />

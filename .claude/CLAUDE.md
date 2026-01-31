@@ -49,7 +49,7 @@ For features that span multiple layers (like a new window):
 
 ## Current State
 
-**Version:** 0.5.6.4 (Canvas UX Improvements)
+**Version:** 0.5.7 (Year Navigation for Canvas)
 **Last Updated:** 2026-01-30
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
@@ -470,6 +470,34 @@ Added AutoCAD-style selection and cursor behavior:
 **Files Modified:**
 - `src/renderer/features/canvas/ProductionCanvas.tsx` - Selection and pan settings
 - `src/renderer/styles/globals.css` - CAD-style cursor CSS
+
+### Year Navigation for Canvas (2026-01-30)
+
+Navigate through years to see how utilization bars change over time on all canvas nodes.
+
+**UI:**
+```
+           [◀] 2025 [▶]
+            1 of 4
+```
+
+**Behavior:**
+- Appears automatically when multi-year analysis results are available
+- Click arrows to cycle through years
+- All canvas nodes update to show the selected year's utilization
+- Utilization bars animate as you navigate between years
+
+**State:**
+- `displayedYearIndex` in analysis store tracks current year
+- Resets to first year (index 0) when new analysis completes
+
+**Files Added:**
+- `src/renderer/features/canvas/components/YearNavigator.tsx`
+
+**Files Modified:**
+- `src/renderer/features/analysis/store/useAnalysisStore.ts` - Year navigation state and actions
+- `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Use `displayedYearIndex`
+- `src/renderer/features/canvas/ProductionCanvas.tsx` - Added YearNavigator component
 
 ## Future Phases
 

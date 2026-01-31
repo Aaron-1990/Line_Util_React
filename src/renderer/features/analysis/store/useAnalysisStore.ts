@@ -52,6 +52,9 @@ interface AnalysisState {
   // Year Selection
   yearSelection: YearSelection;
 
+  // Canvas Year Display - which year's data to show on canvas nodes
+  displayedYearIndex: number;
+
   // Analysis Status
   status: AnalysisStatus;
   progress: AnalysisProgress | null;
@@ -94,6 +97,13 @@ interface AnalysisState {
   // Actions - Run Optimization
   runOptimization: () => Promise<void>;
   getSelectedYears: () => number[];
+
+  // Actions - Canvas Year Display
+  setDisplayedYearIndex: (index: number) => void;
+  nextDisplayedYear: () => void;
+  prevDisplayedYear: () => void;
+  getDisplayedYear: () => number | null;
+  getDisplayedYearCount: () => number;
 
   // Actions - Refresh
   refreshData: () => Promise<void>;
@@ -165,6 +175,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   yearRange: null,
 
   yearSelection: initialYearSelection,
+
+  // Canvas Year Display - start at first year (index 0)
+  displayedYearIndex: 0,
 
   status: 'idle',
   progress: null,
@@ -299,6 +312,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     status: 'complete',
     progress: null,
     results,
+    displayedYearIndex: 0,  // Reset to first year when new analysis completes
   }),
 
   setAnalysisError: (error) => set({
@@ -368,6 +382,40 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     } catch (error) {
       setAnalysisError(error instanceof Error ? error.message : 'Unknown error');
     }
+  },
+
+  // ===== Canvas Year Display Actions =====
+
+  setDisplayedYearIndex: (index) => {
+    const { results } = get();
+    const maxIndex = (results?.yearResults?.length ?? 1) - 1;
+    const clampedIndex = Math.max(0, Math.min(index, maxIndex));
+    set({ displayedYearIndex: clampedIndex });
+  },
+
+  nextDisplayedYear: () => {
+    const { displayedYearIndex, results } = get();
+    const maxIndex = (results?.yearResults?.length ?? 1) - 1;
+    if (displayedYearIndex < maxIndex) {
+      set({ displayedYearIndex: displayedYearIndex + 1 });
+    }
+  },
+
+  prevDisplayedYear: () => {
+    const { displayedYearIndex } = get();
+    if (displayedYearIndex > 0) {
+      set({ displayedYearIndex: displayedYearIndex - 1 });
+    }
+  },
+
+  getDisplayedYear: () => {
+    const { results, displayedYearIndex } = get();
+    return results?.yearResults?.[displayedYearIndex]?.year ?? null;
+  },
+
+  getDisplayedYearCount: () => {
+    const { results } = get();
+    return results?.yearResults?.length ?? 0;
   },
 
   // ===== Refresh Action =====
