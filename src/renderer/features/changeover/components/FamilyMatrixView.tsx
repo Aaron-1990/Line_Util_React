@@ -227,7 +227,7 @@ export const FamilyMatrixView = () => {
                             onChange={(e) => handleInputChange(e.target.value)}
                             onBlur={commitEdit}
                             onKeyDown={handleKeyDown}
-                            className="w-full h-full text-center border-none bg-white focus:ring-2 focus:ring-primary-500 rounded"
+                            className="w-full h-full text-center text-gray-900 border-none bg-white focus:ring-2 focus:ring-primary-500 rounded"
                             style={{ minWidth: '50px' }}
                           />
                         ) : isDiagonal ? (

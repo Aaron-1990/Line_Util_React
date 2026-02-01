@@ -10,6 +10,8 @@ import { useCanvasStore } from '../../store/useCanvasStore';
 import { LineForm } from '../forms/LineForm';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
 import { ProductionLine } from '@shared/types';
+import { CompatibilityList } from '../../../compatibility/components/CompatibilityList';
+import { AssignModelModal } from '../../../compatibility/components/AssignModelModal';
 
 export const LinePropertiesPanel = () => {
   const { nodes, selectedNode, setSelectedNode, updateNode, deleteNode } = useCanvasStore(
@@ -108,7 +110,7 @@ export const LinePropertiesPanel = () => {
 
   return (
     <>
-      <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg z-20 animate-slide-in">
+      <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg z-20 animate-slide-in flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">
             {isEditing ? 'Edit Line' : 'Line Properties'}
@@ -122,7 +124,7 @@ export const LinePropertiesPanel = () => {
           </button>
         </div>
 
-        <div className="p-4">
+        <div className="flex-1 overflow-y-auto p-4">
           {isEditing ? (
             <LineForm
               initialData={{
@@ -136,7 +138,10 @@ export const LinePropertiesPanel = () => {
               isLoading={isLoading}
             />
           ) : (
-            <ReadOnlyView data={data} onEdit={handleEditClick} onDelete={handleDeleteClick} />
+            <>
+              <ReadOnlyView data={data} onEdit={handleEditClick} onDelete={handleDeleteClick} />
+              <CompatibilityList lineId={data.id} />
+            </>
           )}
         </div>
       </div>
@@ -149,6 +154,8 @@ export const LinePropertiesPanel = () => {
           isDeleting={isDeleting}
         />
       )}
+
+      <AssignModelModal />
     </>
   );
 };
@@ -213,9 +220,6 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
         >
           <Edit2 className="w-4 h-4" />
           Edit Line
-        </button>
-        <button className="w-full btn bg-gray-200 text-gray-700 hover:bg-gray-300 py-2">
-          Assign Models
         </button>
         <button
           onClick={onDelete}

@@ -16,6 +16,7 @@ import { registerCompatibilityHandlers } from './compatibility.handler';
 import { registerAnalysisHandlers } from './analysis.handler';
 import { registerWindowHandlers } from './window.handler';
 import { registerChangeoverHandlers } from './changeover.handler';
+import { registerRoutingHandlers } from './routing.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -33,6 +34,7 @@ export function registerAllHandlers(): void {
   registerAnalysisHandlers();
   registerWindowHandlers();
   registerChangeoverHandlers();
+  registerRoutingHandlers();
 
   console.log('IPC handlers registered successfully');
 }

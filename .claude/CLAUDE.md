@@ -14,6 +14,7 @@
 | Task Type | Trigger Keywords | Agent Type (exact) |
 |-----------|------------------|-------------------|
 | React components, UI, styling, windows | "component", "UI", "modal", "window", "canvas" | `frontend-developer` |
+| UX/UI design, wireframes, user flows | "UX", "UI design", "wireframe", "user flow", "layout" | `ux-ui-designer` |
 | Optimizer algorithm, manufacturing logic | "optimizer", "allocation", "utilization", "constraint" | `Industrial Engineer` |
 | Electron main process, IPC, services | "IPC", "main process", "BrowserWindow", "service" | `backend-architect` |
 | Database schema, migrations, queries | "schema", "migration", "query", "SQLite" | `database-architect` |
@@ -21,6 +22,17 @@
 | Tests, coverage, CI/CD testing | "test", "coverage", "spec", "vitest" | `test-engineer` |
 | Performance bottlenecks | "slow", "performance", "memory" | `performance-profiler` |
 | Codebase exploration, finding code | "where is", "how does", "find" | `Explore` |
+
+### Custom Agent: UX/UI Designer
+
+The `ux-ui-designer` agent is a **World-Class Product Designer** with expertise from Apple, Airbnb, Stripe, and Google. **Consult this agent for:**
+- UI/UX design decisions and patterns
+- Modal vs. page vs. inline editing decisions
+- Data table design and navigation architecture
+- Accessibility and design system recommendations
+- Manufacturing/industrial software design patterns
+
+**Location:** `~/.claude/agents/ux-ui-designer.md`
 
 ### Custom Agent: Industrial Engineer
 
@@ -49,8 +61,8 @@ For features that span multiple layers (like a new window):
 
 ## Current State
 
-**Version:** 0.5.7 (Year Navigation for Canvas)
-**Last Updated:** 2026-01-30
+**Version:** 0.6.5 (DAG-Based Routing)
+**Last Updated:** 2026-02-01
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
 ### Completed Phases
@@ -66,6 +78,12 @@ For features that span multiple layers (like a new window):
 | Phase 5 | Changeover Matrix | ✅ Complete |
 | Phase 5.5 | Changeover Capacity Constraints | ✅ Complete |
 | Phase 5.6 | Changeover Toggle Controls | ✅ Complete |
+| Phase 6.0 | Sidebar Navigation Foundation | ✅ Complete |
+| Phase 6A+ | Models + Volumes CRUD | ✅ Complete |
+| Phase 6D | Custom Areas CRUD | ✅ Complete |
+| Phase 6B | Line-Model Compatibilities | ✅ Complete |
+| Phase 6.5 | Routings View | ✅ Complete |
+| Phase 6.5+ | DAG-Based Routing | ✅ Complete |
 
 ### Current Capabilities
 
@@ -75,6 +93,7 @@ For features that span multiple layers (like a new window):
 4. **Multi-Window**: Timeline window auto-opens in separate window for multi-monitor setups
 5. **Results Panel**: Detailed utilization by area, line, and model with constraint drill-down
 6. **Changeover Matrix**: Three-tier resolution (Global → Family → Line) with Excel import and UI editor
+7. **Routings**: Model-centric process flow view with DAG-based parallel process support
 
 ---
 
@@ -178,6 +197,10 @@ family_changeover_defaults    -- Family-to-family default changeover times
 line_changeover_overrides     -- Line-specific changeover exceptions (sparse)
 changeover_method_configs     -- Calculation method preferences
 v_resolved_changeover_times   -- VIEW: Three-tier resolution (line > family > global)
+
+-- Phase 6.5: Model Area Routing (DAG) ✅
+model_area_routing            -- Areas in model's process flow (yield, volume_fraction)
+model_area_predecessors       -- Predecessor relationships (DAG edges)
 ```
 
 **Database location:** `~/Library/Application Support/Line Optimizer/line-optimizer.db`
@@ -519,22 +542,178 @@ Navigate through years to see how utilization bars change over time on all canva
 - `src/renderer/features/canvas/components/nodes/ProductionLineNode.tsx` - Use `displayedYearIndex`
 - `src/renderer/features/canvas/ProductionCanvas.tsx` - Added YearNavigator component
 
+## Completed: Phase 6 - Data Management CRUD ✅
+
+**Full specification**: `docs/phases/phase-6-data-management-crud.md`
+
+Full in-app data modeling without Excel dependency:
+
+- [x] **Phase 6.0**: Sidebar navigation foundation
+- [x] **Phase 6A+**: Models + Volumes CRUD
+- [x] **Phase 6D**: Custom Areas CRUD
+- [x] **Phase 6B**: Line-Model Compatibilities CRUD
+
+## Completed: Phase 6.5 - Routings View ✅ (2026-01-31)
+
+Model-centric view showing process flow for each model.
+
+**Files Created:**
+- `src/renderer/pages/RoutingsPage.tsx` - Main routings view
+- `src/renderer/features/routings/store/useRoutingStore.ts` - Routing state management
+- `src/renderer/features/routings/components/ProcessFlowBadges.tsx` - Area badge visualization
+- `src/renderer/features/routings/components/EditRoutingModal.tsx` - Edit model routing
+
+**Files Modified:**
+- `src/renderer/store/useNavigationStore.ts` - Added 'routings' view
+- `src/renderer/components/layout/Sidebar.tsx` - Added Routings nav item (Cmd+3)
+- `src/renderer/components/layout/AppLayout.tsx` - Added RoutingsPage routing
+
+**Features:**
+- [x] New "Routings" sidebar item with GitBranch icon
+- [x] Model list with inline process flow badges `[SMT] → [ICT] → [FA]`
+- [x] Area color coding from area catalog
+- [x] Warning indicator for models without routing
+- [x] Edit Routing modal with visual flow builder
+- [x] Add/remove areas from model flow
+- [x] Line assignment management per area
+- [x] Cycle time, efficiency, priority editing
+
+## Phase 6.5+: DAG-Based Routing Enhancement ✅ (2026-02-01)
+
+Enhanced Routings to support parallel/concurrent process flows using a Directed Acyclic Graph (DAG) model.
+
+**Example Flow:**
+```
+   SMT (start)
+     |
+     v
+   ┌─────────────────┐
+   │                 │
+   v                 v
+  ICT           Conformal  (parallel - both follow SMT)
+   │                 │
+   └─────────────────┘
+           │
+           v
+       Assembly (waits for BOTH)
+```
+
+### IE Agent Validation
+
+| Aspect | Assessment |
+|--------|------------|
+| **Theoretical soundness** | Excellent - DAG is the correct abstraction |
+| **Practical applicability** | Good - covers 90%+ of real manufacturing flows |
+| **Extensibility** | Good - foundation supports future simulation |
+
+### Database Tables
+
+**Migration:** `009_model_area_routing.sql`
+
+```sql
+model_area_routing (
+  id, model_id, area_code, sequence,
+  is_required BOOLEAN DEFAULT TRUE,     -- Can this step be skipped?
+  expected_yield DECIMAL DEFAULT 1.0,   -- Yield at this stage (0.0-1.0)
+  volume_fraction DECIMAL DEFAULT 1.0,  -- For split paths (0.0-1.0)
+)
+
+model_area_predecessors (
+  id, model_id, area_code, predecessor_area_code,
+  dependency_type TEXT DEFAULT 'finish_to_start'
+)
+```
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/main/database/migrations/009_model_area_routing.sql` | Database tables |
+| `src/shared/types/routing.ts` | TypeScript types |
+| `src/main/database/repositories/SQLiteModelAreaRoutingRepository.ts` | Repository with Kahn's algorithm |
+| `src/main/ipc/handlers/routing.handler.ts` | IPC handlers |
+| `src/renderer/features/routings/components/PredecessorSelector.tsx` | UI component |
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `src/shared/constants/index.ts` | Added `ROUTING_CHANNELS` |
+| `src/shared/types/index.ts` | Export routing types |
+| `src/main/database/repositories/index.ts` | Export new repository |
+| `src/main/ipc/handlers/index.ts` | Register routing handlers |
+| `src/preload.ts` | Expose new channels |
+| `src/renderer/features/routings/store/useRoutingStore.ts` | DAG routing state management |
+| `src/renderer/features/routings/components/EditRoutingModal.tsx` | Predecessor UI |
+
+### Features
+
+- [x] DAG data model for parallel process flows
+- [x] `finish_to_start` dependency semantics
+- [x] Cycle detection using Kahn's algorithm
+- [x] Orphan detection (areas unreachable from start)
+- [x] Predecessor selection UI in Edit Routing modal
+- [x] Real-time DAG validation indicator
+- [x] Color-coded area types (start=green, end=purple, intermediate=blue)
+- [x] Predecessor count badges on flow badges
+- [x] IE-recommended fields: `expected_yield`, `volume_fraction` (schema only, UI later)
+- [x] Backward compatible - models without DAG config continue to work
+- [x] Clear Routing feature with Cancel-as-rescue pattern
+- [x] User-friendly cycle prevention message ("Not available - X already runs after this area")
+
+### Bug Fixes
+
+- **Duplicate line addition**: Fixed React state mutation bug where `.push()` caused duplicate lines in StrictMode. Changed to immutable update with spread operators and duplicate check.
+- **Cycle detection UX**: Changed cryptic "Adding X would create a cycle" to clearer "Not available - X already runs after this area"
+
+### Clear Routing Feature
+
+Users can now clear a model's routing configuration:
+- **Clear Routing button** in modal header (only shows for models with existing routing)
+- **Confirmation dialog** warns user and mentions Cancel rescue option
+- **Cancel-as-rescue pattern**: Clearing only affects local state until Save is clicked
+- **Warning banner**: Shows "Routing will be cleared when you click Save. Click Cancel to keep the original routing."
+- **Undo via Cancel**: User can click Cancel to discard the clear action and keep original routing
+
+### IPC Channels
+
+```typescript
+ROUTING_CHANNELS = {
+  GET_BY_MODEL: 'routing:get-by-model',
+  SET_ROUTING: 'routing:set-routing',
+  SET_PREDECESSORS: 'routing:set-predecessors',
+  DELETE_ROUTING: 'routing:delete-routing',
+  VALIDATE_DAG: 'routing:validate-dag',
+  GET_TOPOLOGICAL_ORDER: 'routing:get-topological-order',
+  HAS_ROUTING: 'routing:has-routing',
+}
+```
+
+### Future Enhancements (Not in Phase 6.5+)
+
+These fields are included in the schema for future use but NOT exposed in UI yet:
+- `expected_yield` - For yield cascade calculations in optimizer
+- `volume_fraction` - For split path demand distribution
+- `min_buffer_time_hours` - Cure time, cooling time between stages
+
+---
+
 ## Future Phases
 
-### Phase 6: Enhanced Visualization
-- [ ] Process flow visualization (connections/arrows between areas)
+### Phase 7: Enhanced Visualization
+- [ ] Process flow visualization on Canvas (connections/arrows between areas)
 
-### Phase 7: Scenario Management
+### Phase 8: Scenario Management
 - [ ] Save/load analysis scenarios
 - [ ] Compare scenarios side-by-side
 - [ ] What-if analysis
 
-### Phase 8: Reports & Export
+### Phase 9: Reports & Export
 - [ ] PDF report generation (executive summary)
 - [ ] Excel export (detailed results)
 - [ ] SMED priority report (top costly transitions)
 
-### Phase 9: Advanced Features
+### Phase 10: Advanced Features
 - [ ] Progress streaming from Python to UI
 - [ ] TSP-optimal sequencing method
 - [ ] Multi-year analysis dashboard

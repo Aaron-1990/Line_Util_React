@@ -840,3 +840,6 @@ export interface RunOptimizationRequest {
 
 // Re-export all changeover types from dedicated module
 export * from './changeover';
+
+// Re-export all routing types from dedicated module (Phase 6.5)
+export * from './routing';

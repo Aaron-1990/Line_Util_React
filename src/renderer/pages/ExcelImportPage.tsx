@@ -17,11 +17,11 @@ export const ExcelImportPage = () => {
   const importMode = searchParams.get('mode') || 'multi';
 
   const handleComplete = () => {
-    navigate('/canvas');
+    navigate('/');
   };
 
   const handleCancel = () => {
-    navigate('/canvas');
+    navigate('/');
   };
 
   // Use MultiSheetImportWizard by default, fallback to legacy ImportWizard

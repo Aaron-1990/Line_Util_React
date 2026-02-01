@@ -233,6 +233,9 @@ export const PRODUCT_VOLUME_CHANNELS = {
   GET_AVAILABLE_YEARS: 'product-volumes:get-available-years',
   GET_YEAR_RANGE: 'product-volumes:get-year-range',
   GET_YEAR_SUMMARY: 'product-volumes:get-year-summary',
+  CREATE: 'product-volumes:create',
+  UPDATE: 'product-volumes:update',
+  DELETE: 'product-volumes:delete',
 } as const;
 
 // Optimization Analysis (Phase 4)
@@ -257,6 +260,17 @@ export const WINDOW_CHANNELS = {
 export const TIMELINE_EVENTS = {
   DATA_UPDATED: 'timeline:data-updated',
   WINDOW_CLOSED: 'timeline:window-closed',
+} as const;
+
+// Model Area Routing (Phase 6.5)
+export const ROUTING_CHANNELS = {
+  GET_BY_MODEL: 'routing:get-by-model',
+  SET_ROUTING: 'routing:set-routing',
+  SET_PREDECESSORS: 'routing:set-predecessors',
+  DELETE_ROUTING: 'routing:delete-routing',
+  VALIDATE_DAG: 'routing:validate-dag',
+  GET_TOPOLOGICAL_ORDER: 'routing:get-topological-order',
+  HAS_ROUTING: 'routing:has-routing',
 } as const;
 
 // Changeover Matrix (Phase 5)

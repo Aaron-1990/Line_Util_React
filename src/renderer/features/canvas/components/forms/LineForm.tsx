@@ -81,7 +81,7 @@ export const LineForm = ({
           id="name"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+          className={`w-full px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
             errors.name ? 'border-red-500' : 'border-gray-300'
           }`}
           placeholder="e.g. SMT Line 3"
@@ -99,7 +99,7 @@ export const LineForm = ({
           id="area"
           value={formData.area}
           onChange={(e) => setFormData({ ...formData, area: e.target.value })}
-          className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+          className={`w-full px-3 py-2 border rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
             errors.area ? 'border-red-500' : 'border-gray-300'
           }`}
           disabled={isLoading || areasLoading}
@@ -143,7 +143,7 @@ export const LineForm = ({
             onChange={(e) =>
               setFormData({ ...formData, timeAvailableDaily: parseInt(e.target.value) || 0 })
             }
-            className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+            className={`flex-1 px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
               errors.timeAvailableDaily ? 'border-red-500' : 'border-gray-300'
             }`}
             min="0"

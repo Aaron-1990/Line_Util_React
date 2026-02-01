@@ -6,7 +6,7 @@
 import { ipcMain } from 'electron';
 import { ApiResponse } from '@shared/types';
 import { PRODUCT_VOLUME_CHANNELS } from '@shared/constants';
-import { IProductVolume } from '@domain/entities';
+import { IProductVolume, ProductVolume } from '@domain/entities';
 import DatabaseConnection from '../../database/connection';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
 
@@ -163,6 +163,170 @@ export function registerVolumeHandlers(): void {
         };
       } catch (error) {
         console.error('[Volume Handler] Get all error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ===== CREATE VOLUME =====
+  ipcMain.handle(
+    PRODUCT_VOLUME_CHANNELS.CREATE,
+    async (_event, params: {
+      modelId: string;
+      year: number;
+      volume: number;
+      operationsDays: number;
+    }): Promise<ApiResponse<IProductVolume>> => {
+      try {
+        console.log('[Volume Handler] Creating volume for model:', params.modelId, 'year:', params.year);
+
+        // Validate required fields
+        if (!params.modelId || params.modelId.trim().length === 0) {
+          return {
+            success: false,
+            error: 'Model ID is required',
+          };
+        }
+
+        if (!params.year || params.year < 2000 || params.year > 2100) {
+          return {
+            success: false,
+            error: 'Year must be between 2000 and 2100',
+          };
+        }
+
+        // Check if volume already exists for this model-year
+        const exists = await volumeRepository.existsByModelAndYear(params.modelId, params.year);
+        if (exists) {
+          return {
+            success: false,
+            error: `Volume for model "${params.modelId}" in year ${params.year} already exists`,
+          };
+        }
+
+        // Create volume entity
+        const volume = ProductVolume.create({
+          modelId: params.modelId,
+          year: params.year,
+          volume: params.volume,
+          operationsDays: params.operationsDays,
+        });
+
+        // Save to database
+        await volumeRepository.create(volume);
+
+        // Fetch created volume to confirm
+        const createdVolume = await volumeRepository.findByModelAndYear(params.modelId, params.year);
+        if (!createdVolume) {
+          return {
+            success: false,
+            error: 'Failed to fetch created volume',
+          };
+        }
+
+        return {
+          success: true,
+          data: createdVolume.toJSON(),
+        };
+      } catch (error) {
+        console.error('[Volume Handler] Create error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ===== UPDATE VOLUME =====
+  ipcMain.handle(
+    PRODUCT_VOLUME_CHANNELS.UPDATE,
+    async (_event, params: {
+      id: string;
+      volume?: number;
+      operationsDays?: number;
+    }): Promise<ApiResponse<IProductVolume>> => {
+      try {
+        const { id, ...fields } = params;
+        console.log('[Volume Handler] Updating volume:', id);
+
+        if (!id || typeof id !== 'string') {
+          return {
+            success: false,
+            error: 'Invalid volume ID',
+          };
+        }
+
+        // Check if volume exists
+        const existingVolume = await volumeRepository.findById(id);
+        if (!existingVolume) {
+          return {
+            success: false,
+            error: `Volume with ID "${id}" not found`,
+          };
+        }
+
+        // Update volume
+        await volumeRepository.update(id, fields);
+
+        // Fetch updated volume
+        const updatedVolume = await volumeRepository.findById(id);
+        if (!updatedVolume) {
+          return {
+            success: false,
+            error: 'Failed to fetch updated volume',
+          };
+        }
+
+        return {
+          success: true,
+          data: updatedVolume.toJSON(),
+        };
+      } catch (error) {
+        console.error('[Volume Handler] Update error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ===== DELETE VOLUME =====
+  ipcMain.handle(
+    PRODUCT_VOLUME_CHANNELS.DELETE,
+    async (_event, id: string): Promise<ApiResponse<boolean>> => {
+      try {
+        console.log('[Volume Handler] Deleting volume:', id);
+
+        if (!id || typeof id !== 'string') {
+          return {
+            success: false,
+            error: 'Invalid volume ID',
+          };
+        }
+
+        // Check if volume exists
+        const existingVolume = await volumeRepository.findById(id);
+        if (!existingVolume) {
+          return {
+            success: false,
+            error: `Volume with ID "${id}" not found`,
+          };
+        }
+
+        // Delete volume
+        await volumeRepository.delete(id);
+
+        return {
+          success: true,
+          data: true,
+        };
+      } catch (error) {
+        console.error('[Volume Handler] Delete error:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',

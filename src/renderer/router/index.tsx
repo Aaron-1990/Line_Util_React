@@ -4,9 +4,7 @@
 // ============================================
 
 import { createHashRouter, Navigate } from 'react-router-dom';
-import { HomePage } from '../pages/HomePage';
-import { CanvasPage } from '../pages/CanvasPage';
-import { DashboardPage } from '../pages/DashboardPage';
+import { AppLayout } from '../components/layout';
 import { ExcelImportPage } from '../pages/ExcelImportPage';
 import { TimelineWindowPage } from '../pages/TimelineWindowPage';
 
@@ -19,18 +17,12 @@ import { TimelineWindowPage } from '../pages/TimelineWindowPage';
 export const router = createHashRouter(
   [
     {
+      // Main app layout with sidebar navigation
       path: '/',
-      element: <HomePage />,
+      element: <AppLayout />,
     },
     {
-      path: '/canvas',
-      element: <CanvasPage />,
-    },
-    {
-      path: '/dashboard',
-      element: <DashboardPage />,
-    },
-    {
+      // Excel import wizard (separate from main layout)
       path: '/excel/import',
       element: <ExcelImportPage />,
     },
@@ -40,6 +32,7 @@ export const router = createHashRouter(
       element: <TimelineWindowPage />,
     },
     {
+      // Redirect all unknown routes to home
       path: '*',
       element: <Navigate to="/" replace />,
     },

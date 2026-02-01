@@ -30,8 +30,8 @@
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium 
-           transition-colors focus-visible:outline-none focus-visible:ring-2 
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium
+           transition-colors focus-visible:outline-none focus-visible:ring-2
            focus-visible:ring-primary-500 disabled:pointer-events-none disabled:opacity-50;
   }
 
@@ -41,6 +41,28 @@
 
   .card {
     @apply rounded-lg border bg-white p-6 shadow-sm;
+  }
+
+  /* ============================================
+     FORM INPUT STANDARD
+     Use: className="form-input" or combine with error state
+     ============================================ */
+  .form-input {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md
+           text-gray-900 placeholder:text-gray-400
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+           disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
+  }
+
+  .form-input-error {
+    @apply border-red-500 focus:ring-red-500;
+  }
+
+  .form-select {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md
+           text-gray-900 bg-white
+           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+           disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
   }
 }
 
@@ -102,4 +124,31 @@
 /* When dragging a node: grabbing cursor */
 .react-flow__node.dragging {
   cursor: grabbing !important;
+}
+
+/* ============================================
+   SIDEBAR STYLES
+   ============================================ */
+
+/* Sidebar transition animation */
+.sidebar {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar tooltip for collapsed state */
+.sidebar-tooltip {
+  @apply absolute left-full ml-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-md
+         shadow-lg whitespace-nowrap pointer-events-none opacity-0
+         group-hover:opacity-100 transition-opacity z-50;
+}
+
+/* Active navigation item styling */
+.sidebar nav button.active {
+  @apply bg-blue-600 text-white;
+}
+
+/* Keyboard shortcut hint styling */
+.sidebar .shortcut-hint {
+  @apply text-xs font-mono text-gray-400 opacity-0 group-hover:opacity-100
+         transition-opacity;
 }
