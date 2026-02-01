@@ -703,10 +703,14 @@ These fields are included in the schema for future use but NOT exposed in UI yet
 ### Phase 7: Enhanced Visualization
 - [ ] Process flow visualization on Canvas (connections/arrows between areas)
 
-### Phase 8: Scenario Management
-- [ ] Save/load analysis scenarios
-- [ ] Compare scenarios side-by-side
-- [ ] What-if analysis
+### Phase 8: Project & Scenario Management
+- [ ] Project files (.lineopt) - New/Open/Save/Save As
+- [ ] Welcome screen with recent projects
+- [ ] Auto-save with crash recovery
+- [ ] Multiple scenarios per project (what-if analysis)
+- [ ] Scenario comparison view (side-by-side)
+
+**Full specification**: `docs/phases/phase-8-project-management.md`
 
 ### Phase 9: Reports & Export
 - [ ] PDF report generation (executive summary)
