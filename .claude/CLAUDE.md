@@ -718,6 +718,14 @@ These fields are included in the schema for future use but NOT exposed in UI yet
 - [ ] TSP-optimal sequencing method
 - [ ] Multi-year analysis dashboard
 
+### Phase 11: Simulation Export
+- [ ] Export routing DAG to JSON/BPMN/Visio formats
+- [ ] Data enrichment UI (MTBF/MTTR, resources, shift patterns)
+- [ ] Process Simulator (ProModel) integration
+- [ ] Custom simulation tool foundation
+
+**Full specification**: `docs/phases/phase-11-simulation-export.md`
+
 ---
 
 ## Important Notes
