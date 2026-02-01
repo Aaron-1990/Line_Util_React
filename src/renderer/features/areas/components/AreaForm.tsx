@@ -140,18 +140,18 @@ export const AreaForm = () => {
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {editingArea ? 'Edit Area' : 'Create New Area'}
           </h2>
           <button
             onClick={closeForm}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             disabled={isLoading}
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
@@ -159,72 +159,72 @@ export const AreaForm = () => {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Store Error Display */}
           {storeError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{storeError}</p>
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+              <p className="text-sm text-red-600 dark:text-red-400">{storeError}</p>
             </div>
           )}
 
           {/* Code */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Code <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.code}
               onChange={(e) => handleCodeChange(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.code ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-md font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.code ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="e.g., BODY_SHOP"
               disabled={isLoading || !!editingArea}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               Uppercase letters and underscores only
             </p>
             {errors.code && (
-              <p className="mt-1 text-sm text-red-600">{errors.code}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.code}</p>
             )}
           </div>
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-md text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="e.g., Body Shop"
               disabled={isLoading}
             />
             {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>
             )}
           </div>
 
           {/* Color */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Color <span className="text-red-500">*</span>
             </label>
 
             {/* Current Color Preview */}
             <div className="flex items-center gap-3 mb-3">
               <div
-                className="w-12 h-12 rounded-lg border-2 border-gray-300 shadow-sm"
+                className="w-12 h-12 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-sm"
                 style={{ backgroundColor: formData.color }}
               />
               <input
                 type="text"
                 value={formData.color}
                 onChange={(e) => handleChange('color', e.target.value)}
-                className={`flex-1 px-3 py-2 border rounded-md font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.color ? 'border-red-500' : 'border-gray-300'
+                className={`flex-1 px-3 py-2 border rounded-md font-mono text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.color ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
                 placeholder="#3B82F6"
                 disabled={isLoading}
@@ -233,7 +233,7 @@ export const AreaForm = () => {
 
             {/* Preset Colors */}
             <div>
-              <p className="text-xs text-gray-600 mb-2">Preset colors:</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Preset colors:</p>
               <div className="grid grid-cols-8 gap-2">
                 {COLOR_PRESETS.map(preset => (
                   <button
@@ -242,8 +242,8 @@ export const AreaForm = () => {
                     onClick={() => handleChange('color', preset.hex)}
                     className={`w-full aspect-square rounded-md transition-all hover:scale-110 ${
                       formData.color.toUpperCase() === preset.hex.toUpperCase()
-                        ? 'ring-2 ring-blue-500 ring-offset-2'
-                        : 'border-2 border-gray-300'
+                        ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900'
+                        : 'border-2 border-gray-300 dark:border-gray-600'
                     }`}
                     style={{ backgroundColor: preset.hex }}
                     title={preset.name}
@@ -254,7 +254,7 @@ export const AreaForm = () => {
             </div>
 
             {errors.color && (
-              <p className="mt-2 text-sm text-red-600">{errors.color}</p>
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.color}</p>
             )}
           </div>
 
@@ -263,7 +263,7 @@ export const AreaForm = () => {
             <button
               type="button"
               onClick={closeForm}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
               disabled={isLoading}
             >
               Cancel

@@ -110,17 +110,17 @@ export const LinePropertiesPanel = () => {
 
   return (
     <>
-      <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg z-20 animate-slide-in flex flex-col">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+      <div className="absolute top-0 right-0 h-full w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-lg z-20 animate-slide-in flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {isEditing ? 'Edit Line' : 'Line Properties'}
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             title="Close"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
@@ -177,43 +177,43 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
-        <p className="mt-1 text-sm text-gray-900 font-medium">{data.name}</p>
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Name</label>
+        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 font-medium">{data.name}</p>
       </div>
 
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Area</label>
-        <p className="mt-1 text-sm text-gray-900">{data.area}</p>
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Area</label>
+        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{data.area}</p>
       </div>
 
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Time Available
         </label>
-        <p className="mt-1 text-sm text-gray-900">
+        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
           {hoursAvailable} hours/day
-          <span className="text-xs text-gray-500 ml-1">({data.timeAvailableDaily} seconds)</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">({data.timeAvailableDaily} seconds)</span>
         </p>
       </div>
 
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Assigned Models
         </label>
-        <p className="mt-1 text-sm text-gray-900">{data.assignedModelsCount || 0} models</p>
+        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{data.assignedModelsCount || 0} models</p>
       </div>
 
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
           Status
         </label>
         <div className="mt-1 flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500" />
-          <span className="text-sm text-gray-900">Active</span>
+          <span className="text-sm text-gray-900 dark:text-gray-100">Active</span>
         </div>
       </div>
 
-      <div className="pt-4 border-t border-gray-200 space-y-2">
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
         <button
           onClick={onEdit}
           className="w-full btn-primary py-2 flex items-center justify-center gap-2"
@@ -223,7 +223,7 @@ const ReadOnlyView = ({ data, onEdit, onDelete }: ReadOnlyViewProps) => {
         </button>
         <button
           onClick={onDelete}
-          className="w-full btn bg-red-50 text-red-600 hover:bg-red-100 py-2 flex items-center justify-center gap-2 border border-red-200"
+          className="w-full btn bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 py-2 flex items-center justify-center gap-2 border border-red-200 dark:border-red-800"
         >
           <Trash2 className="w-4 h-4" />
           Delete Line

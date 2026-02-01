@@ -98,8 +98,8 @@ export const Sidebar = () => {
     <aside
       className={`
         sidebar
-        h-full bg-gray-800 text-gray-100 flex flex-col
-        transition-all duration-300 ease-in-out
+        h-full bg-gray-800 dark:bg-gray-900 text-gray-100 flex flex-col
+        transition-all duration-300 ease-in-out border-r border-transparent dark:border-gray-800
         ${sidebarCollapsed ? 'w-12' : 'w-[200px]'}
       `}
       role="navigation"

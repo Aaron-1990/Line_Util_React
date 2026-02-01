@@ -122,18 +122,18 @@ export const ModelForm = () => {
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+      <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-md mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {editingModel ? 'Edit Model' : 'Add Model'}
           </h2>
           <button
             onClick={closeModelForm}
-            className="p-1 hover:bg-gray-100 rounded transition-colors"
+            className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
             disabled={isLoading}
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </button>
         </div>
 
@@ -141,34 +141,34 @@ export const ModelForm = () => {
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Store Error Display */}
           {storeError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{storeError}</p>
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+              <p className="text-sm text-red-600 dark:text-red-400">{storeError}</p>
             </div>
           )}
 
           {/* Model Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Model Name <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.name ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-md text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="e.g., HEV-1000"
               disabled={isLoading || !!editingModel}
             />
             {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name}</p>
             )}
           </div>
 
           {/* Customer */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Customer <span className="text-red-500">*</span>
             </label>
             <input
@@ -176,8 +176,8 @@ export const ModelForm = () => {
               list="customers"
               value={formData.customer}
               onChange={(e) => handleChange('customer', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.customer ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-md text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.customer ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="e.g., Ford"
               disabled={isLoading}
@@ -188,13 +188,13 @@ export const ModelForm = () => {
               ))}
             </datalist>
             {errors.customer && (
-              <p className="mt-1 text-sm text-red-600">{errors.customer}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.customer}</p>
             )}
           </div>
 
           {/* Program */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Program <span className="text-red-500">*</span>
             </label>
             <input
@@ -202,8 +202,8 @@ export const ModelForm = () => {
               list="programs"
               value={formData.program}
               onChange={(e) => handleChange('program', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.program ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-md text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.program ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="e.g., F-150"
               disabled={isLoading}
@@ -214,13 +214,13 @@ export const ModelForm = () => {
               ))}
             </datalist>
             {errors.program && (
-              <p className="mt-1 text-sm text-red-600">{errors.program}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.program}</p>
             )}
           </div>
 
           {/* Family */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Family <span className="text-red-500">*</span>
             </label>
             <input
@@ -228,8 +228,8 @@ export const ModelForm = () => {
               list="families"
               value={formData.family}
               onChange={(e) => handleChange('family', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.family ? 'border-red-500' : 'border-gray-300'
+              className={`w-full px-3 py-2 border rounded-md text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors.family ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
               }`}
               placeholder="e.g., HEV"
               disabled={isLoading}
@@ -240,15 +240,15 @@ export const ModelForm = () => {
               ))}
             </datalist>
             {errors.family && (
-              <p className="mt-1 text-sm text-red-600">{errors.family}</p>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.family}</p>
             )}
           </div>
 
           {/* Hint for new models */}
           {!editingModel && (
-            <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-blue-700">
+            <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <Info className="w-4 h-4 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-blue-700 dark:text-blue-300">
                 After creating, click the model row to expand it and add yearly volumes.
               </p>
             </div>
@@ -259,7 +259,7 @@ export const ModelForm = () => {
             <button
               type="button"
               onClick={closeModelForm}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
               disabled={isLoading}
             >
               Cancel

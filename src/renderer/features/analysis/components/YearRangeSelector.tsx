@@ -25,7 +25,7 @@ export const YearRangeSelector = () => {
 
   if (!hasYears) {
     return (
-      <div className="flex items-center gap-2 text-gray-400">
+      <div className="flex items-center gap-2 text-gray-400 dark:text-gray-500">
         <Calendar className="w-4 h-4" />
         <span className="text-sm">No years available</span>
       </div>
@@ -35,10 +35,10 @@ export const YearRangeSelector = () => {
   return (
     <div className="flex items-center gap-4">
       {/* Icon */}
-      <Calendar className="w-4 h-4 text-gray-500" />
+      <Calendar className="w-4 h-4 text-gray-500 dark:text-gray-400" />
 
       {/* Mode Selector */}
-      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+      <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
         <ModeButton
           mode="all"
           label="All"
@@ -62,7 +62,7 @@ export const YearRangeSelector = () => {
       {/* Year Dropdowns based on mode */}
       <div className="flex items-center gap-2">
         {yearSelection.mode === 'all' && (
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-gray-600 dark:text-gray-300">
             {availableYears[0]} - {availableYears[availableYears.length - 1]}
           </span>
         )}
@@ -75,7 +75,7 @@ export const YearRangeSelector = () => {
               onChange={setFromYear}
               label="From"
             />
-            <span className="text-gray-400">to</span>
+            <span className="text-gray-400 dark:text-gray-500">to</span>
             <YearDropdown
               value={yearSelection.toYear}
               years={availableYears}
@@ -96,7 +96,7 @@ export const YearRangeSelector = () => {
       </div>
 
       {/* Selected Count Badge */}
-      <div className="px-2 py-0.5 bg-primary-100 text-primary-700 rounded text-xs font-medium">
+      <div className="px-2 py-0.5 bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 rounded text-xs font-medium">
         {selectedYearsCount} year{selectedYearsCount !== 1 ? 's' : ''}
       </div>
     </div>
@@ -120,8 +120,8 @@ const ModeButton = ({ mode, label, currentMode, onClick }: ModeButtonProps) => {
       onClick={() => onClick(mode)}
       className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
         isActive
-          ? 'bg-white text-primary-700 shadow-sm'
-          : 'text-gray-600 hover:text-gray-900'
+          ? 'bg-white dark:bg-gray-600 text-primary-700 dark:text-primary-300 shadow-sm'
+          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
       }`}
     >
       {label}
@@ -141,7 +141,7 @@ const YearDropdown = ({ value, years, onChange, label }: YearDropdownProps) => {
     <select
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value ? parseInt(e.target.value, 10) : null)}
-      className="px-2 py-1 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+      className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
       aria-label={label}
     >
       <option value="" disabled>

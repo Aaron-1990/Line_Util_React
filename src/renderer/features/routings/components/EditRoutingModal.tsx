@@ -481,12 +481,12 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-900 z-10">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Edit Routing</h2>
-            <p className="text-sm text-gray-500 mt-1">{modelName}</p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Routing</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{modelName}</p>
             {/* Clear Routing Button */}
             {hasExistingRouting && (
               <button
@@ -512,23 +512,23 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
         {/* Clear Routing Confirmation Dialog */}
         {showClearConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
                 Clear Routing for {modelName}?
               </h3>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 This will remove the process flow configuration (area sequence and dependencies).
               </p>
-              <p className="text-sm text-gray-500 mb-4">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                 Line assignments will be preserved but will no longer be organized into a routing.
               </p>
-              <p className="text-xs text-blue-600 mb-6">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mb-6">
                 You can still click <strong>Cancel</strong> in the main modal to undo this action before saving.
               </p>
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowClearConfirm(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Go Back
                 </button>
@@ -547,11 +547,11 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
         <div className="p-6 space-y-6">
           {/* Error Messages */}
           {errors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="text-sm font-medium text-red-900 mb-2">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="text-sm font-medium text-red-900 dark:text-red-300 mb-2">
                 Please fix the following errors:
               </div>
-              <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+              <ul className="list-disc list-inside text-sm text-red-700 dark:text-red-400 space-y-1">
                 {errors.map((error, index) => (
                   <li key={index}>{error}</li>
                 ))}
@@ -561,7 +561,7 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
 
           {/* Routing Cleared Warning */}
           {routingCleared && (
-            <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+            <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-sm text-amber-700 dark:text-amber-400">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               <span>
                 Routing will be cleared when you click Save. Click <strong>Cancel</strong> to keep the original routing.
@@ -600,19 +600,19 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
           {/* Current Flow Section */}
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <GitBranch className="w-4 h-4 text-gray-500" />
-              <h3 className="text-sm font-medium text-gray-700">Process Flow</h3>
+              <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Process Flow</h3>
             </div>
-            <p className="text-xs text-gray-500 mb-3">
-              Areas in the routing. Color indicates type: <span className="text-green-600 font-medium">green = start</span>, <span className="text-purple-600 font-medium">purple = end</span>, <span className="text-blue-600 font-medium">blue = intermediate</span>.
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Areas in the routing. Color indicates type: <span className="text-green-600 dark:text-green-400 font-medium">green = start</span>, <span className="text-purple-600 dark:text-purple-400 font-medium">purple = end</span>, <span className="text-blue-600 dark:text-blue-400 font-medium">blue = intermediate</span>.
             </p>
 
             {selectedAreas.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center text-sm text-gray-500">
+              <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center text-sm text-gray-500 dark:text-gray-400">
                 No areas in routing. Add an area below to get started.
               </div>
             ) : (
-              <div className="flex items-center gap-2 flex-wrap p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center gap-2 flex-wrap p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
                 {selectedAreas.map((areaCode, index) => {
                   const areaData = areaAssignments.get(areaCode);
                   const areaType = getAreaType(areaCode);
@@ -683,13 +683,13 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
           {/* Add Area Section */}
           {availableAreas.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Available Areas</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Available Areas</h3>
               <div className="flex items-center gap-2 flex-wrap">
                 {availableAreas.map(area => (
                   <button
                     key={area.code}
                     onClick={() => handleAddArea(area.code)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     disabled={isAnySaving}
                   >
                     <Plus className="w-3 h-3" />
@@ -703,7 +703,7 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
           {/* Line Assignments Section with Predecessor Selection */}
           {selectedAreas.length > 0 && (
             <div>
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Line Assignments & Dependencies</h3>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Line Assignments & Dependencies</h3>
 
               <div className="space-y-4">
                 {selectedAreas.map((areaCode, areaIndex) => {
@@ -715,7 +715,7 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
                   const availablePredecessors = selectedAreas.filter(a => a !== areaCode);
 
                   return (
-                    <div key={areaCode} className="border border-gray-200 rounded-lg">
+                    <div key={areaCode} className="border border-gray-200 dark:border-gray-700 rounded-lg">
                       {/* Area Header */}
                       <div
                         className="px-4 py-2 text-sm font-medium text-white rounded-t-lg flex items-center justify-between"
@@ -727,7 +727,7 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
 
                       {/* Predecessor Selection */}
                       {areaIndex > 0 && (
-                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                           <PredecessorSelector
                             areaCode={areaCode}
                             availablePredecessors={availablePredecessors}
@@ -743,22 +743,22 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
                       {/* Lines */}
                       <div className="p-4 space-y-3">
                         {areaData?.lines.map(line => (
-                          <div key={line.lineId} className="flex items-start gap-4 pb-3 border-b border-gray-100 last:border-0">
+                          <div key={line.lineId} className="flex items-start gap-4 pb-3 border-b border-gray-100 dark:border-gray-700 last:border-0">
                             <div className="w-48 flex items-center gap-2">
                               <input
                                 type="checkbox"
                                 checked={true}
                                 onChange={() => handleRemoveLine(areaCode, line.lineId)}
-                                className="rounded text-blue-600 focus:ring-blue-500"
+                                className="rounded text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                                 disabled={isAnySaving}
                               />
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {line.lineName}
                               </span>
                             </div>
 
                             <div className="flex-1">
-                              <label className="block text-xs text-gray-500 mb-1">
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                                 Cycle Time (sec)
                               </label>
                               <input
@@ -769,13 +769,13 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
                                 onChange={(e) =>
                                   handleUpdateLine(areaCode, line.lineId, 'cycleTime', parseFloat(e.target.value) || 0)
                                 }
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 disabled={isAnySaving}
                               />
                             </div>
 
                             <div className="flex-1">
-                              <label className="block text-xs text-gray-500 mb-1">
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                                 Efficiency (%)
                               </label>
                               <input
@@ -787,13 +787,13 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
                                 onChange={(e) =>
                                   handleUpdateLine(areaCode, line.lineId, 'efficiency', parseInt(e.target.value, 10) || 0)
                                 }
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 disabled={isAnySaving}
                               />
                             </div>
 
                             <div className="flex-1">
-                              <label className="block text-xs text-gray-500 mb-1">
+                              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                                 Priority
                               </label>
                               <input
@@ -804,14 +804,14 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
                                 onChange={(e) =>
                                   handleUpdateLine(areaCode, line.lineId, 'priority', parseInt(e.target.value, 10) || 1)
                                 }
-                                className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 disabled={isAnySaving}
                               />
                             </div>
 
                             <button
                               onClick={() => handleRemoveLine(areaCode, line.lineId)}
-                              className="mt-6 p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              className="mt-6 p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
                               title="Remove line"
                               disabled={isAnySaving}
                             >
@@ -830,7 +830,7 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
                                   handleAddLine(areaCode, selectedLineId);
                                 }
                               }}
-                              className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                               disabled={isAnySaving}
                             >
                               <option value="">+ Add line to {areaCode}...</option>
@@ -844,7 +844,7 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
                         )}
 
                         {areaData?.lines.length === 0 && availableLines.length === 0 && (
-                          <div className="text-sm text-gray-500 italic">
+                          <div className="text-sm text-gray-500 dark:text-gray-400 italic">
                             No lines available in this area
                           </div>
                         )}
@@ -857,13 +857,13 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
           )}
 
           {/* Info Box */}
-          <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <Info className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-blue-700">
+          <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+            <Info className="w-4 h-4 text-blue-500 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-700 dark:text-blue-300">
               <p className="mb-1">
                 Define the process flow by adding areas. For each area after the first, select which preceding areas must complete before it can start.
               </p>
-              <p className="text-xs text-blue-600">
+              <p className="text-xs text-blue-600 dark:text-blue-400">
                 Parallel processes: Select the same predecessors for multiple areas to indicate they can run in parallel.
               </p>
             </div>
@@ -871,11 +871,11 @@ export const EditRoutingModal = ({ isOpen, modelId, modelName, onClose }: EditRo
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <button
             type="button"
             onClick={handleCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             disabled={isAnySaving}
           >
             Cancel

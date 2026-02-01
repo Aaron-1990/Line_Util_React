@@ -36,11 +36,11 @@ const UTILIZATION_THRESHOLDS = {
  */
 function getBorderColorClass(utilizationPercent: number | null, selected: boolean): string {
   if (selected) {
-    return 'border-primary-500 shadow-lg ring-2 ring-primary-200';
+    return 'border-primary-500 shadow-lg ring-2 ring-primary-200 dark:ring-primary-800';
   }
 
   if (utilizationPercent === null) {
-    return 'border-gray-300 hover:border-gray-400';
+    return 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500';
   }
 
   if (utilizationPercent > UTILIZATION_THRESHOLDS.APPROACHING) {
@@ -52,7 +52,7 @@ function getBorderColorClass(utilizationPercent: number | null, selected: boolea
   if (utilizationPercent >= UTILIZATION_THRESHOLDS.UNDERUTILIZED) {
     return 'border-blue-500 hover:border-blue-600';
   }
-  return 'border-gray-300 hover:border-gray-400';
+  return 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500';
 }
 
 /**
@@ -140,7 +140,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
     return (
       <div
         className={`
-          px-4 py-3 rounded-lg border-2 bg-white shadow-md
+          px-4 py-3 rounded-lg border-2 bg-white dark:bg-gray-800 shadow-md
           min-w-[220px] transition-all duration-200
           ${borderClass}
         `}
@@ -157,7 +157,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
                     : 'bg-green-500'
                 : 'bg-green-500'
             }`} />
-            <span className="font-semibold text-gray-900 text-sm">{data.name}</span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{data.name}</span>
           </div>
           <div className="flex items-center gap-1">
             {/* Per-line changeover toggle */}
@@ -204,7 +204,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
         {utilizationPercent !== null && (
           <div className="mb-2">
             <div className="flex items-center gap-2 mb-1">
-              <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden flex">
+              <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden flex">
                 {/* Production time (blue) */}
                 {productionPercent !== null && productionPercent > 0 && (
                   <div
@@ -249,7 +249,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
         )}
 
         {/* Info secundaria */}
-        <div className="text-xs text-gray-600 space-y-1">
+        <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
           <div className="flex items-center gap-1">
             <span className="font-medium">Area:</span>
             <span>{data.area}</span>
@@ -263,7 +263,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
             <span className={hasEfficiency ? '' : 'text-gray-400'}>{efficiencyDisplay}</span>
           </div>
           {data.assignedModelsCount !== undefined && data.assignedModelsCount > 0 && (
-            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200 text-primary-600">
+            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-primary-600 dark:text-primary-400">
               <span>Models:</span>
               <span>{data.assignedModelsCount}</span>
             </div>

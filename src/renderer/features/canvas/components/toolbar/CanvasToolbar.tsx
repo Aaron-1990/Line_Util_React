@@ -42,57 +42,57 @@ export const CanvasToolbar = () => {
 
   return (
     <>
-      <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-md border border-gray-200 p-2 flex items-center gap-2">
+      <div className="absolute top-4 left-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-2 flex items-center gap-2">
         <button
           onClick={handleAddLine}
-          className="p-2 hover:bg-primary-50 rounded transition-colors"
+          className="p-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded transition-colors"
           title="Agregar linea de produccion"
         >
-          <Plus className="w-5 h-5 text-gray-700" />
+          <Plus className="w-5 h-5 text-gray-700 dark:text-gray-300" />
         </button>
 
         <button
           onClick={handleImport}
-          className="p-2 hover:bg-green-50 rounded transition-colors"
+          className="p-2 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors"
           title="Importar desde Excel"
         >
-          <Upload className="w-5 h-5 text-green-600" />
+          <Upload className="w-5 h-5 text-green-600 dark:text-green-500" />
         </button>
 
-        <div className="w-px h-6 bg-gray-300" />
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
 
         <button
           onClick={handleZoomIn}
-          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
           title="Zoom in"
         >
-          <ZoomIn className="w-5 h-5 text-gray-700" />
+          <ZoomIn className="w-5 h-5 text-gray-700 dark:text-gray-300" />
         </button>
 
         <button
           onClick={handleZoomOut}
-          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
           title="Zoom out"
         >
-          <ZoomOut className="w-5 h-5 text-gray-700" />
+          <ZoomOut className="w-5 h-5 text-gray-700 dark:text-gray-300" />
         </button>
 
         <button
           onClick={handleFitView}
-          className="p-2 hover:bg-gray-100 rounded transition-colors"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
           title="Ajustar vista"
         >
-          <Maximize2 className="w-5 h-5 text-gray-700" />
+          <Maximize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
         </button>
 
-        <div className="w-px h-6 bg-gray-300" />
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
 
         <button
           onClick={handleClear}
-          className="p-2 hover:bg-red-50 rounded transition-colors"
+          className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
           title="Limpiar canvas"
         >
-          <Trash2 className="w-5 h-5 text-red-600" />
+          <Trash2 className="w-5 h-5 text-red-600 dark:text-red-500" />
         </button>
       </div>
 

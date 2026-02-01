@@ -18,13 +18,13 @@ const StatusItem = ({ label, count, isLoading }: StatusItemProps) => {
   return (
     <div className="flex items-center gap-2">
       {isLoading ? (
-        <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+        <Loader2 className="w-4 h-4 text-gray-400 dark:text-gray-500 animate-spin" />
       ) : isReady ? (
         <CheckCircle2 className="w-4 h-4 text-green-500" />
       ) : (
         <XCircle className="w-4 h-4 text-red-400" />
       )}
-      <span className="text-sm text-gray-600">
+      <span className="text-sm text-gray-600 dark:text-gray-300">
         <span className="font-medium">{count}</span> {label}
       </span>
     </div>
@@ -40,17 +40,17 @@ export const DataStatusPanel = () => {
       <div
         className={`px-3 py-1 rounded-full text-xs font-medium ${
           isDataLoading
-            ? 'bg-gray-100 text-gray-600'
+            ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
             : isDataReady
-            ? 'bg-green-100 text-green-700'
-            : 'bg-yellow-100 text-yellow-700'
+            ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300'
+            : 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300'
         }`}
       >
         {isDataLoading ? 'Loading...' : isDataReady ? 'Data Ready' : 'Data Incomplete'}
       </div>
 
       {/* Entity Counts */}
-      <div className="flex items-center gap-4 border-l border-gray-200 pl-6">
+      <div className="flex items-center gap-4 border-l border-gray-200 dark:border-gray-600 pl-6">
         <StatusItem
           label="Lines"
           count={dataCounts.lines}

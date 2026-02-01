@@ -5,6 +5,7 @@
 
 import { Sidebar } from './Sidebar';
 import { useNavigationStore } from '../../store/useNavigationStore';
+import { useApplyTheme } from '../../hooks/useApplyTheme';
 import { ProductionCanvas } from '../../features/canvas';
 import { ModelsPage } from '../../pages/ModelsPage';
 import { RoutingsPage } from '../../pages/RoutingsPage';
@@ -19,6 +20,9 @@ import { PreferencesPage } from '../../pages/PreferencesPage';
  */
 export const AppLayout = () => {
   const { currentView } = useNavigationStore();
+
+  // Apply theme to document
+  useApplyTheme();
 
   // Render view based on current selection with exhaustive type checking
   const renderView = () => {
@@ -43,7 +47,7 @@ export const AppLayout = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-gray-50">
+    <div className="h-screen w-screen flex overflow-hidden bg-gray-50 dark:bg-gray-950 transition-colors duration-150">
       {/* Sidebar */}
       <Sidebar />
 

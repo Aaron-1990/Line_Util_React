@@ -99,7 +99,7 @@ export const ProductionCanvas = () => {
   }, [setSelectedNode]);
 
   return (
-    <div className="relative w-full h-full bg-gray-50">
+    <div className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150">
       <CanvasToolbar />
 
       <ReactFlow
@@ -113,7 +113,7 @@ export const ProductionCanvas = () => {
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-right"
-        className="bg-gray-50"
+        className="bg-gray-50 dark:bg-gray-900"
         // AutoCAD-style selection: left-click drag = selection box
         selectionOnDrag={true}
         selectionMode={SelectionMode.Partial}
@@ -126,13 +126,13 @@ export const ProductionCanvas = () => {
           variant={BackgroundVariant.Dots}
           gap={20}
           size={1}
-          color="#d1d5db"
+          className="[&>pattern>circle]:fill-gray-300 dark:[&>pattern>circle]:fill-gray-700"
         />
 
         <Controls
           position="bottom-left"
           showInteractive={false}
-          className="bg-white border border-gray-200 rounded-lg shadow-sm"
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm [&>button]:bg-white [&>button]:dark:bg-gray-800 [&>button]:border-gray-200 [&>button]:dark:border-gray-700 [&>button]:text-gray-600 [&>button]:dark:text-gray-400 [&>button:hover]:bg-gray-100 [&>button:hover]:dark:bg-gray-700"
         />
 
         <MiniMap
@@ -148,7 +148,7 @@ export const ProductionCanvas = () => {
           }}
           maskColor="rgba(0, 0, 0, 0.1)"
           position="bottom-right"
-          className="bg-white border border-gray-200 rounded-lg shadow-sm"
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm"
         />
       </ReactFlow>
 
@@ -217,24 +217,24 @@ const TimelineStatusBadge = () => {
 
   return (
     <div className="absolute top-4 right-4 z-20">
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 flex items-center gap-3">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <CheckCircle className="w-5 h-5 text-green-600" />
-          <span className="text-sm font-medium text-gray-700">
+          <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-500" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Analysis Complete
           </span>
         </div>
-        <div className="h-4 w-px bg-gray-300" />
+        <div className="h-4 w-px bg-gray-300 dark:bg-gray-600" />
         <button
           onClick={handleFocusTimeline}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors text-sm font-medium"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium"
         >
           <ExternalLink className="w-4 h-4" />
           {isTimelineOpen ? 'Focus Timeline' : 'Open Timeline'}
         </button>
         <button
           onClick={resetAnalysis}
-          className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+          className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
           title="Dismiss"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

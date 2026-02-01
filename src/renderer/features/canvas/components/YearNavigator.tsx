@@ -24,7 +24,7 @@ export const YearNavigator = () => {
 
   return (
     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 px-2 py-1.5 flex items-center gap-1">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 px-2 py-1.5 flex items-center gap-1">
         {/* Previous Year Button */}
         <button
           onClick={prevDisplayedYear}
@@ -32,8 +32,8 @@ export const YearNavigator = () => {
           className={`
             p-1.5 rounded-md transition-colors
             ${isFirstYear
-              ? 'text-gray-300 cursor-not-allowed'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
             }
           `}
           title={isFirstYear ? 'First year' : 'Previous year'}
@@ -43,10 +43,10 @@ export const YearNavigator = () => {
 
         {/* Year Display */}
         <div className="px-3 py-1 min-w-[100px] text-center">
-          <div className="text-lg font-semibold text-gray-900">
+          <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {currentYear}
           </div>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide">
+          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             {displayedYearIndex + 1} of {totalYears}
           </div>
         </div>
@@ -58,8 +58,8 @@ export const YearNavigator = () => {
           className={`
             p-1.5 rounded-md transition-colors
             ${isLastYear
-              ? 'text-gray-300 cursor-not-allowed'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'
             }
           `}
           title={isLastYear ? 'Last year' : 'Next year'}

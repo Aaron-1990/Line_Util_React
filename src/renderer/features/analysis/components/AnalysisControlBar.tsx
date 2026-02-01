@@ -27,7 +27,7 @@ export const AnalysisControlBar = () => {
   return (
     <div className="absolute bottom-0 left-0 right-0 z-50">
       {/* Bar Container */}
-      <div className="bg-white border-t border-gray-200 shadow-lg">
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             {/* Left Section: Data Status + Changeover Toggle */}
@@ -38,14 +38,14 @@ export const AnalysisControlBar = () => {
               <button
                 onClick={handleRefresh}
                 disabled={isDataLoading}
-                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50"
+                className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
                 title="Refresh data counts"
               >
                 <RefreshCw className={`w-4 h-4 ${isDataLoading ? 'animate-spin' : ''}`} />
               </button>
 
               {/* Divider */}
-              <div className="w-px h-6 bg-gray-200" />
+              <div className="w-px h-6 bg-gray-200 dark:bg-gray-600" />
 
               {/* Phase 5.6: Global Changeover Toggle */}
               <ChangeoverToggle />

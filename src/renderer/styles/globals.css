@@ -8,11 +8,12 @@
 
 @layer base {
   * {
-    @apply border-gray-200;
+    @apply border-gray-200 dark:border-gray-700;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+    @apply transition-colors duration-150 ease-out;
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
@@ -40,7 +41,7 @@
   }
 
   .card {
-    @apply rounded-lg border bg-white p-6 shadow-sm;
+    @apply rounded-lg border bg-white dark:bg-gray-900 p-6 shadow-sm;
   }
 
   /* ============================================
@@ -48,10 +49,12 @@
      Use: className="form-input" or combine with error state
      ============================================ */
   .form-input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md
-           text-gray-900 placeholder:text-gray-400
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
+           text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500
+           bg-white dark:bg-gray-800
            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-           disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
+           disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+           dark:disabled:bg-gray-700 dark:disabled:text-gray-400;
   }
 
   .form-input-error {
@@ -59,10 +62,11 @@
   }
 
   .form-select {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md
-           text-gray-900 bg-white
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md
+           text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800
            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-           disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
+           disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed
+           dark:disabled:bg-gray-700 dark:disabled:text-gray-400;
   }
 }
 
@@ -72,15 +76,15 @@
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
+  @apply bg-gray-100 dark:bg-gray-800;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-400 rounded;
+  @apply bg-gray-400 dark:bg-gray-600 rounded;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-500;
+  @apply bg-gray-500 dark:bg-gray-500;
 }
 
 /* Animacion para panel lateral */
@@ -95,6 +99,33 @@
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+/* ============================================
+   REACTFLOW CANVAS - DARK MODE SUPPORT
+   ============================================ */
+
+/* ReactFlow container dark mode background */
+.react-flow {
+  @apply bg-gray-50;
+}
+
+.dark .react-flow {
+  @apply bg-gray-900;
+}
+
+/* ReactFlow pane (the main canvas area) */
+.react-flow__pane {
+  @apply bg-gray-50;
+}
+
+.dark .react-flow__pane {
+  @apply bg-gray-900;
+}
+
+/* ReactFlow background pattern */
+.dark .react-flow__background pattern circle {
+  fill: #374151 !important;
 }
 
 /* ============================================

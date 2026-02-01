@@ -32,7 +32,7 @@ export const RunAnalysisButton = () => {
       return (
         <button
           disabled
-          className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-400 rounded-lg cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-lg cursor-not-allowed"
         >
           <Play className="w-4 h-4" />
           <span>Run Analysis</span>
@@ -43,7 +43,7 @@ export const RunAnalysisButton = () => {
       return (
         <button
           onClick={handleClick}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors shadow-sm"
         >
           <Play className="w-4 h-4" />
           <span>
@@ -56,7 +56,7 @@ export const RunAnalysisButton = () => {
       return (
         <button
           disabled
-          className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg cursor-wait"
+          className="flex items-center gap-2 px-4 py-2 bg-primary-500 dark:bg-primary-600 text-white rounded-lg cursor-wait"
         >
           <Loader2 className="w-4 h-4 animate-spin" />
           <span>
@@ -70,7 +70,7 @@ export const RunAnalysisButton = () => {
       return (
         <button
           onClick={handleClick}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors shadow-sm"
           title={results ? `Avg. utilization: ${results.overallSummary.averageUtilizationAllYears}%` : ''}
         >
           <CheckCircle2 className="w-4 h-4" />
@@ -87,13 +87,13 @@ export const RunAnalysisButton = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleClick}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm"
           >
             <AlertCircle className="w-4 h-4" />
             <span>Error - Retry</span>
           </button>
           {analysisError && (
-            <span className="text-xs text-red-600 max-w-[200px] truncate" title={analysisError}>
+            <span className="text-xs text-red-600 dark:text-red-400 max-w-[200px] truncate" title={analysisError}>
               {analysisError}
             </span>
           )}
