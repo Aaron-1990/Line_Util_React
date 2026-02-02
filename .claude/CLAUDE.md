@@ -951,3 +951,48 @@ Lines Sheet:
 - **Soft Deletes**: Records use `active` flag, not hard deletes
 - **Execution Speed**: Python optimizer runs in ~17ms (not 10-20 seconds) because it's pure Python without pandas/Excel I/O overhead
 
+---
+
+## ⚠️ Git & Confidential Files Policy
+
+**CRITICAL: When the user says "push all" or "sube todo", this means push everything that is ALLOWED (not in .gitignore). NEVER push files that are in .gitignore.**
+
+### Confidential Folders (NEVER push to GitHub)
+
+These folders contain business-sensitive information and are listed in `.gitignore`:
+
+```
+.marketing/           # Marketing strategies, sales playbooks, positioning
+docs/marketing/       # Marketing documentation
+docs/market-research/ # Competitive analysis, market sizing, pricing research
+```
+
+### What These Folders Contain (Private)
+
+| Folder | Contents | Why Private |
+|--------|----------|-------------|
+| `.marketing/` | Sales decks, investor pitch, ROI calculators | Competitive advantage, pricing strategy |
+| `docs/marketing/` | Content strategy, positioning docs | Go-to-market plans |
+| `docs/market-research/` | Competitor analysis, TAM/SAM/SOM | Strategic intelligence |
+
+### Before Any Git Push
+
+1. **Check `.gitignore`** - Ensure confidential folders are listed
+2. **Run `git status`** - Verify no confidential files are staged
+3. **If in doubt, ASK** - Don't assume files should be public
+
+### If Confidential Files Are Accidentally Committed
+
+```bash
+# Remove from git but keep locally
+git rm -r --cached <folder>
+
+# Commit the removal
+git commit -m "chore: Remove confidential files from repo"
+
+# Push the removal
+git push origin main
+```
+
+**Note:** Even after removal, files may exist in git history. For truly sensitive data, consider using `git filter-branch` or BFG Repo-Cleaner.
+
