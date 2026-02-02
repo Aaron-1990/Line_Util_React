@@ -62,5 +62,6 @@ build/
 .cache/
 
 # Marketing & Business (private)
+.marketing/
 docs/marketing/
 docs/market-research/
