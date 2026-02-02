@@ -6,6 +6,7 @@
 import { Plus, ZoomIn, ZoomOut, Maximize2, Trash2, Upload } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useReactFlow } from 'reactflow';
 import { useCanvasStore } from '../../store/useCanvasStore';
 import { AddLineModal } from '../modals/AddLineModal';
 
@@ -13,6 +14,7 @@ export const CanvasToolbar = () => {
   const reset = useCanvasStore((state) => state.reset);
   const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
 
   const handleAddLine = () => {
     setIsAddModalOpen(true);
@@ -23,15 +25,21 @@ export const CanvasToolbar = () => {
   };
 
   const handleZoomIn = () => {
-    console.log('Zoom in clicked');
+    zoomIn({ duration: 200 });
   };
 
   const handleZoomOut = () => {
-    console.log('Zoom out clicked');
+    zoomOut({ duration: 200 });
   };
 
   const handleFitView = () => {
-    console.log('Fit view clicked');
+    fitView({
+      padding: 0.1,
+      duration: 300,
+      includeHiddenNodes: true,
+      minZoom: 0.001, // Allow zooming out as far as needed
+      maxZoom: 1.5,
+    });
   };
 
   const handleClear = () => {

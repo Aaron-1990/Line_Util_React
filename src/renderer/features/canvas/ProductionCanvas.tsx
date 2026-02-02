@@ -3,7 +3,7 @@
 // Componente principal del canvas con ReactFlow
 // ============================================
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -17,8 +17,18 @@ import ReactFlow, {
   applyEdgeChanges,
   BackgroundVariant,
   SelectionMode,
+  ReactFlowProvider,
+  useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+
+// Default node dimensions (used for bounding box calculation)
+const DEFAULT_NODE_WIDTH = 280;
+const DEFAULT_NODE_HEIGHT = 120;
+
+// Absolute minimum zoom (can zoom out to 0.1% if needed)
+const ABSOLUTE_MIN_ZOOM = 0.001;
+const MAX_ZOOM = 2;
 
 import { useCanvasStore } from './store/useCanvasStore';
 import { useLoadLines } from './hooks/useLoadLines';
@@ -35,7 +45,8 @@ const nodeTypes = {
   productionLine: ProductionLineNode,
 };
 
-export const ProductionCanvas = () => {
+// Inner component that has access to ReactFlow context
+const CanvasInner = () => {
   const {
     nodes,
     edges,
@@ -45,7 +56,94 @@ export const ProductionCanvas = () => {
     setSelectedNode,
   } = useCanvasStore();
 
+  const { fitView } = useReactFlow();
+  const lastMiddleClickTime = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useLoadLines();
+
+  // Calculate dynamic minZoom based on node positions
+  // This ensures we can always zoom out enough to see all nodes
+  const dynamicMinZoom = useMemo(() => {
+    if (nodes.length === 0) return 0.1; // Default when no nodes
+
+    // Calculate bounding box of all nodes
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    nodes.forEach((node) => {
+      const nodeWidth = node.width || DEFAULT_NODE_WIDTH;
+      const nodeHeight = node.height || DEFAULT_NODE_HEIGHT;
+
+      minX = Math.min(minX, node.position.x);
+      minY = Math.min(minY, node.position.y);
+      maxX = Math.max(maxX, node.position.x + nodeWidth);
+      maxY = Math.max(maxY, node.position.y + nodeHeight);
+    });
+
+    // Calculate the total spread of nodes
+    const contentWidth = maxX - minX;
+    const contentHeight = maxY - minY;
+
+    // Estimate viewport size (fallback to common screen size)
+    const viewportWidth = containerRef.current?.clientWidth || 1920;
+    const viewportHeight = containerRef.current?.clientHeight || 1080;
+
+    // Calculate zoom needed to fit all content with padding
+    const padding = 0.2; // 20% padding on each side
+    const effectiveViewportWidth = viewportWidth * (1 - padding * 2);
+    const effectiveViewportHeight = viewportHeight * (1 - padding * 2);
+
+    const zoomToFitWidth = effectiveViewportWidth / contentWidth;
+    const zoomToFitHeight = effectiveViewportHeight / contentHeight;
+    const zoomToFit = Math.min(zoomToFitWidth, zoomToFitHeight);
+
+    // Set minZoom to half of what's needed to fit (allows zooming out even more)
+    // But never go below absolute minimum
+    const calculatedMinZoom = Math.max(zoomToFit * 0.5, ABSOLUTE_MIN_ZOOM);
+
+    // Don't exceed a reasonable default for small layouts
+    return Math.min(calculatedMinZoom, 0.1);
+  }, [nodes]);
+
+  // AutoCAD-style: double-click middle mouse button = fit view (zoom extents)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleMiddleClick = (event: MouseEvent) => {
+      // Middle mouse button = 1
+      if (event.button === 1) {
+        const now = Date.now();
+        const timeSinceLastClick = now - lastMiddleClickTime.current;
+
+        // Double-click threshold: 400ms
+        if (timeSinceLastClick < 400 && timeSinceLastClick > 50) {
+          event.preventDefault();
+          event.stopPropagation();
+          fitView({
+            padding: 0.1,
+            duration: 300,
+            includeHiddenNodes: true,
+            minZoom: ABSOLUTE_MIN_ZOOM,
+            maxZoom: 1.5,
+          });
+          lastMiddleClickTime.current = 0; // Reset to prevent triple-click
+        } else {
+          lastMiddleClickTime.current = now;
+        }
+      }
+    };
+
+    // Use capture phase to get the event before ReactFlow
+    container.addEventListener('mousedown', handleMiddleClick, { capture: true });
+
+    return () => {
+      container.removeEventListener('mousedown', handleMiddleClick, { capture: true });
+    };
+  }, [fitView]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -55,7 +153,7 @@ export const ProductionCanvas = () => {
       changes.forEach((change) => {
         if (change.type === 'position' && !change.dragging && change.id) {
           const updatedNode = updatedNodes.find(n => n.id === change.id);
-          
+
           if (updatedNode) {
             updateNodePosition(change.id, updatedNode.position.x, updatedNode.position.y);
 
@@ -99,7 +197,10 @@ export const ProductionCanvas = () => {
   }, [setSelectedNode]);
 
   return (
-    <div className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150">
+    <div
+      ref={containerRef}
+      className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150"
+    >
       <CanvasToolbar />
 
       <ReactFlow
@@ -113,7 +214,10 @@ export const ProductionCanvas = () => {
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-right"
-        className="bg-gray-50 dark:bg-gray-900"
+        className="bg-gray-50 dark:bg-gray-900 [&_.react-flow__pane]:!cursor-crosshair [&_.react-flow__node]:!cursor-pointer [&_.react-flow__pane.dragging]:!cursor-grabbing [&_.react-flow__node.dragging]:!cursor-grabbing"
+        // Dynamic zoom limits - adapts to content spread
+        minZoom={dynamicMinZoom}
+        maxZoom={MAX_ZOOM}
         // AutoCAD-style selection: left-click drag = selection box
         selectionOnDrag={true}
         selectionMode={SelectionMode.Partial}
@@ -166,6 +270,15 @@ export const ProductionCanvas = () => {
       {/* Changeover Matrix Modal */}
       <ChangeoverMatrixModal />
     </div>
+  );
+};
+
+// Export wrapped with ReactFlowProvider so child components can use useReactFlow()
+export const ProductionCanvas = () => {
+  return (
+    <ReactFlowProvider>
+      <CanvasInner />
+    </ReactFlowProvider>
   );
 };
 
