@@ -21,6 +21,7 @@ import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLi
 import { SQLiteLineModelCompatibilityRepository } from '../../database/repositories/SQLiteLineModelCompatibilityRepository';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
 import { SQLiteChangeoverRepository } from '../../database/repositories/SQLiteChangeoverRepository';
+import { SQLitePlantRepository } from '../../database/repositories/SQLitePlantRepository';
 import { ProductionLine, ProductModelV2, LineModelCompatibility, ProductVolume } from '@domain/entities';
 
 export function registerMultiSheetExcelHandlers(): void {
@@ -30,6 +31,7 @@ export function registerMultiSheetExcelHandlers(): void {
   const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(db);
   const volumeRepository = new SQLiteProductVolumeRepository(db);
   const changeoverRepository = new SQLiteChangeoverRepository(db);
+  const plantRepository = new SQLitePlantRepository(db);
 
   // ===== DETECT SHEETS =====
   ipcMain.handle(
@@ -136,6 +138,27 @@ export function registerMultiSheetExcelHandlers(): void {
           existingModelNames
         );
 
+        // Phase 7.3: Check which plant codes exist vs need to be created
+        if (validationResult.detectedPlantCodes && validationResult.detectedPlantCodes.length > 0) {
+          const allPlants = await plantRepository.findAll();
+          const plantCodeMap = new Map<string, string>();
+          for (const plant of allPlants) {
+            plantCodeMap.set(plant.code.toUpperCase(), plant.name);
+            plantCodeMap.set(plant.name.toUpperCase(), plant.name);
+          }
+
+          validationResult.plantValidation = validationResult.detectedPlantCodes.map(code => {
+            const existingName = plantCodeMap.get(code.toUpperCase());
+            return {
+              code,
+              exists: !!existingName,
+              existingName,
+            };
+          });
+
+          console.log('[Multi-Sheet Handler] Plant validation:', validationResult.plantValidation);
+        }
+
         console.log('[Multi-Sheet Handler] Validation complete:', {
           areasValid: validationResult.areas?.stats.valid || 0,
           linesValid: validationResult.lines?.stats.valid || 0,
@@ -144,6 +167,7 @@ export function registerMultiSheetExcelHandlers(): void {
           changeoverValid: validationResult.changeover?.stats.valid || 0,
           crossSheetErrors: validationResult.crossSheetErrors.length,
           isValid: validationResult.isValid,
+          plantsDetected: validationResult.plantValidation?.length || 0,
         });
         if (validationResult.areas) {
           console.log('[Multi-Sheet Handler] Areas validation:', validationResult.areas.stats);
@@ -192,6 +216,66 @@ export function registerMultiSheetExcelHandlers(): void {
 
         // Start transaction
         db.prepare('BEGIN TRANSACTION').run();
+
+        // Phase 7: Get default plant for assigning to new lines
+        const defaultPlant = await plantRepository.getDefault();
+        const defaultPlantId = defaultPlant?.id ?? 'plant-default';
+        console.log('[Multi-Sheet Handler] Default plant for import:', defaultPlantId);
+
+        // Phase 7.2: Build plant code to ID lookup map for Excel Plant column support
+        const allPlants = await plantRepository.findAll();
+        const plantCodeToId = new Map<string, string>();
+        for (const plant of allPlants) {
+          plantCodeToId.set(plant.code.toUpperCase(), plant.id);
+          // Also map by name for flexibility
+          plantCodeToId.set(plant.name.toUpperCase(), plant.id);
+        }
+        console.log('[Multi-Sheet Handler] Plant code lookup map:', Array.from(plantCodeToId.keys()));
+
+        // Phase 7.3: Auto-create plants from Excel before importing other data
+        if (validationResult.plantValidation && validationResult.plantValidation.length > 0) {
+          const plantsToCreate = validationResult.plantValidation.filter(p => !p.exists);
+
+          if (plantsToCreate.length > 0) {
+            console.log('[Multi-Sheet Handler] Auto-creating plants:', plantsToCreate.map(p => p.code));
+
+            let created = 0;
+            let errors = 0;
+
+            for (const plantInfo of plantsToCreate) {
+              try {
+                // Create plant with code as both code and name
+                const plantId = randomUUID();
+                db.prepare(
+                  'INSERT INTO plants (id, code, name, is_default, is_active) VALUES (?, ?, ?, 0, 1)'
+                ).run(plantId, plantInfo.code, plantInfo.code);
+
+                // Update lookup map with new plant
+                plantCodeToId.set(plantInfo.code.toUpperCase(), plantId);
+
+                console.log(`[Multi-Sheet Handler] Created plant: ${plantInfo.code} (${plantId})`);
+                created++;
+              } catch (error) {
+                console.error(`[Multi-Sheet Handler] Error creating plant ${plantInfo.code}:`, error);
+                errors++;
+              }
+            }
+
+            result.plants = { created, updated: 0, errors };
+            console.log('[Multi-Sheet Handler] Plants created:', result.plants);
+          }
+        }
+
+        // Helper function to resolve plant ID from code
+        const resolvePlantId = (plantCode: string | undefined): string => {
+          if (!plantCode) return defaultPlantId;
+          const resolved = plantCodeToId.get(plantCode.toUpperCase());
+          if (!resolved) {
+            console.warn(`[Multi-Sheet Handler] Unknown plant code "${plantCode}", using default plant`);
+            return defaultPlantId;
+          }
+          return resolved;
+        };
 
         try {
           // 0. Import Areas (if present) - must be first to set up process flow order
@@ -325,6 +409,9 @@ export function registerMultiSheetExcelHandlers(): void {
                   const xPosition = 100 + (existingLines.length * 250) % 1000;
                   const yPosition = 100 + Math.floor((existingLines.length * 250) / 1000) * 200;
 
+                  // Phase 7.2: Use plant code from Excel if present, otherwise default
+                  const plantId = resolvePlantId(validLine.plantCode);
+
                   const line = ProductionLine.create({
                     name: validLine.name,
                     area: areaCode,
@@ -332,6 +419,7 @@ export function registerMultiSheetExcelHandlers(): void {
                     timeAvailableDaily: validLine.timeAvailableDaily,
                     xPosition,
                     yPosition,
+                    plantId,  // Phase 7.2: Use resolved plant from Excel
                   });
                   await lineRepository.save(line);
                   created++;

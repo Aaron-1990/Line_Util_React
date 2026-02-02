@@ -17,6 +17,7 @@ import { registerAnalysisHandlers } from './analysis.handler';
 import { registerWindowHandlers } from './window.handler';
 import { registerChangeoverHandlers } from './changeover.handler';
 import { registerRoutingHandlers } from './routing.handler';
+import { registerPlantHandlers } from './plant.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -35,6 +36,7 @@ export function registerAllHandlers(): void {
   registerWindowHandlers();
   registerChangeoverHandlers();
   registerRoutingHandlers();
+  registerPlantHandlers();
 
   console.log('IPC handlers registered successfully');
 }

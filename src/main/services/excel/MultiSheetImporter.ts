@@ -269,6 +269,7 @@ export class MultiSheetImporter {
 
   /**
    * Auto-detect column mapping for Areas sheet
+   * Phase 7: Added plant column detection
    */
   static detectAreaColumns(headers: string[]): AreaColumnMapping | null {
     const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
@@ -277,6 +278,7 @@ export class MultiSheetImporter {
     const namePatterns = ['name', 'nombre', 'areaname', 'description'];
     const sequencePatterns = ['sequence', 'secuencia', 'order', 'orden', 'seq', 'flow'];
     const colorPatterns = ['color', 'colour'];
+    const plantPatterns = ['plant', 'planta', 'site', 'facility', 'location'];  // Phase 7
 
     console.log('[detectAreaColumns] Input headers:', headers);
     console.log('[detectAreaColumns] Normalized headers:', headers.map(h => normalize(h)));
@@ -307,12 +309,14 @@ export class MultiSheetImporter {
 
     const name = findMatch(namePatterns, 'name');
     const color = findMatch(colorPatterns, 'color');
+    const plant = findMatch(plantPatterns, 'plant');  // Phase 7
 
     const result = {
       code,
       name: name || undefined,
       sequence,
       color: color || undefined,
+      plant: plant || undefined,  // Phase 7
     };
     console.log('[detectAreaColumns] SUCCESS:', result);
     return result;
@@ -320,6 +324,7 @@ export class MultiSheetImporter {
 
   /**
    * Auto-detect column mapping for Lines sheet
+   * Phase 7: Added plant column detection
    */
   static detectLineColumns(headers: string[]): ColumnMapping | null {
     const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
@@ -328,6 +333,7 @@ export class MultiSheetImporter {
     const areaPatterns = ['area', 'zone', 'zona', 'productionarea'];
     const timePatterns = ['time', 'hours', 'hoursavailable', 'timeavailable', 'horas', 'tiempo'];
     const lineTypePatterns = ['linetype', 'type', 'tipo', 'tipolinea'];
+    const plantPatterns = ['plant', 'planta', 'site', 'facility', 'location'];  // Phase 7
 
     const findMatch = (patterns: string[]) => {
       return headers.find(h => {
@@ -340,12 +346,15 @@ export class MultiSheetImporter {
     const area = findMatch(areaPatterns);
     const timeAvailableHours = findMatch(timePatterns);
     const lineType = findMatch(lineTypePatterns);
+    const plant = findMatch(plantPatterns);  // Phase 7
 
     if (!name || !area || !timeAvailableHours) {
       return null;
     }
 
-    return { name, area, timeAvailableHours, lineType: lineType || undefined };
+    console.log('[MultiSheetImporter] Lines column mapping:', { name, area, timeAvailableHours, lineType, plant });
+
+    return { name, area, timeAvailableHours, lineType: lineType || undefined, plant: plant || undefined };
   }
 
   /**
@@ -472,6 +481,7 @@ export class MultiSheetImporter {
 
   /**
    * Auto-detect column mapping for Compatibilities sheet
+   * Phase 7: Added plant column detection
    */
   static detectCompatibilityColumns(headers: string[]): CompatibilityColumnMapping | null {
     const lowerHeaders = headers.map(h => h.toLowerCase());
@@ -488,11 +498,14 @@ export class MultiSheetImporter {
     const cycleTime = findColumn(['cycle time', 'cycletime', 'tiempo ciclo', 'cycle', 'ciclo']);
     const efficiency = findColumn(['efficiency', 'eficiencia', 'oee', 'eff']);
     const priority = findColumn(['priority', 'prioridad', 'prio', 'orden']);
+    const plant = findColumn(['plant', 'planta', 'site', 'facility']);  // Phase 7
 
     // Minimum required fields
     if (!lineName || !modelName || !cycleTime || !efficiency) {
       return null;
     }
+
+    console.log('[MultiSheetImporter] Compatibilities column mapping:', { lineName, modelName, cycleTime, efficiency, priority, plant });
 
     return {
       lineName,
@@ -500,12 +513,14 @@ export class MultiSheetImporter {
       cycleTime,
       efficiency,
       priority,
+      plant: plant || undefined,  // Phase 7
     };
   }
 
   /**
    * Auto-detect column mapping for Changeover sheet (family-to-family defaults)
    * Expected columns: From Family, To Family, Changeover Time (minutes)
+   * Phase 7: Added plant column detection
    */
   static detectChangeoverColumns(headers: string[]): ChangeoverColumnMapping | null {
     const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
@@ -513,6 +528,7 @@ export class MultiSheetImporter {
     const fromFamilyPatterns = ['fromfamily', 'from', 'defamilia', 'origen', 'source', 'familyorigen'];
     const toFamilyPatterns = ['tofamily', 'to', 'afamilia', 'destino', 'target', 'familydestino'];
     const changeoverPatterns = ['changeover', 'cambio', 'setup', 'time', 'tiempo', 'minutes', 'minutos', 'min'];
+    const plantPatterns = ['plant', 'planta', 'site', 'facility'];  // Phase 7
 
     const findMatch = (patterns: string[]) => {
       return headers.find(h => {
@@ -524,8 +540,9 @@ export class MultiSheetImporter {
     const fromFamily = findMatch(fromFamilyPatterns);
     const toFamily = findMatch(toFamilyPatterns);
     const changeoverMinutes = findMatch(changeoverPatterns);
+    const plant = findMatch(plantPatterns);  // Phase 7
 
-    // All fields are required
+    // All fields are required (except plant)
     if (!fromFamily || !toFamily || !changeoverMinutes) {
       console.log('[MultiSheetImporter] Changeover column detection failed:', {
         fromFamily,
@@ -540,12 +557,14 @@ export class MultiSheetImporter {
       fromFamily,
       toFamily,
       changeoverMinutes,
+      plant,  // Phase 7
     });
 
     return {
       fromFamily,
       toFamily,
       changeoverMinutes,
+      plant: plant || undefined,  // Phase 7
     };
   }
 

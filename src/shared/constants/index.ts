@@ -316,3 +316,22 @@ export const CHANGEOVER_CHANNELS = {
   GET_ALL_FAMILIES: 'changeover:get-all-families',
   GET_LINES_WITH_DATA: 'changeover:get-lines-with-data',
 } as const;
+
+// Plants (Phase 7: Multi-Plant Support)
+export const PLANT_CHANNELS = {
+  GET_ALL: 'plants:get-all',
+  GET_BY_ID: 'plants:get-by-id',
+  GET_DEFAULT: 'plants:get-default',
+  CREATE: 'plants:create',
+  UPDATE: 'plants:update',
+  DELETE: 'plants:delete',
+  SET_DEFAULT: 'plants:set-default',
+} as const;
+
+// Global Analysis (Phase 7: Multi-Plant Support)
+export const GLOBAL_ANALYSIS_CHANNELS = {
+  GET_SUMMARY: 'global-analysis:get-summary',
+  RUN_ALL_PLANTS: 'global-analysis:run-all-plants',
+  GET_PLANT_COMPARISON: 'global-analysis:get-comparison',
+  EXPORT_REPORT: 'global-analysis:export-report',
+} as const;

@@ -21,6 +21,7 @@ export interface ProductionLine {
   yPosition: number;
   changeoverEnabled: boolean;  // Phase 5.6: Per-line changeover toggle
   changeoverExplicit: boolean; // Phase 5.6.1: True if user explicitly set toggle (override)
+  plantId?: string;            // Phase 7: Plant this line belongs to
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +77,7 @@ export interface CanvasArea {
   width: number;
   height: number;
   color: string;
+  plantId?: string;  // Phase 7: Plant this canvas area belongs to
   createdAt: Date;
   updatedAt: Date;
 }
@@ -187,6 +189,7 @@ export interface ColumnMapping {
   area: string;
   timeAvailableHours: string;
   lineType?: string;  // Optional: 'shared' or 'dedicated'
+  plant?: string;     // Phase 7: Optional plant code column
 }
 
 /**
@@ -222,6 +225,7 @@ export interface ValidatedLine {
   timeAvailableDaily: number;
   lineType: LineType;
   row: number;
+  plantCode?: string;  // Phase 7: Plant code from Excel
 }
 
 /**
@@ -342,6 +346,7 @@ export interface CompatibilityColumnMapping {
   cycleTime: string;
   efficiency: string;
   priority: string;
+  plant?: string;     // Phase 7: Optional plant code column
 }
 
 /**
@@ -369,6 +374,7 @@ export interface ValidatedVolume {
   volume: number;
   operationsDays: number;
   row: number;
+  plantCode?: string;  // Phase 7: Plant code from Excel (for plant-specific volumes)
 }
 
 /**
@@ -381,6 +387,7 @@ export interface ValidatedCompatibility {
   efficiency: number;
   priority: number;
   row: number;
+  plantCode?: string;  // Phase 7: Plant code from Excel
 }
 
 /**
@@ -391,6 +398,7 @@ export interface AreaColumnMapping {
   name?: string;
   sequence: string;
   color?: string;
+  plant?: string;     // Phase 7: Optional plant code column
 }
 
 /**
@@ -402,6 +410,7 @@ export interface ValidatedArea {
   sequence: number;
   color?: string;
   row: number;
+  plantCode?: string;  // Phase 7: Plant code from Excel
 }
 
 /**
@@ -430,6 +439,7 @@ export interface ChangeoverColumnMapping {
   fromFamily: string;      // "From Family" column
   toFamily: string;        // "To Family" column
   changeoverMinutes: string; // "Changeover (min)" column
+  plant?: string;          // Phase 7: Optional plant code column
 }
 
 /**
@@ -440,6 +450,7 @@ export interface ValidatedChangeover {
   toFamily: string;
   changeoverMinutes: number;
   row: number;
+  plantCode?: string;  // Phase 7: Plant code from Excel
 }
 
 /**
@@ -565,6 +576,15 @@ export interface VolumeValidationResult {
 }
 
 /**
+ * Phase 7.3: Plant validation status for auto-creation
+ */
+export interface PlantValidationStatus {
+  code: string;
+  exists: boolean;
+  existingName?: string;  // If exists, the name in database
+}
+
+/**
  * Multi-sheet validation result (includes cross-sheet validation)
  */
 export interface MultiSheetValidationResult {
@@ -576,6 +596,10 @@ export interface MultiSheetValidationResult {
   changeover?: ChangeoverValidationResult;
   crossSheetErrors: string[];
   isValid: boolean;
+  // Phase 7.2: Detected plant codes from Excel (for validation against database)
+  detectedPlantCodes?: string[];
+  // Phase 7.3: Plant validation status for auto-creation UI
+  plantValidation?: PlantValidationStatus[];
 }
 
 /**
@@ -591,6 +615,7 @@ export interface EntityImportResult {
  * Multi-sheet import result
  */
 export interface MultiSheetImportResult {
+  plants?: EntityImportResult;  // Phase 7.3: Auto-created plants
   areas?: EntityImportResult;
   lines?: EntityImportResult;
   models?: EntityImportResult;
@@ -832,6 +857,7 @@ export interface OptimizationProgress {
 export interface RunOptimizationRequest {
   selectedYears: number[];
   mode?: 'json' | 'db';  // Output mode
+  plantId?: string;      // Phase 7: Optional plant ID for multi-plant support
 }
 
 // ============================================
@@ -843,3 +869,6 @@ export * from './changeover';
 
 // Re-export all routing types from dedicated module (Phase 6.5)
 export * from './routing';
+
+// Re-export all plant types from dedicated module (Phase 7)
+export * from './plant';

@@ -65,7 +65,7 @@ export function registerAnalysisHandlers(): void {
     ANALYSIS_CHANNELS.RUN_OPTIMIZATION,
     async (_event, request: RunOptimizationRequest): Promise<ApiResponse<OptimizationResult>> => {
       try {
-        console.log('[Analysis Handler] Running optimization for years:', request.selectedYears);
+        console.log('[Analysis Handler] Running optimization for years:', request.selectedYears, 'plant:', request.plantId || 'default');
 
         if (!request.selectedYears || request.selectedYears.length === 0) {
           return {
@@ -74,8 +74,8 @@ export function registerAnalysisHandlers(): void {
           };
         }
 
-        // 1. Export data
-        const inputData = await dataExporter.exportForOptimization(request.selectedYears);
+        // 1. Export data (Phase 7: pass plantId for multi-plant support)
+        const inputData = await dataExporter.exportForOptimization(request.selectedYears, request.plantId);
 
         // 2. Write data to temp file
         const tempDir = app.getPath('temp');

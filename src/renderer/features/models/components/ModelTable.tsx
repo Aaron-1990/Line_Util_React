@@ -2,10 +2,12 @@
 // MODEL TABLE COMPONENT
 // Data table with expandable rows for volumes
 // Phase 6A+: Models + Volumes Combined
+// Phase 7: Added plant ownership columns
 // ============================================
 
-import { ChevronRight, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Pencil, Trash2, Factory } from 'lucide-react';
 import { useModelStore } from '../store/useModelStore';
+import { usePlantStore } from '../../plants';
 import { VolumeEditor } from './VolumeEditor';
 import { IProductModelV2 } from '@domain/entities';
 
@@ -19,9 +21,28 @@ interface ModelRowProps {
 
 const ModelRow = ({ model, isExpanded, onToggleExpand, onEdit, onDelete }: ModelRowProps) => {
   const { getVolumesForModel } = useModelStore();
+  const { getPlantById } = usePlantStore();
   const volumes = getVolumesForModel(model.id);
 
   const yearCount = volumes.length;
+
+  // Phase 7: Get plant info
+  const primaryPlant = model.primaryPlantId ? getPlantById(model.primaryPlantId) : null;
+
+  // Determine ownership type
+  const getOwnershipType = (): 'exclusive' | 'shared' | 'transferred' | null => {
+    if (!model.launchPlantId && !model.primaryPlantId) return null;
+    if (model.launchPlantId !== model.primaryPlantId) return 'transferred';
+    return 'exclusive';
+  };
+
+  const ownershipType = getOwnershipType();
+
+  const ownershipBadge = ownershipType && {
+    exclusive: { label: 'Exclusive', className: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
+    shared: { label: 'Shared', className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+    transferred: { label: 'Transferred', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+  }[ownershipType];
 
   return (
     <>
@@ -62,6 +83,29 @@ const ModelRow = ({ model, isExpanded, onToggleExpand, onEdit, onDelete }: Model
           {model.family}
         </td>
 
+        {/* Primary Plant - Phase 7 */}
+        <td className="py-3 px-4 text-sm">
+          {primaryPlant ? (
+            <div className="flex items-center gap-2">
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: primaryPlant.color || '#6B7280' }}
+              />
+              <span className="text-gray-900 dark:text-gray-100">{primaryPlant.code}</span>
+              {ownershipBadge && (
+                <span className={`text-xs px-1.5 py-0.5 rounded ${ownershipBadge.className}`}>
+                  {ownershipBadge.label}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-gray-400 dark:text-gray-500 flex items-center gap-1">
+              <Factory className="w-3 h-3" />
+              Unassigned
+            </span>
+          )}
+        </td>
+
         {/* Volumes Count */}
         <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
           {yearCount > 0 ? (
@@ -98,7 +142,7 @@ const ModelRow = ({ model, isExpanded, onToggleExpand, onEdit, onDelete }: Model
       {/* Expanded Row - Volume Editor */}
       {isExpanded && (
         <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-          <td colSpan={7} className="p-0">
+          <td colSpan={8} className="p-0">
             <VolumeEditor modelId={model.id} modelName={model.name} />
           </td>
         </tr>
@@ -150,6 +194,9 @@ export const ModelTable = () => {
             </th>
             <th className="py-3 px-4 text-left text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">
               Family
+            </th>
+            <th className="py-3 px-4 text-left text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">
+              Plant
             </th>
             <th className="py-3 px-4 text-left text-xs uppercase text-gray-500 dark:text-gray-400 font-semibold">
               Volumes

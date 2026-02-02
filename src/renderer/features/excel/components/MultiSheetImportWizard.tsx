@@ -15,6 +15,7 @@ import {
   MultiSheetValidationResult,
   MultiSheetImportResult,
 } from '@shared/types';
+import { usePlantStore } from '../../plants/store/usePlantStore';
 
 type Step = 'select' | 'detect' | 'sheets' | 'validate' | 'import' | 'complete';
 
@@ -164,6 +165,11 @@ export const MultiSheetImportWizard = ({
       if (importResponse.success && importResponse.data) {
         setImportResult(importResponse.data);
         setCurrentStep('complete');
+
+        // Phase 7.3: Refresh plant list if new plants were created
+        if (importResponse.data.plants?.created && importResponse.data.plants.created > 0) {
+          await usePlantStore.getState().loadPlants();
+        }
       } else {
         throw new Error(importResponse.error || 'Import failed');
       }

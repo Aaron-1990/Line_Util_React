@@ -16,6 +16,8 @@ interface ModelRow {
   annual_volume: number;
   operations_days: number;
   active: number;
+  launch_plant_id: string | null;    // Phase 7: Plant that launched this model
+  primary_plant_id: string | null;   // Phase 7: Current owner plant
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +35,8 @@ export class SQLiteProductModelV2Repository implements IProductModelV2Repository
       annualVolume: row.annual_volume,
       operationsDays: row.operations_days,
       active: Boolean(row.active),
+      launchPlantId: row.launch_plant_id ?? undefined,
+      primaryPlantId: row.primary_plant_id ?? undefined,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });

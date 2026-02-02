@@ -11,8 +11,10 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowRight,
+  Factory,
+  Plus,
 } from 'lucide-react';
-import { MultiSheetValidationResult, ImportMode } from '@shared/types';
+import { MultiSheetValidationResult, ImportMode, PlantValidationStatus } from '@shared/types';
 
 interface MultiSheetValidationDisplayProps {
   validationResult: MultiSheetValidationResult;
@@ -153,6 +155,87 @@ export const MultiSheetValidationDisplay = ({
     );
   };
 
+  // Phase 7.3: Render plants section
+  const renderPlantsSection = (plantValidation: PlantValidationStatus[] | undefined) => {
+    if (!plantValidation || plantValidation.length === 0) return null;
+
+    const existingCount = plantValidation.filter(p => p.exists).length;
+    const newCount = plantValidation.filter(p => !p.exists).length;
+    const isExpanded = expandedSections.has('plants');
+
+    return (
+      <div className="border border-blue-200 rounded-lg overflow-hidden">
+        <button
+          onClick={() => toggleSection('plants')}
+          className="w-full px-4 py-3 flex items-center justify-between text-left bg-blue-50"
+        >
+          <div className="flex items-center gap-3">
+            <Factory className="w-5 h-5 text-blue-600" />
+            <div>
+              <h3 className="font-semibold text-gray-900">Plants Detected</h3>
+              <div className="flex items-center gap-4 text-xs text-gray-600 mt-0.5">
+                {existingCount > 0 && (
+                  <span className="text-green-600 font-medium">
+                    {existingCount} existing
+                  </span>
+                )}
+                {newCount > 0 && (
+                  <span className="text-blue-600 font-medium flex items-center gap-1">
+                    <Plus className="w-3 h-3" />
+                    {newCount} will be created
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-blue-500" />
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            ) : (
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            )}
+          </div>
+        </button>
+
+        {isExpanded && (
+          <div className="px-4 py-3 border-t border-blue-100 bg-white">
+            <div className="space-y-2">
+              {plantValidation.map((plant, idx) => (
+                <div
+                  key={idx}
+                  className={`text-sm p-2 rounded flex items-center justify-between ${
+                    plant.exists
+                      ? 'bg-green-50 border border-green-100'
+                      : 'bg-blue-50 border border-blue-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-semibold">{plant.code}</span>
+                    {plant.existingName && plant.existingName !== plant.code && (
+                      <span className="text-gray-500">({plant.existingName})</span>
+                    )}
+                  </div>
+                  {plant.exists ? (
+                    <span className="text-xs text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Exists
+                    </span>
+                  ) : (
+                    <span className="text-xs text-blue-600 flex items-center gap-1">
+                      <Plus className="w-3 h-3" />
+                      Will be created
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -235,6 +318,13 @@ export const MultiSheetValidationDisplay = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Phase 7.3: Plants Detection Section */}
+      {validationResult.plantValidation && validationResult.plantValidation.length > 0 && (
+        <div className="space-y-3">
+          {renderPlantsSection(validationResult.plantValidation)}
         </div>
       )}
 

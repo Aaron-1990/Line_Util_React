@@ -20,3 +20,6 @@ export { SQLiteAreaCatalogRepository } from './SQLiteAreaCatalogRepository';
 
 // Phase 6.5: Model Area Routing (DAG)
 export { SQLiteModelAreaRoutingRepository } from './SQLiteModelAreaRoutingRepository';
+
+// Phase 7: Multi-Plant Support
+export { SQLitePlantRepository } from './SQLitePlantRepository';

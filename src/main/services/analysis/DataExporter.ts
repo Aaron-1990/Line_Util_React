@@ -1,6 +1,7 @@
 // ============================================
 // DATA EXPORTER SERVICE
 // Exports data from SQLite to JSON for Python optimization
+// Phase 7: Multi-plant support - filter by plantId
 // ============================================
 
 import DatabaseConnection from '../../database/connection';
@@ -9,6 +10,7 @@ import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLi
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
 import { SQLiteLineModelCompatibilityRepository } from '../../database/repositories/SQLiteLineModelCompatibilityRepository';
 import { SQLiteChangeoverRepository } from '../../database/repositories/SQLiteChangeoverRepository';
+import { SQLitePlantRepository } from '../../database/repositories/SQLitePlantRepository';
 import { OptimizationInputData } from '@shared/types';
 
 export class DataExporter {
@@ -17,6 +19,7 @@ export class DataExporter {
   private volumeRepository: SQLiteProductVolumeRepository;
   private compatibilityRepository: SQLiteLineModelCompatibilityRepository;
   private changeoverRepository: SQLiteChangeoverRepository;
+  private plantRepository: SQLitePlantRepository;
 
   constructor() {
     const db = DatabaseConnection.getInstance();
@@ -25,18 +28,52 @@ export class DataExporter {
     this.volumeRepository = new SQLiteProductVolumeRepository(db);
     this.compatibilityRepository = new SQLiteLineModelCompatibilityRepository(db);
     this.changeoverRepository = new SQLiteChangeoverRepository(db);
+    this.plantRepository = new SQLitePlantRepository(db);
   }
 
   /**
    * Export all data needed for optimization
    * @param selectedYears - Array of years to include in volumes
+   * @param plantId - Optional plant ID to filter by (Phase 7)
    * @returns OptimizationInputData ready for Python consumption
    */
-  async exportForOptimization(selectedYears: number[]): Promise<OptimizationInputData> {
-    console.log('[DataExporter] Exporting data for years:', selectedYears);
+  async exportForOptimization(selectedYears: number[], plantId?: string): Promise<OptimizationInputData> {
+    // Phase 7: Resolve plant context
+    let resolvedPlantId = plantId;
+    let plantCode = 'DEFAULT';
+    let plantName = 'Default Plant';
 
-    // 1. Get all ACTIVE production lines (matching what's shown on canvas)
-    const lines = await this.lineRepository.findActive();
+    if (!resolvedPlantId) {
+      // Use default plant if no plantId provided (backward compatibility)
+      const defaultPlant = await this.plantRepository.getDefault();
+      if (defaultPlant) {
+        resolvedPlantId = defaultPlant.id;
+        plantCode = defaultPlant.code;
+        plantName = defaultPlant.name;
+      }
+    } else {
+      // Get plant metadata for the specified plant
+      const plant = await this.plantRepository.findById(resolvedPlantId);
+      if (plant) {
+        plantCode = plant.code;
+        plantName = plant.name;
+      }
+    }
+
+    console.log(`[DataExporter] Exporting data for plant ${plantCode} (${plantName}), years:`, selectedYears);
+
+    // 1. Get all ACTIVE production lines for this plant
+    let lines = resolvedPlantId
+      ? await this.lineRepository.findActiveByPlant(resolvedPlantId)
+      : await this.lineRepository.findActive();
+
+    // Phase 7 Backward Compatibility: If no lines found for plant, fall back to all active lines
+    // This handles lines imported before Phase 7 that don't have plant_id set
+    if (lines.length === 0 && resolvedPlantId) {
+      console.log(`[DataExporter] No lines found for plant ${plantCode}, falling back to all active lines`);
+      lines = await this.lineRepository.findActive();
+    }
+
     const linesData = lines.map(line => ({
       id: line.id,
       name: line.name,
@@ -44,7 +81,7 @@ export class DataExporter {
       lineType: line.lineType,  // shared or dedicated
       timeAvailableDaily: line.timeAvailableDaily,
     }));
-    console.log(`[DataExporter] Exported ${linesData.length} lines`);
+    console.log(`[DataExporter] Exported ${linesData.length} lines for plant ${plantCode}`);
 
     // 2. Get all models
     const models = await this.modelRepository.findAll();
@@ -87,13 +124,16 @@ export class DataExporter {
     console.log(`[DataExporter] Exported ${compatibilitiesData.length} compatibilities`);
 
     // 5. Get changeover data
+    // Phase 7: Use plant-scoped changeover toggles when plantId is available
     const [globalDefault, familyDefaults, lineOverrides, methodConfig, globalEnabled, lineToggles] = await Promise.all([
       this.changeoverRepository.getGlobalDefault(),
       this.changeoverRepository.getAllFamilyDefaults(),
       this.getLineOverridesForAllLines(lines.map(l => l.id)),
       this.changeoverRepository.getCalculationMethod('global'),
       this.changeoverRepository.getGlobalEnabled(),
-      this.lineRepository.getChangeoverToggles(),
+      resolvedPlantId
+        ? this.lineRepository.getChangeoverTogglesByPlant(resolvedPlantId)
+        : this.lineRepository.getChangeoverToggles(),
     ]);
 
     const changeoverData = {

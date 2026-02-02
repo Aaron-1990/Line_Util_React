@@ -67,6 +67,15 @@ export class ExcelValidator {
       }
     }
 
+    // Phase 7: Extract plant code (optional)
+    let plantCode: string | undefined = undefined;
+    if (columnMapping.plant) {
+      const plantValue = row[columnMapping.plant];
+      if (plantValue !== null && plantValue !== undefined) {
+        plantCode = String(plantValue).trim() || undefined;
+      }
+    }
+
     if (errors.length > 0) {
       return { line: null, errors };
     }
@@ -80,6 +89,7 @@ export class ExcelValidator {
         timeAvailableDaily,
         lineType,
         row: rowIndex,
+        plantCode,  // Phase 7
       },
       errors: [],
     };

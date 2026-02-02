@@ -18,6 +18,9 @@ export interface IProductModelV2 {
   annualVolume: number;
   operationsDays: number;
   active: boolean;
+  // Phase 7: Plant ownership
+  launchPlantId?: string;    // Historical - which plant first launched this model
+  primaryPlantId?: string;   // Current owner - who manages ECNs, process docs
   createdAt: Date;
   updatedAt: Date;
 }
@@ -42,6 +45,8 @@ export class ProductModelV2 {
     private _annualVolume: number,
     private _operationsDays: number,
     private _active: boolean,
+    private _launchPlantId: string | undefined,  // Phase 7
+    private _primaryPlantId: string | undefined, // Phase 7
     private _createdAt: Date,
     private _updatedAt: Date
   ) {
@@ -58,6 +63,8 @@ export class ProductModelV2 {
     annualVolume: number;
     operationsDays: number;
     active?: boolean;
+    launchPlantId?: string;   // Phase 7
+    primaryPlantId?: string;  // Phase 7
   }): ProductModelV2 {
     return new ProductModelV2(
       nanoid(),
@@ -68,6 +75,8 @@ export class ProductModelV2 {
       params.annualVolume,
       params.operationsDays,
       params.active ?? true,
+      params.launchPlantId,
+      params.primaryPlantId,
       new Date(),
       new Date()
     );
@@ -83,6 +92,8 @@ export class ProductModelV2 {
       data.annualVolume,
       data.operationsDays,
       data.active,
+      data.launchPlantId,
+      data.primaryPlantId,
       data.createdAt,
       data.updatedAt
     );
@@ -128,6 +139,15 @@ export class ProductModelV2 {
 
   get updatedAt(): Date {
     return this._updatedAt;
+  }
+
+  // Phase 7: Plant ownership getters
+  get launchPlantId(): string | undefined {
+    return this._launchPlantId;
+  }
+
+  get primaryPlantId(): string | undefined {
+    return this._primaryPlantId;
   }
 
   // ===== Business Logic =====
@@ -188,6 +208,8 @@ export class ProductModelV2 {
       annualVolume: this._annualVolume,
       operationsDays: this._operationsDays,
       active: this._active,
+      launchPlantId: this._launchPlantId,
+      primaryPlantId: this._primaryPlantId,
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
     };

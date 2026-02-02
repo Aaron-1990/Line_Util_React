@@ -18,6 +18,7 @@ interface LineRow {
   y_position: number;
   changeover_enabled: number | null;  // Phase 5.6
   changeover_explicit: number | null; // Phase 5.6.1: True if user explicitly set toggle
+  plant_id: string | null;            // Phase 7: Multi-plant support
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +38,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
       yPosition: row.y_position,
       changeoverEnabled: row.changeover_enabled !== 0,  // Phase 5.6: default true if null
       changeoverExplicit: row.changeover_explicit === 1, // Phase 5.6.1: default false
+      plantId: row.plant_id ?? undefined,  // Phase 7: Multi-plant support
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     });
@@ -84,7 +86,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
         .prepare(`
           UPDATE production_lines
           SET name = ?, area = ?, line_type = ?, time_available_daily = ?,
-              active = ?, x_position = ?, y_position = ?
+              active = ?, x_position = ?, y_position = ?, plant_id = COALESCE(?, plant_id)
           WHERE id = ?
         `)
         .run(
@@ -95,14 +97,15 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
           data.active ? 1 : 0,
           data.xPosition,
           data.yPosition,
+          data.plantId ?? null,
           data.id
         );
     } else {
       this.db
         .prepare(`
           INSERT INTO production_lines
-          (id, name, area, line_type, time_available_daily, active, x_position, y_position, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, name, area, line_type, time_available_daily, active, x_position, y_position, plant_id, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
         .run(
           data.id,
@@ -113,6 +116,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
           data.active ? 1 : 0,
           data.xPosition,
           data.yPosition,
+          data.plantId ?? null,
           data.createdAt.toISOString(),
           data.updatedAt.toISOString()
         );
@@ -200,5 +204,117 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
       .prepare('UPDATE production_lines SET changeover_enabled = ? WHERE active = 1 AND (changeover_explicit = 0 OR changeover_explicit IS NULL)')
       .run(enabled ? 1 : 0);
     return result.changes;
+  }
+
+  // ============================================
+  // PHASE 7: MULTI-PLANT METHODS
+  // ============================================
+
+  /**
+   * Phase 7: Get all active lines for a specific plant
+   */
+  async findActiveByPlant(plantId: string): Promise<ProductionLine[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM production_lines WHERE active = 1 AND plant_id = ? ORDER BY name')
+      .all(plantId) as LineRow[];
+
+    return rows.map(row => this.mapRowToEntity(row));
+  }
+
+  /**
+   * Phase 7: Get all lines for a specific plant (including inactive)
+   */
+  async findAllByPlant(plantId: string): Promise<ProductionLine[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM production_lines WHERE plant_id = ? ORDER BY active DESC, name')
+      .all(plantId) as LineRow[];
+
+    return rows.map(row => this.mapRowToEntity(row));
+  }
+
+  /**
+   * Phase 7: Get lines by area within a specific plant
+   */
+  async findByAreaAndPlant(area: string, plantId: string): Promise<ProductionLine[]> {
+    const rows = this.db
+      .prepare('SELECT * FROM production_lines WHERE area = ? AND plant_id = ? AND active = 1 ORDER BY name')
+      .all(area, plantId) as LineRow[];
+
+    return rows.map(row => this.mapRowToEntity(row));
+  }
+
+  /**
+   * Phase 7: Check if name exists within a plant (for validation)
+   */
+  async existsByNameInPlant(name: string, plantId: string, excludeId?: string): Promise<boolean> {
+    let sql = 'SELECT 1 FROM production_lines WHERE name = ? AND plant_id = ? AND active = 1';
+    const params: unknown[] = [name, plantId];
+
+    if (excludeId) {
+      sql += ' AND id != ?';
+      params.push(excludeId);
+    }
+
+    const row = this.db.prepare(sql).get(...params);
+    return row !== undefined;
+  }
+
+  /**
+   * Phase 7: Find line by name within a specific plant
+   */
+  async findByNameInPlant(name: string, plantId: string): Promise<ProductionLine | null> {
+    const row = this.db
+      .prepare('SELECT * FROM production_lines WHERE name = ? AND plant_id = ? AND active = 1')
+      .get(name, plantId) as LineRow | undefined;
+
+    return row ? this.mapRowToEntity(row) : null;
+  }
+
+  /**
+   * Phase 7: Get changeover toggles for a specific plant
+   */
+  async getChangeoverTogglesByPlant(plantId: string): Promise<{ [lineId: string]: { enabled: boolean; explicit: boolean } }> {
+    const rows = this.db
+      .prepare('SELECT id, changeover_enabled, changeover_explicit FROM production_lines WHERE active = 1 AND plant_id = ?')
+      .all(plantId) as { id: string; changeover_enabled: number | null; changeover_explicit: number | null }[];
+
+    const toggles: { [lineId: string]: { enabled: boolean; explicit: boolean } } = {};
+    for (const row of rows) {
+      toggles[row.id] = {
+        enabled: row.changeover_enabled !== 0,
+        explicit: row.changeover_explicit === 1,
+      };
+    }
+    return toggles;
+  }
+
+  /**
+   * Phase 7: Reset changeover toggles for a specific plant
+   */
+  async resetAllChangeoverTogglesByPlant(plantId: string, enabled: boolean = true): Promise<number> {
+    const result = this.db
+      .prepare('UPDATE production_lines SET changeover_enabled = ?, changeover_explicit = 0 WHERE active = 1 AND plant_id = ?')
+      .run(enabled ? 1 : 0, plantId);
+    return result.changes;
+  }
+
+  /**
+   * Phase 7: Count active lines per plant
+   */
+  async countByPlant(plantId: string): Promise<number> {
+    const result = this.db
+      .prepare('SELECT COUNT(*) as count FROM production_lines WHERE active = 1 AND plant_id = ?')
+      .get(plantId) as { count: number };
+    return result.count;
+  }
+
+  /**
+   * Phase 7: Get unique areas within a plant
+   */
+  async getAreasByPlant(plantId: string): Promise<string[]> {
+    const rows = this.db
+      .prepare('SELECT DISTINCT area FROM production_lines WHERE active = 1 AND plant_id = ? ORDER BY area')
+      .all(plantId) as { area: string }[];
+    return rows.map(row => row.area);
   }
 }

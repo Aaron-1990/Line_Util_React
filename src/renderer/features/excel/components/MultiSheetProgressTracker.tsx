@@ -41,6 +41,7 @@ export const MultiSheetProgressTracker = ({
   // Results state
   if (importResult) {
     const totalCreated =
+      (importResult.plants?.created || 0) +  // Phase 7.3
       (importResult.areas?.created || 0) +
       (importResult.lines?.created || 0) +
       (importResult.models?.created || 0) +
@@ -48,6 +49,7 @@ export const MultiSheetProgressTracker = ({
       (importResult.volumes?.created || 0);
 
     const totalUpdated =
+      (importResult.plants?.updated || 0) +  // Phase 7.3
       (importResult.areas?.updated || 0) +
       (importResult.lines?.updated || 0) +
       (importResult.models?.updated || 0) +
@@ -55,6 +57,7 @@ export const MultiSheetProgressTracker = ({
       (importResult.volumes?.updated || 0);
 
     const totalErrors =
+      (importResult.plants?.errors || 0) +  // Phase 7.3
       (importResult.areas?.errors || 0) +
       (importResult.lines?.errors || 0) +
       (importResult.models?.errors || 0) +
@@ -116,6 +119,16 @@ export const MultiSheetProgressTracker = ({
 
         {/* Per-Sheet Details */}
         <div className="space-y-3">
+          {/* Phase 7.3: Plants created */}
+          {importResult.plants && importResult.plants.created > 0 && (
+            <SheetResultRow
+              icon="🏢"
+              title="Plants (Auto-Created)"
+              created={importResult.plants.created}
+              updated={importResult.plants.updated}
+              errors={importResult.plants.errors}
+            />
+          )}
           {importResult.areas && (
             <SheetResultRow
               icon="🏷️"

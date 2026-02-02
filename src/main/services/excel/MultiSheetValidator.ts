@@ -151,6 +151,18 @@ export class MultiSheetValidator {
       }
     }
 
+    // Phase 7.2: Collect unique plant codes from all validated data
+    const detectedPlantCodes = new Set<string>();
+    result.lines?.validLines.forEach(l => l.plantCode && detectedPlantCodes.add(l.plantCode.toUpperCase()));
+    result.areas?.validAreas.forEach(a => a.plantCode && detectedPlantCodes.add(a.plantCode.toUpperCase()));
+    result.compatibilities?.validCompatibilities.forEach(c => c.plantCode && detectedPlantCodes.add(c.plantCode.toUpperCase()));
+    result.changeover?.validChangeovers.forEach(ch => ch.plantCode && detectedPlantCodes.add(ch.plantCode.toUpperCase()));
+
+    if (detectedPlantCodes.size > 0) {
+      result.detectedPlantCodes = Array.from(detectedPlantCodes).sort();
+      console.log('[MultiSheetValidator] Detected plant codes:', result.detectedPlantCodes);
+    }
+
     // Determine overall validity
     result.isValid =
       result.crossSheetErrors.length === 0 &&
@@ -221,12 +233,16 @@ export class MultiSheetValidator {
         }
         seenCodes.add(upperCode);
 
+        // Phase 7: Extract plant code
+        const plantCode = mapping.plant ? this.extractString(row[mapping.plant]) : null;
+
         validAreas.push({
           code: upperCode,
           name: name || upperCode, // Default name to code if not provided
           sequence: Math.round(sequence),
           color: color || undefined,
           row: rowNum,
+          plantCode: plantCode || undefined,  // Phase 7
         });
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
@@ -542,6 +558,9 @@ export class MultiSheetValidator {
           return;
         }
 
+        // Phase 7: Extract plant code
+        const plantCode = mapping.plant ? this.extractString(row[mapping.plant]) : null;
+
         validCompatibilities.push({
           lineName,
           modelName,
@@ -549,6 +568,7 @@ export class MultiSheetValidator {
           efficiency,
           priority,
           row: rowNum,
+          plantCode: plantCode || undefined,  // Phase 7
         });
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
@@ -656,11 +676,15 @@ export class MultiSheetValidator {
         uniqueFamilies.add(fromFamily.toUpperCase());
         uniqueFamilies.add(toFamily.toUpperCase());
 
+        // Phase 7: Extract plant code
+        const plantCode = mapping.plant ? this.extractString(row[mapping.plant]) : null;
+
         validChangeovers.push({
           fromFamily,
           toFamily,
           changeoverMinutes,
           row: rowNum,
+          plantCode: plantCode || undefined,  // Phase 7
         });
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';

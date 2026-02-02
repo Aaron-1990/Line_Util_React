@@ -28,6 +28,7 @@ export class ProductionLine {
     private _yPosition: number,
     private _changeoverEnabled: boolean,  // Phase 5.6
     private _changeoverExplicit: boolean, // Phase 5.6.1: True if user explicitly set toggle
+    private _plantId: string | undefined, // Phase 7: Multi-plant support
     private _createdAt: Date,
     private _updatedAt: Date
   ) {
@@ -45,6 +46,7 @@ export class ProductionLine {
     yPosition?: number;
     changeoverEnabled?: boolean;  // Phase 5.6
     changeoverExplicit?: boolean; // Phase 5.6.1
+    plantId?: string;             // Phase 7: Multi-plant
   }): ProductionLine {
     return new ProductionLine(
       nanoid(),
@@ -57,6 +59,7 @@ export class ProductionLine {
       params.yPosition ?? 0,
       params.changeoverEnabled ?? true,  // Phase 5.6: default ON
       params.changeoverExplicit ?? false, // Phase 5.6.1: default not explicit
+      params.plantId,                     // Phase 7: Multi-plant
       new Date(),
       new Date()
     );
@@ -74,6 +77,7 @@ export class ProductionLine {
       data.yPosition,
       data.changeoverEnabled ?? true,  // Phase 5.6: default ON
       data.changeoverExplicit ?? false, // Phase 5.6.1: default not explicit
+      data.plantId,                     // Phase 7: Multi-plant
       data.createdAt,
       data.updatedAt
     );
@@ -127,6 +131,10 @@ export class ProductionLine {
 
   get changeoverExplicit(): boolean {
     return this._changeoverExplicit;
+  }
+
+  get plantId(): string | undefined {
+    return this._plantId;
   }
 
   // ===== Business Logic =====
@@ -197,6 +205,7 @@ export class ProductionLine {
       yPosition: this._yPosition,
       changeoverEnabled: this._changeoverEnabled,  // Phase 5.6
       changeoverExplicit: this._changeoverExplicit, // Phase 5.6.1
+      plantId: this._plantId,                       // Phase 7: Multi-plant
       createdAt: this._createdAt,
       updatedAt: this._updatedAt,
     };

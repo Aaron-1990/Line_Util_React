@@ -1,16 +1,21 @@
 // ============================================
 // APP LAYOUT COMPONENT
 // Main application layout with sidebar and content area
+// Phase 7: Added plant initialization
 // ============================================
 
+import { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { useNavigationStore } from '../../store/useNavigationStore';
 import { useApplyTheme } from '../../hooks/useApplyTheme';
+import { usePlantStore } from '../../features/plants';
 import { ProductionCanvas } from '../../features/canvas';
 import { ModelsPage } from '../../pages/ModelsPage';
 import { RoutingsPage } from '../../pages/RoutingsPage';
 import { AreasPage } from '../../pages/AreasPage';
 import { PreferencesPage } from '../../pages/PreferencesPage';
+import { PlantsPage } from '../../pages/PlantsPage';
+import { GlobalAnalysisPage } from '../../pages/GlobalAnalysisPage';
 
 // ===== Component =====
 
@@ -20,9 +25,17 @@ import { PreferencesPage } from '../../pages/PreferencesPage';
  */
 export const AppLayout = () => {
   const { currentView } = useNavigationStore();
+  const { initialize: initializePlants, isInitialized: plantsInitialized } = usePlantStore();
 
   // Apply theme to document
   useApplyTheme();
+
+  // Initialize plant store on app startup
+  useEffect(() => {
+    if (!plantsInitialized) {
+      initializePlants();
+    }
+  }, [initializePlants, plantsInitialized]);
 
   // Render view based on current selection with exhaustive type checking
   const renderView = () => {
@@ -35,6 +48,10 @@ export const AppLayout = () => {
         return <RoutingsPage />;
       case 'areas':
         return <AreasPage />;
+      case 'plants':
+        return <PlantsPage />;
+      case 'global-analysis':
+        return <GlobalAnalysisPage />;
       case 'preferences':
         return <PreferencesPage />;
       default: {

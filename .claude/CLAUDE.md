@@ -59,10 +59,88 @@ For features that span multiple layers (like a new window):
 
 ---
 
+## 🎯 Marketing & Sales Agent Routing
+
+| Task Type | Trigger Keywords | Agent Type |
+|-----------|------------------|------------|
+| Value proposition, positioning, messaging | "positioning", "messaging", "value prop", "go-to-market" | `product-marketing-manager` |
+| Sales strategy, pricing, objections, deals | "sales", "pricing", "objection", "close", "deal", "pilot" | `b2b-sales-strategist` |
+| Blog, case study, whitepaper, LinkedIn | "content", "blog", "case study", "whitepaper", "LinkedIn" | `content-marketing-specialist` |
+| Competition, market size, pricing research | "competitor", "market size", "TAM", "competitive", "research" | `market-research-analyst` |
+
+### Custom Agents: Marketing Suite
+
+**Product Marketing Manager** - Positioning, messaging, go-to-market strategy for B2B industrial software. Use for:
+- Value proposition development
+- Competitive positioning
+- Launch planning
+- Buyer persona refinement
+
+**B2B Sales Strategist** - Enterprise sales methodology, pricing, negotiations. Use for:
+- Sales playbook development
+- Objection handling scripts
+- Pricing strategy
+- Deal structure advice
+- Pilot/POC planning
+
+**Content Marketing Specialist** - B2B content creation for manufacturing audience. Use for:
+- Blog posts and articles
+- Case study development
+- Whitepaper outlines
+- LinkedIn content strategy
+- Email sequences
+
+**Market Research Analyst** - Competitive intelligence and market analysis. Use for:
+- Competitive analysis
+- Market sizing (TAM/SAM/SOM)
+- Pricing research
+- Industry trend analysis
+- Win/loss analysis
+
+### Cross-Functional Projects
+
+For comprehensive go-to-market planning, invoke multiple agents:
+
+| Project | Agent Sequence |
+|---------|----------------|
+| **Product Launch** | `market-research-analyst` → `product-marketing-manager` → `content-marketing-specialist` → `b2b-sales-strategist` |
+| **Competitive Response** | `market-research-analyst` → `product-marketing-manager` |
+| **New Segment Entry** | `market-research-analyst` → `product-marketing-manager` → `b2b-sales-strategist` |
+| **Content Campaign** | `product-marketing-manager` (messaging) → `content-marketing-specialist` (execution) |
+
+---
+
+## Complete Agent Roster
+
+### Technical Agents (Development)
+| Agent | Purpose |
+|-------|---------|
+| `frontend-developer` | React components, UI, styling |
+| `ux-ui-designer` | UX/UI design, wireframes, user flows |
+| `industrial-engineer` | Manufacturing logic, optimization algorithm |
+| `backend-architect` | Electron main process, IPC, services |
+| `database-architect` | Schema, migrations, queries |
+| `code-reviewer` | Code quality, best practices |
+| `test-engineer` | Testing, coverage |
+| `performance-profiler` | Performance optimization |
+| `devops-engineer` | CI/CD, deployment |
+| `fullstack-developer` | Full-stack development |
+| `Explore` | Codebase navigation |
+
+### Business Agents (Marketing & Sales)
+| Agent | Purpose |
+|-------|---------|
+| `product-marketing-manager` | Positioning, GTM, messaging |
+| `b2b-sales-strategist` | Sales process, pricing, deals |
+| `content-marketing-specialist` | Content creation, SEO |
+| `market-research-analyst` | Competitive intel, market sizing |
+
+---
+
 ## Current State
 
-**Version:** 0.6.5 (DAG-Based Routing)
-**Last Updated:** 2026-02-01
+**Version:** 0.7.3 (Multi-Plant + Auto-Create Plants)
+**Last Updated:** 2026-02-02
 **Developer:** Aaron Zapata (Supervisor Industrial Engineering, BorgWarner)
 
 ### Completed Phases
@@ -84,16 +162,20 @@ For features that span multiple layers (like a new window):
 | Phase 6B | Line-Model Compatibilities | ✅ Complete |
 | Phase 6.5 | Routings View | ✅ Complete |
 | Phase 6.5+ | DAG-Based Routing | ✅ Complete |
+| Phase 7 | Multi-Plant Support | ✅ Complete |
+| Phase 7.2 | Plant Column Detection | ✅ Complete |
+| Phase 7.3 | Auto-Create Plants from Excel | ✅ Complete |
 
 ### Current Capabilities
 
-1. **Data Import**: Multi-sheet Excel import (Lines, Models, Compatibilities, Areas, **Changeover**)
+1. **Data Import**: Multi-sheet Excel import (Lines, Models, Compatibilities, Areas, **Changeover**) with **Plant column detection**
 2. **Canvas**: Interactive production line visualization with drag & drop
 3. **Analysis**: Python-based optimization with 17ms execution time
 4. **Multi-Window**: Timeline window auto-opens in separate window for multi-monitor setups
 5. **Results Panel**: Detailed utilization by area, line, and model with constraint drill-down
 6. **Changeover Matrix**: Three-tier resolution (Global → Family → Line) with Excel import and UI editor
 7. **Routings**: Model-centric process flow view with DAG-based parallel process support
+8. **Multi-Plant**: Plant management with plant-scoped data, global analysis view, and automatic plant assignment during Excel import
 
 ---
 
@@ -698,9 +780,139 @@ These fields are included in the schema for future use but NOT exposed in UI yet
 
 ---
 
+## Phase 7: Multi-Plant Support ✅ (Completed 2026-02-02)
+
+**Full specification**: `docs/phases/phase-7-multi-plant-support.md`
+
+### Sprint 1-3: Backend Foundation ✅ (Completed 2026-02-01)
+
+| Component | Status | Key Files |
+|-----------|--------|-----------|
+| Database Migration | ✅ | `migrations/010_multi_plant_support.sql` |
+| Plant Types | ✅ | `src/shared/types/plant.ts` |
+| Plant Repository | ✅ | `SQLitePlantRepository.ts` |
+| Plant IPC Handlers | ✅ | `plant.handler.ts` |
+| Plant-Scoped Line Queries | ✅ | `SQLiteProductionLineRepository.ts` |
+| DataExporter Plant Support | ✅ | `DataExporter.ts` |
+| Navigation Store Plant Context | ✅ | `useNavigationStore.ts` |
+| Plant Store | ✅ | `usePlantStore.ts` |
+| localStorage Persistence | ✅ | Built into navigation store |
+
+### Sprint 4: Plant Selector UI ✅ (Completed 2026-02-01)
+
+- [x] Plant dropdown in sidebar
+- [x] "All Plants" page with CRUD table
+- [x] Add/Edit Plant modal
+- [x] Plants nav item (Cmd+5)
+- [x] Plant switching with localStorage persistence
+
+### Sprint 5: Global Analysis ✅ (Completed 2026-02-01)
+
+- [x] Global Analysis page with network overview
+- [x] Utilization bars per plant
+- [x] Summary + Alerts cards
+- [x] Plant comparison table
+- [x] "Run All Plants" with progress
+- [x] Global nav item (Cmd+6)
+
+### Sprint 6: Model Ownership ✅ (Completed 2026-02-01)
+
+- [x] Database migration (011_model_plant_ownership.sql)
+- [x] Model entity with launchPlantId, primaryPlantId
+- [x] ModelsPage with Plant column + ownership badges
+- [x] model_plant_assignments table for lifecycle tracking
+
+**Deferred:** Transfer wizard, before/after comparison
+
+### Phase 7.2: Plant Column Detection ✅ (Completed 2026-02-02)
+
+Excel import now automatically detects Plant columns and assigns imported data to the correct plant.
+
+**Data Ownership Model (IE/DB Agent Validated):**
+| Data Type | Ownership | Reason |
+|-----------|-----------|--------|
+| Models | **GLOBAL** | Same model can be produced at multiple plants |
+| Lines | **PLANT-SPECIFIC** | Physical equipment exists at one location |
+| Areas | **PLANT-SPECIFIC** | Plant layout specific |
+| Compatibilities | **PLANT-SPECIFIC** | Same model may have different cycle times at different plants |
+| Changeover | **PLANT-SPECIFIC** | Equipment-specific changeover times |
+
+**Excel Sheet Structure:**
+```
+Lines:          [Plant] [Line Name] [Area] [Line Type] [Time Available Hours]
+Areas:          [Plant] [Area Code] [Area Name] [Color]
+Compatibilities: [Plant] [Model] [Line] [Cycle Time] [Efficiency] [Priority]
+Changeover:     [Plant] [From Family] [To Family] [Minutes]
+Models:         (no Plant column - global data)
+```
+
+**Plant Code Resolution:**
+1. Look up plant by code (case-insensitive)
+2. Also check plant name as fallback
+3. If unknown code → use default plant + log warning
+
+**Files Modified:**
+| File | Changes |
+|------|---------|
+| `src/shared/types/index.ts` | Added `plant?: string` to column mappings, `plantCode?: string` to validated types, `detectedPlantCodes?: string[]` to result |
+| `src/main/services/excel/MultiSheetImporter.ts` | Plant column detection in all `detect*Columns()` methods |
+| `src/main/services/excel/MultiSheetValidator.ts` | Extract `plantCode` in validation, collect `detectedPlantCodes` |
+| `src/main/services/excel/ExcelValidator.ts` | Extract `plantCode` in `validateRow()` |
+| `src/main/ipc/handlers/multi-sheet-excel.handler.ts` | Plant code lookup map + `resolvePlantId()` function |
+
+**Test Fixture:** `tests/fixtures/Copia de multi-year-production-data(Rev5).xlsx` - All sheets have Plant column with "REY" (Reynosa)
+
+### Phase 7.3: Auto-Create Plants from Excel ✅ (Completed 2026-02-02)
+
+Plants are now automatically detected and created during Excel import.
+
+**Import Flow:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Import Preview                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  🏢 Plants Detected:                                             │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  REY  →  ✅ Exists (Reynosa)                                ││
+│  │  SLP  →  ➕ Will be created                                 ││
+│  │  QRO  →  ➕ Will be created                                 ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  📊 Detected Data:                                               │
+│  • 45 Lines  • 28 Models  • 156 Compatibilities                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Behavior:**
+1. During validation, check each detected plant code against database
+2. Show "Exists" or "Will be created" status in import preview
+3. During import, auto-create missing plants before importing lines
+4. New plants get their code as both `code` and `name`
+
+**Multi-Plant Excel Support:**
+```
+Lines Sheet:
+| Plant | Line Name | Area | ...
+|-------|-----------|------|
+| REY   | SMT 1     | SMT  |  ← Goes to Reynosa plant
+| SLP   | SMT 1     | SMT  |  ← Goes to San Luis plant (auto-created)
+| QRO   | FA 1      | FA   |  ← Goes to Querétaro plant (auto-created)
+```
+
+**Files Modified:**
+| File | Changes |
+|------|---------|
+| `src/shared/types/index.ts` | Added `PlantValidationStatus`, `plantValidation` to result, `plants` to import result |
+| `src/main/ipc/handlers/multi-sheet-excel.handler.ts` | Plant validation check + auto-create before import |
+| `src/renderer/features/excel/components/MultiSheetValidationDisplay.tsx` | Plants section with exists/new status |
+| `src/renderer/features/excel/components/MultiSheetProgressTracker.tsx` | Plants result row in import summary |
+| `src/renderer/features/excel/components/MultiSheetImportWizard.tsx` | Refresh plant store after import creates new plants |
+
+---
+
 ## Future Phases
 
-### Phase 7: Enhanced Visualization
+### Phase 7.5: Enhanced Visualization
 - [ ] Process flow visualization on Canvas (connections/arrows between areas)
 
 ### Phase 8: Project & Scenario Management
