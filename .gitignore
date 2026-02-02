@@ -60,3 +60,6 @@ build/
 *.tmp
 *.temp
 .cache/
+
+# Marketing (private)
+.marketing/
