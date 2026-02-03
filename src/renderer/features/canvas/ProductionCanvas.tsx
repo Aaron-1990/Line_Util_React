@@ -4,23 +4,38 @@
 // ============================================
 
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
   Node,
+  Edge,
   NodeChange,
   EdgeChange,
   Connection,
-  addEdge,
   applyNodeChanges,
   applyEdgeChanges,
   BackgroundVariant,
   SelectionMode,
+  ConnectionMode,
   ReactFlowProvider,
   useReactFlow,
+  MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+
+// Custom animation for edge flow direction (source → target)
+const edgeAnimationStyles = `
+  @keyframes dashdraw {
+    from {
+      stroke-dashoffset: 10;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+`;
 
 // Default node dimensions (used for bounding box calculation)
 const DEFAULT_NODE_WIDTH = 280;
@@ -31,18 +46,32 @@ const ABSOLUTE_MIN_ZOOM = 0.001;
 const MAX_ZOOM = 2;
 
 import { useCanvasStore } from './store/useCanvasStore';
+import { useToolStore } from './store/useToolStore';
+import { useShapeCatalogStore } from './store/useShapeCatalogStore';
+import { useCanvasObjectStore } from './store/useCanvasObjectStore';
 import { useLoadLines } from './hooks/useLoadLines';
 import { ProductionLineNode } from './components/nodes/ProductionLineNode';
+import { GenericShapeNode } from './components/nodes/GenericShapeNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
+import { ObjectPalette } from './components/toolbar/ObjectPalette';
 import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
+import { ObjectPropertiesPanel } from './components/panels/ObjectPropertiesPanel';
 import { YearNavigator } from './components/YearNavigator';
+import { CanvasEmptyState } from './components/CanvasEmptyState';
+import { AddLineModal } from './components/modals/AddLineModal';
+import { ContextMenu } from './components/ContextMenu';
+import { ConnectionContextMenu } from './components/ConnectionContextMenu';
+import { GhostPreview } from './components/GhostPreview';
 import { AnalysisControlBar, useAnalysisStore } from '../analysis';
 import { ChangeoverMatrixModal } from '../changeover';
-import { TIMELINE_EVENTS, WINDOW_CHANNELS } from '@shared/constants';
+import { TIMELINE_EVENTS, WINDOW_CHANNELS, CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 import { ExternalLink, CheckCircle } from 'lucide-react';
+import { isPlaceTool, CanvasConnection, ConnectionType } from '@shared/types';
+import { useNavigationStore } from '../../store/useNavigationStore';
 
 const nodeTypes = {
   productionLine: ProductionLineNode,
+  genericShape: GenericShapeNode,
 };
 
 // Inner component that has access to ReactFlow context
@@ -54,13 +83,108 @@ const CanvasInner = () => {
     setEdges,
     updateNodePosition,
     setSelectedNode,
+    addNode,
   } = useCanvasStore();
 
-  const { fitView } = useReactFlow();
+  const { fitView, screenToFlowPosition } = useReactFlow();
   const lastMiddleClickTime = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
-  useLoadLines();
+  // Get current plant ID for creating objects
+  const currentPlantId = useNavigationStore((state) => state.currentPlantId);
+
+  // State for Add Line modal (used by both toolbar and empty state)
+  const [isAddLineModalOpen, setIsAddLineModalOpen] = useState(false);
+
+  // State for context menu (Phase 7.5)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
+
+  // State for edge/connection context menu
+  const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string; connectionType: string } | null>(null);
+
+  // Tool store for placement and connect modes (Phase 7.5)
+  const { activeTool, setGhostPosition, clearSelection, setSelectTool, connectionSource, clearConnectionSource } = useToolStore();
+  const { loadCatalog, getShapeById } = useShapeCatalogStore();
+  const { createObject, addObject, connections, loadConnectionsForPlant } = useCanvasObjectStore();
+
+  // Check if we're in connect mode
+  const isConnectMode = activeTool === 'connect';
+
+  // Load shape catalog on mount
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
+  // Connection type colors and styles
+  const getConnectionStyle = (connectionType: string) => {
+    switch (connectionType) {
+      case 'flow':
+        return { stroke: '#3B82F6', strokeWidth: 2 }; // Blue
+      case 'material':
+        return { stroke: '#10B981', strokeWidth: 3 }; // Green, thicker
+      case 'info':
+        return { stroke: '#9CA3AF', strokeWidth: 1.5, strokeDasharray: '5,5' }; // Gray, dashed
+      default:
+        return { stroke: '#3B82F6', strokeWidth: 2 };
+    }
+  };
+
+  // Convert stored connections to ReactFlow edges with directional arrows
+  const connectionEdges = useMemo(() => {
+    return connections.map((conn: CanvasConnection) => {
+      const style = getConnectionStyle(conn.connectionType);
+      const isAnimated = conn.connectionType === 'flow';
+
+      return {
+        id: conn.id,
+        source: conn.sourceObjectId,
+        sourceHandle: conn.sourceAnchor,
+        target: conn.targetObjectId,
+        targetHandle: conn.targetAnchor,
+        type: 'smoothstep',
+        animated: isAnimated,
+        style: {
+          ...style,
+          // Reverse animation direction with negative offset animation
+          ...(isAnimated && {
+            animation: 'dashdraw 0.5s linear infinite',
+            strokeDasharray: 5,
+          }),
+        },
+        // Arrow marker at target to show flow direction
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: style.stroke,
+          width: 20,
+          height: 20,
+        },
+        label: conn.label,
+        labelStyle: { fill: '#6B7280', fontSize: 12 },
+        labelBgStyle: { fill: 'white', fillOpacity: 0.8 },
+        labelBgPadding: [4, 2] as [number, number],
+        // Store connection data for context menu
+        data: { connectionType: conn.connectionType, connectionId: conn.id },
+      };
+    });
+  }, [connections]);
+
+  // Merge stored edges with connection edges
+  const allEdges = useMemo(() => {
+    return [...edges, ...connectionEdges];
+  }, [edges, connectionEdges]);
+
+  // Load lines for current plant
+  const { isLoading, isEmpty } = useLoadLines();
+
+  // Handlers for empty state actions
+  const handleImportClick = useCallback(() => {
+    navigate('/excel/import');
+  }, [navigate]);
+
+  const handleAddLineClick = useCallback(() => {
+    setIsAddLineModalOpen(true);
+  }, []);
 
   // Calculate dynamic minZoom based on node positions
   // This ensures we can always zoom out enough to see all nodes
@@ -178,11 +302,40 @@ const CanvasInner = () => {
   );
 
   const onConnect = useCallback(
-    (connection: Connection) => {
-      const updatedEdges = addEdge(connection, edges);
-      setEdges(updatedEdges);
+    async (connection: Connection) => {
+      if (!currentPlantId || !connection.source || !connection.target) return;
+
+      // Persist connection to database
+      try {
+        const response = await window.electronAPI.invoke<CanvasConnection>(
+          CANVAS_OBJECT_CHANNELS.CREATE_CONNECTION,
+          {
+            plantId: currentPlantId,
+            sourceObjectId: connection.source,
+            sourceAnchor: connection.sourceHandle,
+            targetObjectId: connection.target,
+            targetAnchor: connection.targetHandle,
+            connectionType: 'flow',
+          }
+        );
+
+        if (response.success) {
+          // Reload connections to get the new one
+          await loadConnectionsForPlant(currentPlantId);
+          console.log('[ProductionCanvas] Connection created:', response.data?.id);
+        } else {
+          console.error('[ProductionCanvas] Failed to create connection:', response.error);
+        }
+      } catch (error) {
+        console.error('[ProductionCanvas] Error creating connection:', error);
+      }
+
+      // Clear connection source if in connect mode
+      if (isConnectMode) {
+        clearConnectionSource();
+      }
     },
-    [edges, setEdges]
+    [currentPlantId, loadConnectionsForPlant, isConnectMode, clearConnectionSource]
   );
 
   const onNodeClick = useCallback(
@@ -192,29 +345,195 @@ const CanvasInner = () => {
     [setSelectedNode]
   );
 
-  const onPaneClick = useCallback(() => {
+  const onPaneClick = useCallback(async (event: React.MouseEvent) => {
     setSelectedNode(null);
-  }, [setSelectedNode]);
+    clearSelection();
+    setContextMenu(null);
+    setEdgeContextMenu(null);
+
+    // Clear connection source if in connect mode and clicking on pane
+    if (isConnectMode && connectionSource) {
+      clearConnectionSource();
+      return;
+    }
+
+    // Handle placement mode (Phase 7.5)
+    if (isPlaceTool(activeTool) && currentPlantId) {
+      const shape = getShapeById(activeTool.shapeId);
+      if (shape) {
+        // Convert screen coordinates to flow (canvas) coordinates
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        const xPos = position.x - shape.defaultWidth / 2;
+        const yPos = position.y - shape.defaultHeight / 2;
+
+        // Create new object at click position
+        const newObjectId = await createObject({
+          plantId: currentPlantId,
+          shapeId: activeTool.shapeId,
+          name: `New ${shape.name}`,
+          xPosition: xPos,
+          yPosition: yPos,
+        });
+
+        if (newObjectId) {
+          // Build the object data
+          const objectData = {
+            id: newObjectId,
+            plantId: currentPlantId,
+            shapeId: activeTool.shapeId,
+            objectType: 'generic' as const,
+            name: `New ${shape.name}`,
+            xPosition: xPos,
+            yPosition: yPos,
+            rotation: 0,
+            active: true,
+            locked: false,
+            zIndex: 0,
+            shape: shape,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          // Add the new node directly to the canvas
+          addNode({
+            id: newObjectId,
+            type: 'genericShape',
+            position: { x: xPos, y: yPos },
+            data: objectData,
+          });
+
+          // Also add to useCanvasObjectStore so ContextMenu can find it
+          addObject(objectData);
+
+          console.log('[ProductionCanvas] Created object:', newObjectId);
+
+          // Switch back to select tool after placing
+          setSelectTool();
+        }
+      }
+    }
+  }, [setSelectedNode, clearSelection, activeTool, getShapeById, createObject, currentPlantId, screenToFlowPosition, addNode, setSelectTool, addObject, isConnectMode, connectionSource, clearConnectionSource]);
+
+  // Handle mouse move for ghost preview
+  const onMouseMove = useCallback((event: React.MouseEvent) => {
+    if (isPlaceTool(activeTool)) {
+      setGhostPosition({ x: event.clientX, y: event.clientY });
+    }
+  }, [activeTool, setGhostPosition]);
+
+  // Handle mouse leave to clear ghost
+  const onMouseLeave = useCallback(() => {
+    setGhostPosition(null);
+  }, [setGhostPosition]);
+
+  // Handle right-click for context menu (Phase 7.5)
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setEdgeContextMenu(null); // Close edge menu if open
+    // Show context menu for genericShape nodes
+    if (node.type === 'genericShape') {
+      setContextMenu({ x: event.clientX, y: event.clientY, objectId: node.id });
+    }
+  }, []);
+
+  // Handle right-click on edges/connections
+  const onEdgeContextMenu = useCallback((event: React.MouseEvent, edge: Edge) => {
+    event.preventDefault();
+    setContextMenu(null); // Close node menu if open
+    const connectionType = edge.data?.connectionType || 'flow';
+    setEdgeContextMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id, connectionType });
+  }, []);
+
+  // Handle changing connection type
+  const handleConnectionTypeChange = useCallback(async (edgeId: string, newType: ConnectionType) => {
+    if (!currentPlantId) return;
+
+    try {
+      // Update connection type in database
+      await window.electronAPI.invoke(
+        CANVAS_OBJECT_CHANNELS.UPDATE_CONNECTION,
+        { id: edgeId, connectionType: newType }
+      );
+      // Reload connections to reflect change
+      await loadConnectionsForPlant(currentPlantId);
+    } catch (error) {
+      console.error('[ProductionCanvas] Error updating connection type:', error);
+    }
+  }, [currentPlantId, loadConnectionsForPlant]);
+
+  // Handle deleting connection
+  const handleConnectionDelete = useCallback(async (edgeId: string) => {
+    if (!currentPlantId) return;
+
+    try {
+      await window.electronAPI.invoke(
+        CANVAS_OBJECT_CHANNELS.DELETE_CONNECTION,
+        { id: edgeId }
+      );
+      // Reload connections to reflect deletion
+      await loadConnectionsForPlant(currentPlantId);
+    } catch (error) {
+      console.error('[ProductionCanvas] Error deleting connection:', error);
+    }
+  }, [currentPlantId, loadConnectionsForPlant]);
+
+  // Show empty state when plant has no lines
+  if (isEmpty && !isLoading) {
+    return (
+      <div
+        ref={containerRef}
+        className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150"
+      >
+        <CanvasEmptyState
+          onImportClick={handleImportClick}
+          onAddLineClick={handleAddLineClick}
+        />
+        <AddLineModal
+          isOpen={isAddLineModalOpen}
+          onClose={() => setIsAddLineModalOpen(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150"
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
     >
+      {/* Custom CSS for edge animations */}
+      <style>{edgeAnimationStyles}</style>
+
       <CanvasToolbar />
+
+      {/* Object Palette - Phase 7.5 */}
+      <ObjectPalette />
 
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={allEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
+        onNodeContextMenu={onNodeContextMenu}
+        onEdgeContextMenu={onEdgeContextMenu}
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-right"
-        className="bg-gray-50 dark:bg-gray-900 [&_.react-flow__pane]:!cursor-crosshair [&_.react-flow__node]:!cursor-pointer [&_.react-flow__pane.dragging]:!cursor-grabbing [&_.react-flow__node.dragging]:!cursor-grabbing"
+        connectOnClick={isConnectMode}
+        className={`bg-gray-50 dark:bg-gray-900 [&_.react-flow__pane]:!cursor-crosshair [&_.react-flow__node]:!cursor-pointer [&_.react-flow__pane.dragging]:!cursor-grabbing [&_.react-flow__node.dragging]:!cursor-grabbing ${
+          isPlaceTool(activeTool) ? '[&_.react-flow__pane]:!cursor-copy' : ''
+        } ${
+          isConnectMode ? '[&_.react-flow__pane]:!cursor-crosshair' : ''
+        }`}
         // Dynamic zoom limits - adapts to content spread
         minZoom={dynamicMinZoom}
         maxZoom={MAX_ZOOM}
@@ -225,6 +544,8 @@ const CanvasInner = () => {
         panOnDrag={[1, 2]}
         // Allow multi-select with Ctrl/Cmd+click
         multiSelectionKeyCode="Meta"
+        // Allow source-to-source connections (eliminates need for dual handles)
+        connectionMode={ConnectionMode.Loose}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -269,6 +590,35 @@ const CanvasInner = () => {
 
       {/* Changeover Matrix Modal */}
       <ChangeoverMatrixModal />
+
+      {/* Phase 7.5: Object Properties Panel */}
+      <ObjectPropertiesPanel />
+
+      {/* Phase 7.5: Context Menu for Objects */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          objectId={contextMenu.objectId}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {/* Phase 7.5: Context Menu for Connections */}
+      {edgeContextMenu && (
+        <ConnectionContextMenu
+          x={edgeContextMenu.x}
+          y={edgeContextMenu.y}
+          edgeId={edgeContextMenu.edgeId}
+          currentType={edgeContextMenu.connectionType}
+          onClose={() => setEdgeContextMenu(null)}
+          onTypeChange={handleConnectionTypeChange}
+          onDelete={handleConnectionDelete}
+        />
+      )}
+
+      {/* Phase 7.5: Ghost Preview for placement */}
+      <GhostPreview />
     </div>
   );
 };

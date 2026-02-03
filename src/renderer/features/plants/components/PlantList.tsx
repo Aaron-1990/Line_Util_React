@@ -16,9 +16,11 @@ interface PlantRowProps {
   plant: Plant;
   isDefault: boolean;
   isCurrent: boolean;
+  rowIndex: number;
+  totalRows: number;
 }
 
-const PlantRow = ({ plant, isDefault, isCurrent }: PlantRowProps) => {
+const PlantRow = ({ plant, isDefault, isCurrent, rowIndex, totalRows }: PlantRowProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { openForm, openDeleteConfirm, setDefaultPlant } = usePlantStore();
@@ -149,9 +151,16 @@ const PlantRow = ({ plant, isDefault, isCurrent }: PlantRowProps) => {
             <MoreVertical className="w-4 h-4" />
           </button>
 
-          {/* Dropdown Menu */}
+          {/* Dropdown Menu - flips up for last 2 rows to avoid overflow */}
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 py-1">
+            <div className={`
+              absolute right-0 w-40 bg-white dark:bg-gray-800
+              border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 py-1
+              ${rowIndex >= totalRows - 2
+                ? 'bottom-full mb-1'
+                : 'top-full mt-1'
+              }
+            `}>
               <button
                 onClick={handleEdit}
                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -237,12 +246,14 @@ export const PlantList = () => {
           </tr>
         </thead>
         <tbody>
-          {plants.map((plant) => (
+          {plants.map((plant, index) => (
             <PlantRow
               key={plant.id}
               plant={plant}
               isDefault={plant.id === defaultPlantId}
               isCurrent={plant.id === currentPlantId}
+              rowIndex={index}
+              totalRows={plants.length}
             />
           ))}
         </tbody>

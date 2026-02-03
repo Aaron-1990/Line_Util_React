@@ -52,6 +52,26 @@ export function registerProductionLinesHandlers(): void {
     }
   );
 
+  // Phase 7: Get lines by plant (plant-scoped canvas)
+  ipcMain.handle(
+    IPC_CHANNELS.LINES_GET_BY_PLANT,
+    async (_event, plantId: string): Promise<ApiResponse<IProductionLine[]>> => {
+      try {
+        const lines = await repository.findActiveByPlant(plantId);
+        return {
+          success: true,
+          data: lines.map(line => line.toJSON()),
+        };
+      } catch (error) {
+        console.error('Error getting lines by plant:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
   ipcMain.handle(
     IPC_CHANNELS.LINES_CREATE,
     async (_event, data: Partial<IProductionLine>): Promise<ApiResponse<IProductionLine>> => {
@@ -63,12 +83,23 @@ export function registerProductionLinesHandlers(): void {
           };
         }
 
-        const exists = await repository.existsByName(data.name);
-        if (exists) {
-          return {
-            success: false,
-            error: 'A line with this name already exists',
-          };
+        // Phase 7: Check for duplicate name within the same plant
+        if (data.plantId) {
+          const existsInPlant = await repository.existsByNameInPlant(data.name, data.plantId);
+          if (existsInPlant) {
+            return {
+              success: false,
+              error: 'A line with this name already exists in this plant',
+            };
+          }
+        } else {
+          const exists = await repository.existsByName(data.name);
+          if (exists) {
+            return {
+              success: false,
+              error: 'A line with this name already exists',
+            };
+          }
         }
 
         const line = ProductionLine.create({
@@ -77,6 +108,7 @@ export function registerProductionLinesHandlers(): void {
           timeAvailableDaily: data.timeAvailableDaily,
           xPosition: data.xPosition,
           yPosition: data.yPosition,
+          plantId: data.plantId, // Phase 7: Associate line with plant
         });
 
         await repository.save(line);

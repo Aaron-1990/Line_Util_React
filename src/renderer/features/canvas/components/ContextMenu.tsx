@@ -1,0 +1,412 @@
+// ============================================
+// CONTEXT MENU
+// Right-click menu for canvas objects
+// Phase 7.5: Shape Catalog & Polymorphic Objects
+// ============================================
+
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Trash2,
+  Copy,
+  Lock,
+  Unlock,
+  Settings,
+  Cog,
+  Box,
+  ChevronRight,
+  ArrowRightCircle,
+  CircleOff,
+  ShieldCheck
+} from 'lucide-react';
+import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
+import { CanvasObjectType } from '@shared/types';
+
+interface ContextMenuProps {
+  x: number;
+  y: number;
+  objectId: string;
+  onClose: () => void;
+}
+
+// Timing constants for submenu behavior
+const SUBMENU_OPEN_DELAY = 100; // Delay before opening on hover (ms)
+const SUBMENU_CLOSE_DELAY = 300; // Delay before closing when leaving (ms)
+
+/**
+ * ContextMenu
+ *
+ * Right-click context menu for canvas objects with:
+ * - Convert to... submenu (with safe triangle pattern)
+ * - Duplicate
+ * - Delete
+ * - Lock/Unlock
+ * - Properties
+ *
+ * Submenu UX Pattern:
+ * - Hover over "Convert to..." opens submenu after short delay
+ * - Click on "Convert to..." toggles submenu immediately
+ * - Submenu stays open while cursor is on trigger OR submenu
+ * - Extended invisible zone creates "safe path" for mouse movement
+ * - Longer close delay allows natural mouse movement patterns
+ */
+export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const submenuContainerRef = useRef<HTMLDivElement>(null);
+  const [showConvertSubmenu, setShowConvertSubmenu] = useState(false);
+  const [submenuPinned, setSubmenuPinned] = useState(false); // Clicked open vs hover open
+
+  // Refs for timeout management
+  const openTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Track if cursor is in the "safe zone" (trigger or submenu area)
+  const isInSafeZoneRef = useRef(false);
+
+  const {
+    getObjectById,
+    convertType,
+    duplicateObject,
+    deleteObject,
+    updateObject
+  } = useCanvasObjectStore();
+
+  // Clear all pending timeouts
+  const clearAllTimeouts = useCallback(() => {
+    if (openTimeoutRef.current) {
+      clearTimeout(openTimeoutRef.current);
+      openTimeoutRef.current = null;
+    }
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Handle entering the submenu trigger area
+  const handleTriggerEnter = useCallback(() => {
+    isInSafeZoneRef.current = true;
+
+    // Cancel any pending close
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+
+    // Open with slight delay (prevents accidental opens when passing over)
+    if (!showConvertSubmenu && !submenuPinned) {
+      openTimeoutRef.current = setTimeout(() => {
+        setShowConvertSubmenu(true);
+      }, SUBMENU_OPEN_DELAY);
+    }
+  }, [showConvertSubmenu, submenuPinned]);
+
+  // Handle leaving the submenu trigger area
+  const handleTriggerLeave = useCallback(() => {
+    isInSafeZoneRef.current = false;
+
+    // Cancel any pending open
+    if (openTimeoutRef.current) {
+      clearTimeout(openTimeoutRef.current);
+      openTimeoutRef.current = null;
+    }
+
+    // Don't close if pinned by click
+    if (submenuPinned) return;
+
+    // Schedule close with delay (allows time to reach submenu)
+    closeTimeoutRef.current = setTimeout(() => {
+      if (!isInSafeZoneRef.current) {
+        setShowConvertSubmenu(false);
+      }
+    }, SUBMENU_CLOSE_DELAY);
+  }, [submenuPinned]);
+
+  // Handle entering the submenu itself
+  const handleSubmenuEnter = useCallback(() => {
+    isInSafeZoneRef.current = true;
+
+    // Cancel any pending close
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Handle leaving the submenu
+  const handleSubmenuLeave = useCallback(() => {
+    isInSafeZoneRef.current = false;
+
+    // Don't close if pinned by click
+    if (submenuPinned) return;
+
+    // Schedule close with delay
+    closeTimeoutRef.current = setTimeout(() => {
+      if (!isInSafeZoneRef.current) {
+        setShowConvertSubmenu(false);
+      }
+    }, SUBMENU_CLOSE_DELAY);
+  }, [submenuPinned]);
+
+  // Handle click on "Convert to..." trigger
+  const handleTriggerClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    clearAllTimeouts();
+
+    if (showConvertSubmenu) {
+      // Close and unpin
+      setShowConvertSubmenu(false);
+      setSubmenuPinned(false);
+    } else {
+      // Open and pin (click means intentional)
+      setShowConvertSubmenu(true);
+      setSubmenuPinned(true);
+    }
+  }, [showConvertSubmenu, clearAllTimeouts]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      clearAllTimeouts();
+    };
+  }, [clearAllTimeouts]);
+
+  const object = getObjectById(objectId);
+
+  // Close submenu when hovering over other menu items
+  const handleOtherItemHover = useCallback(() => {
+    clearAllTimeouts();
+    isInSafeZoneRef.current = false;
+    setShowConvertSubmenu(false);
+    setSubmenuPinned(false);
+  }, [clearAllTimeouts]);
+
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // If submenu is open, close it first; otherwise close the whole menu
+        if (showConvertSubmenu) {
+          e.preventDefault();
+          e.stopPropagation();
+          clearAllTimeouts();
+          setShowConvertSubmenu(false);
+          setSubmenuPinned(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [onClose, showConvertSubmenu, clearAllTimeouts]);
+
+  // Adjust menu position to stay in viewport
+  useEffect(() => {
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+
+      if (rect.right > viewportWidth) {
+        menuRef.current.style.left = `${x - rect.width}px`;
+      }
+      if (rect.bottom > viewportHeight) {
+        menuRef.current.style.top = `${y - rect.height}px`;
+      }
+    }
+  }, [x, y]);
+
+  if (!object) {
+    return null;
+  }
+
+  const handleConvertTo = async (newType: CanvasObjectType) => {
+    await convertType(objectId, newType);
+    onClose();
+  };
+
+  const handleDuplicate = async () => {
+    await duplicateObject(objectId);
+    onClose();
+  };
+
+  const handleDelete = async () => {
+    await deleteObject(objectId);
+    onClose();
+  };
+
+  const handleToggleLock = async () => {
+    await updateObject(objectId, { locked: !object.locked });
+    onClose();
+  };
+
+  const handleProperties = () => {
+    // TODO: Open properties panel
+    console.log('Open properties for:', objectId);
+    onClose();
+  };
+
+  // Convert to submenu items
+  const convertTypes: { label: string; icon: React.ReactNode; type: CanvasObjectType; disabled?: boolean }[] = [
+    { label: 'Process', icon: <Cog className="w-4 h-4" />, type: 'process' },
+    { label: 'Buffer', icon: <Box className="w-4 h-4" />, type: 'buffer' },
+    { label: 'Source', icon: <ArrowRightCircle className="w-4 h-4" />, type: 'source', disabled: true },
+    { label: 'Sink', icon: <CircleOff className="w-4 h-4" />, type: 'sink', disabled: true },
+    { label: 'Quality Gate', icon: <ShieldCheck className="w-4 h-4" />, type: 'quality_gate', disabled: true },
+  ];
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] z-50"
+      style={{ left: x, top: y }}
+    >
+      {/* Convert to... with submenu */}
+      <div
+        ref={submenuContainerRef}
+        className="relative"
+        onMouseEnter={handleTriggerEnter}
+        onMouseLeave={handleTriggerLeave}
+      >
+        <button
+          onClick={handleTriggerClick}
+          className={`w-full px-3 py-2 text-left flex items-center gap-2 text-gray-700 dark:text-gray-300 ${
+            showConvertSubmenu
+              ? 'bg-gray-100 dark:bg-gray-700'
+              : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          <span className="flex-1">Convert to...</span>
+          <ChevronRight className={`w-4 h-4 transition-transform duration-150 ${showConvertSubmenu ? 'rotate-0' : ''}`} />
+        </button>
+
+        {/* Submenu with extended hover zone for safe mouse transitions */}
+        {showConvertSubmenu && (
+          <div
+            className="absolute left-full top-0"
+            style={{
+              // Extended invisible hover zone creates "safe path" from trigger to submenu
+              // This is the "safe triangle" pattern - a larger clickable area
+              paddingLeft: '0px',
+              marginLeft: '-8px', // Overlap with parent for seamless transition
+              paddingTop: '0px',
+              paddingBottom: '0px',
+            }}
+            onMouseEnter={handleSubmenuEnter}
+            onMouseLeave={handleSubmenuLeave}
+          >
+            {/* Invisible bridge zone - helps mouse transition diagonally */}
+            <div
+              className="absolute"
+              style={{
+                left: '-20px',
+                top: '-10px',
+                width: '28px',
+                height: 'calc(100% + 20px)',
+                // Uncomment below to debug the safe zone:
+                // backgroundColor: 'rgba(255, 0, 0, 0.1)',
+              }}
+              onMouseEnter={handleSubmenuEnter}
+            />
+
+            {/* Actual submenu content */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[150px] ml-2">
+              {convertTypes.map((item) => (
+                <button
+                  key={item.type}
+                  onClick={() => !item.disabled && handleConvertTo(item.type)}
+                  disabled={item.disabled || object.objectType === item.type}
+                  className={`w-full px-3 py-2 text-left flex items-center gap-2 ${
+                    item.disabled || object.objectType === item.type
+                      ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                  {object.objectType === item.type && (
+                    <span className="ml-auto text-xs text-gray-400">Current</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Divider */}
+      <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+
+      {/* Duplicate */}
+      <button
+        onClick={handleDuplicate}
+        onMouseEnter={handleOtherItemHover}
+        className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+      >
+        <Copy className="w-4 h-4" />
+        <span>Duplicate</span>
+        <span className="ml-auto text-xs text-gray-400">⌘D</span>
+      </button>
+
+      {/* Lock/Unlock */}
+      <button
+        onClick={handleToggleLock}
+        onMouseEnter={handleOtherItemHover}
+        className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+      >
+        {object.locked ? (
+          <>
+            <Unlock className="w-4 h-4" />
+            <span>Unlock</span>
+          </>
+        ) : (
+          <>
+            <Lock className="w-4 h-4" />
+            <span>Lock</span>
+          </>
+        )}
+      </button>
+
+      {/* Divider */}
+      <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+
+      {/* Properties */}
+      <button
+        onClick={handleProperties}
+        onMouseEnter={handleOtherItemHover}
+        className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+      >
+        <Settings className="w-4 h-4" />
+        <span>Properties...</span>
+      </button>
+
+      {/* Divider */}
+      <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+
+      {/* Delete */}
+      <button
+        onClick={handleDelete}
+        onMouseEnter={handleOtherItemHover}
+        className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+      >
+        <Trash2 className="w-4 h-4" />
+        <span>Delete</span>
+        <span className="ml-auto text-xs text-red-400">⌫</span>
+      </button>
+    </div>
+  );
+});
+
+ContextMenu.displayName = 'ContextMenu';

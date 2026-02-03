@@ -1,12 +1,14 @@
 // ============================================
 // ADD LINE MODAL
 // Modal para crear nueva linea de produccion
+// Phase 7: Lines are now associated with current plant
 // ============================================
 
 import { X } from 'lucide-react';
 import { useState } from 'react';
 import { LineForm } from '../forms/LineForm';
 import { useCanvasStore } from '../../store/useCanvasStore';
+import { useNavigationStore } from '../../../../store/useNavigationStore';
 import { ProductionLine } from '@shared/types';
 
 interface AddLineModalProps {
@@ -20,6 +22,7 @@ export const AddLineModal = ({ isOpen, onClose }: AddLineModalProps) => {
     nodes: state.nodes,
     addNode: state.addNode,
   }));
+  const currentPlantId = useNavigationStore((state) => state.currentPlantId);
 
   if (!isOpen) return null;
 
@@ -54,7 +57,12 @@ export const AddLineModal = ({ isOpen, onClose }: AddLineModalProps) => {
     setIsLoading(true);
 
     try {
-      const response = await window.electronAPI.invoke<ProductionLine>('lines:create', data);
+      // Phase 7: Include current plant ID when creating line
+      const createData = {
+        ...data,
+        plantId: currentPlantId || undefined,
+      };
+      const response = await window.electronAPI.invoke<ProductionLine>('lines:create', createData);
 
       if (response.success && response.data) {
         const position = calculateInitialPosition();

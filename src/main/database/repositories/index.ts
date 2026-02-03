@@ -23,3 +23,7 @@ export { SQLiteModelAreaRoutingRepository } from './SQLiteModelAreaRoutingReposi
 
 // Phase 7: Multi-Plant Support
 export { SQLitePlantRepository } from './SQLitePlantRepository';
+
+// Phase 7.5: Shape Catalog & Canvas Objects
+export { SQLiteShapeCatalogRepository } from './SQLiteShapeCatalogRepository';
+export { SQLiteCanvasObjectRepository } from './SQLiteCanvasObjectRepository';

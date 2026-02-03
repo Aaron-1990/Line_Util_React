@@ -11,6 +11,7 @@ import { useChangeoverStore } from '../../../changeover/store/useChangeoverStore
 import { useAnalysisStore } from '../../../analysis/store/useAnalysisStore';
 import { IPC_CHANNELS } from '@shared/constants';
 import { useCanvasStore } from '../../store/useCanvasStore';
+import { useToolStore } from '../../store/useToolStore';
 
 interface ProductionLineData {
   id: string;
@@ -66,10 +67,16 @@ function getBorderColorClass(utilizationPercent: number | null, selected: boolea
  * - Border color by utilization threshold
  */
 export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
-  ({ data, selected }) => {
+  ({ data, selected, id }) => {
     const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(1);
     const openChangeoverModal = useChangeoverStore((state) => state.openModal);
     const updateNode = useCanvasStore((state) => state.updateNode);
+
+    // Get tool state to show handles prominently in connect mode
+    const activeTool = useToolStore((state) => state.activeTool);
+    const connectionSource = useToolStore((state) => state.connectionSource);
+    const isConnectMode = activeTool === 'connect';
+    const isConnectionSource = connectionSource?.objectId === id;
 
     // Get analysis results, displayed year, and global changeover state
     const results = useAnalysisStore((state) => state.results);
@@ -143,6 +150,8 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
           px-4 py-3 rounded-lg border-2 bg-white dark:bg-gray-800 shadow-md
           min-w-[220px] transition-all duration-200
           ${borderClass}
+          ${isConnectionSource ? 'ring-2 ring-green-500 ring-offset-2' : ''}
+          ${isConnectMode && !isConnectionSource ? 'hover:ring-2 hover:ring-blue-300 hover:ring-offset-1' : ''}
         `}
       >
         {/* Header con status */}
@@ -270,16 +279,58 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
           )}
         </div>
 
-        {/* Handles para conexiones */}
+        {/* Handles para conexiones - using type="source" for all to work with ConnectionMode.Loose */}
         <Handle
-          type="target"
+          id="top"
+          type="source"
           position={Position.Top}
-          className="w-3 h-3 !bg-gray-400 hover:!bg-primary-500"
+          isConnectable={true}
+          className={`${isConnectMode ? 'w-3 h-3' : 'w-2 h-2'} ${
+            connectionSource?.anchor === 'top' && isConnectionSource
+              ? '!bg-green-500'
+              : isConnectMode
+              ? '!bg-blue-400 hover:!bg-blue-600'
+              : '!bg-gray-400 hover:!bg-primary-500'
+          } ${isConnectMode ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-all duration-200 !border-2 !border-white shadow-sm`}
         />
         <Handle
+          id="bottom"
           type="source"
           position={Position.Bottom}
-          className="w-3 h-3 !bg-gray-400 hover:!bg-primary-500"
+          isConnectable={true}
+          className={`${isConnectMode ? 'w-3 h-3' : 'w-2 h-2'} ${
+            connectionSource?.anchor === 'bottom' && isConnectionSource
+              ? '!bg-green-500'
+              : isConnectMode
+              ? '!bg-blue-400 hover:!bg-blue-600'
+              : '!bg-gray-400 hover:!bg-primary-500'
+          } ${isConnectMode ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-all duration-200 !border-2 !border-white shadow-sm`}
+        />
+        <Handle
+          id="left"
+          type="source"
+          position={Position.Left}
+          isConnectable={true}
+          className={`${isConnectMode ? 'w-3 h-3' : 'w-2 h-2'} ${
+            connectionSource?.anchor === 'left' && isConnectionSource
+              ? '!bg-green-500'
+              : isConnectMode
+              ? '!bg-blue-400 hover:!bg-blue-600'
+              : '!bg-gray-400 hover:!bg-primary-500'
+          } ${isConnectMode ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-all duration-200 !border-2 !border-white shadow-sm`}
+        />
+        <Handle
+          id="right"
+          type="source"
+          position={Position.Right}
+          isConnectable={true}
+          className={`${isConnectMode ? 'w-3 h-3' : 'w-2 h-2'} ${
+            connectionSource?.anchor === 'right' && isConnectionSource
+              ? '!bg-green-500'
+              : isConnectMode
+              ? '!bg-blue-400 hover:!bg-blue-600'
+              : '!bg-gray-400 hover:!bg-primary-500'
+          } ${isConnectMode ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-all duration-200 !border-2 !border-white shadow-sm`}
         />
       </div>
     );

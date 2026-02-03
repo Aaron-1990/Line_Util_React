@@ -125,8 +125,9 @@ export function registerPlantHandlers(): void {
 
   ipcMain.handle(
     PLANT_CHANNELS.UPDATE,
-    async (_event, id: string, input: UpdatePlantInput): Promise<ApiResponse<Plant>> => {
+    async (_event, payload: { id: string } & UpdatePlantInput): Promise<ApiResponse<Plant>> => {
       try {
+        const { id, ...input } = payload;
         console.log('[Plant Handler] Updating plant:', id);
 
         if (!id) {
@@ -164,8 +165,9 @@ export function registerPlantHandlers(): void {
 
   ipcMain.handle(
     PLANT_CHANNELS.DELETE,
-    async (_event, id: string): Promise<ApiResponse<void>> => {
+    async (_event, payload: { id: string }): Promise<ApiResponse<void>> => {
       try {
+        const { id } = payload;
         console.log('[Plant Handler] Deleting plant:', id);
 
         if (!id) {
@@ -190,8 +192,9 @@ export function registerPlantHandlers(): void {
 
   ipcMain.handle(
     PLANT_CHANNELS.SET_DEFAULT,
-    async (_event, id: string): Promise<ApiResponse<Plant>> => {
+    async (_event, payload: { id: string }): Promise<ApiResponse<Plant>> => {
       try {
+        const { id } = payload;
         console.log('[Plant Handler] Setting default plant:', id);
 
         if (!id) {

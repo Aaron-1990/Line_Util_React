@@ -18,6 +18,8 @@ import { registerWindowHandlers } from './window.handler';
 import { registerChangeoverHandlers } from './changeover.handler';
 import { registerRoutingHandlers } from './routing.handler';
 import { registerPlantHandlers } from './plant.handler';
+import { registerShapeCatalogHandlers } from './shape-catalog.handler';
+import { registerCanvasObjectHandlers } from './canvas-objects.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -37,6 +39,8 @@ export function registerAllHandlers(): void {
   registerChangeoverHandlers();
   registerRoutingHandlers();
   registerPlantHandlers();
+  registerShapeCatalogHandlers();
+  registerCanvasObjectHandlers();
 
   console.log('IPC handlers registered successfully');
 }

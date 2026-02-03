@@ -4,6 +4,17 @@
 
 ---
 
+## DEVELOPMENT FRAMEWORK (MANDATORY)
+
+**Read and follow:** `~/.claude/FRAMEWORK.md` - Framework de Desarrollo Hibrido v2.0 (Global)
+
+This project follows the global development framework. Key principles:
+- **CONTRACTS-FIRST**: Define interfaces in `@shared/types/` BEFORE implementing
+- **NO WORKAROUNDS**: If solution requires a "trick", STOP and find the standard way
+- **BLOQUE 0**: Always investigate documentation and define contracts first
+
+---
+
 ## BEFORE MODIFYING CODE (Read First)
 
 **To avoid breaking existing features or duplicating work:**
@@ -24,19 +35,28 @@
 
 ## Agent Orchestration (MANDATORY)
 
-| Task Type | Agent Type |
-|-----------|------------|
-| React, UI, modals, windows | `frontend-developer` |
-| UX/UI design, wireframes | `ux-ui-designer` |
-| Optimizer algorithm, manufacturing | `Industrial Engineer` |
-| Electron main process, IPC | `backend-architect` |
-| Database schema, migrations | `database-architect` |
-| After writing code | `code-reviewer` |
-| Tests, coverage | `test-engineer` |
-| Performance issues | `performance-profiler` |
-| Finding code | `Explore` |
+**ALL agents MUST follow `.claude/FRAMEWORK.md`**
+
+| Task Type | Agent Type | BLOQUE 0 Focus |
+|-----------|------------|----------------|
+| React, UI, modals, windows | `frontend-developer` | React/ReactFlow APIs |
+| UX/UI design, wireframes | `ux-ui-designer` | Standard UX patterns |
+| Optimizer algorithm, manufacturing | `Industrial Engineer` | Algorithm correctness |
+| Electron main process, IPC | `backend-architect` | IPC contracts, Electron APIs |
+| Database schema, migrations | `database-architect` | Schema design, indexes |
+| After writing code | `code-reviewer` | **Detect workarounds** |
+| Tests, coverage | `test-engineer` | Test contracts |
+| Performance issues | `performance-profiler` | Profiling APIs |
+| Finding code | `Explore` | Existing patterns |
 
 **Marketing/Sales Agents:** `product-marketing-manager`, `b2b-sales-strategist`, `content-marketing-specialist`, `market-research-analyst`
+
+### Agent Protocol
+
+1. **BLOQUE 0**: Agent investigates APIs/documentation first
+2. **Propose**: Solution based on standard APIs (no workarounds)
+3. **Implement**: With checkpoints after each block
+4. **Review**: `code-reviewer` validates no workarounds introduced
 
 **Parallel Execution:** For multi-layer features, invoke `backend-architect` + `frontend-developer` in parallel. Always run `code-reviewer` after implementation.
 
@@ -85,6 +105,7 @@ RENDERER (React)              MAIN (Node.js)
 | Plant repo | `src/main/database/repositories/SQLitePlantRepository.ts` |
 | Routing types | `src/shared/types/routing.ts` |
 | Routing repo | `src/main/database/repositories/SQLiteModelAreaRoutingRepository.ts` |
+| Shape Catalog Plan | `docs/phases/phase-7.5-shape-catalog.md` |
 
 **Phase history:** See `docs/CHANGELOG-PHASES.md` for detailed implementation history.
 
@@ -170,7 +191,7 @@ python3 Optimizer/test_priority_distribution.py
 
 | Phase | Description |
 |-------|-------------|
-| 7.5 | Process flow visualization on Canvas |
+| 7.5 | Shape Catalog & Polymorphic Objects - see `docs/phases/phase-7.5-shape-catalog.md` |
 | 8 | Project files (.lineopt), scenarios |
 | 9 | PDF/Excel reports |
 | 10 | Progress streaming, TSP sequencing |
@@ -186,6 +207,19 @@ python3 Optimizer/test_priority_distribution.py
 - `docs/market-research/` - Competitive analysis
 
 **Before push:** Check `git status` for confidential files.
+
+---
+
+## UI Standards
+
+| Pattern | Component | Documentation |
+|---------|-----------|---------------|
+| SubMenu (nested menus) | `src/renderer/components/ui/SubMenu.tsx` | `docs/standards/ui-submenu-pattern.md` |
+
+**Key UX patterns implemented:**
+- Safe triangle pattern for diagonal mouse movement
+- Click-to-toggle with pinned state
+- Delayed open/close for natural interaction
 
 ---
 

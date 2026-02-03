@@ -41,6 +41,7 @@ export const IPC_CHANNELS = {
   // Production Lines
   LINES_GET_ALL: 'lines:get-all',
   LINES_GET_BY_ID: 'lines:get-by-id',
+  LINES_GET_BY_PLANT: 'lines:get-by-plant',  // Phase 7: Plant-scoped lines
   LINES_CREATE: 'lines:create',
   LINES_UPDATE: 'lines:update',
   LINES_DELETE: 'lines:delete',
@@ -334,4 +335,49 @@ export const GLOBAL_ANALYSIS_CHANNELS = {
   RUN_ALL_PLANTS: 'global-analysis:run-all-plants',
   GET_PLANT_COMPARISON: 'global-analysis:get-comparison',
   EXPORT_REPORT: 'global-analysis:export-report',
+} as const;
+
+// Shape Catalog (Phase 7.5: Shape Catalog & Polymorphic Objects)
+export const SHAPE_CATALOG_CHANNELS = {
+  GET_ALL: 'shape-catalog:get-all',
+  GET_BY_CATEGORY: 'shape-catalog:get-by-category',
+  GET_BY_ID: 'shape-catalog:get-by-id',
+  GET_CATEGORIES: 'shape-catalog:get-categories',
+  IMPORT_SVG: 'shape-catalog:import-svg',
+  IMPORT_DXF: 'shape-catalog:import-dxf',
+  IMPORT_IMAGE: 'shape-catalog:import-image',
+  UPDATE_FAVORITE: 'shape-catalog:update-favorite',
+  INCREMENT_USAGE: 'shape-catalog:increment-usage',
+  DELETE: 'shape-catalog:delete',
+} as const;
+
+// Canvas Objects (Phase 7.5: Shape Catalog & Polymorphic Objects)
+export const CANVAS_OBJECT_CHANNELS = {
+  // CRUD
+  GET_BY_PLANT: 'canvas-objects:get-by-plant',
+  GET_BY_ID: 'canvas-objects:get-by-id',
+  CREATE: 'canvas-objects:create',
+  UPDATE: 'canvas-objects:update',
+  DELETE: 'canvas-objects:delete',
+  UPDATE_POSITION: 'canvas-objects:update-position',
+  UPDATE_POSITIONS_BATCH: 'canvas-objects:update-positions-batch',
+  DUPLICATE: 'canvas-objects:duplicate',
+
+  // Type conversion
+  CONVERT_TYPE: 'canvas-objects:convert-type',
+
+  // Buffer properties
+  GET_BUFFER_PROPS: 'canvas-objects:get-buffer-props',
+  SET_BUFFER_PROPS: 'canvas-objects:set-buffer-props',
+
+  // Process linking
+  LINK_TO_LINE: 'canvas-objects:link-to-line',
+  UNLINK_FROM_LINE: 'canvas-objects:unlink-from-line',
+  GET_LINKED_LINE: 'canvas-objects:get-linked-line',
+
+  // Connections
+  GET_CONNECTIONS: 'canvas-objects:get-connections',
+  CREATE_CONNECTION: 'canvas-objects:create-connection',
+  DELETE_CONNECTION: 'canvas-objects:delete-connection',
+  UPDATE_CONNECTION: 'canvas-objects:update-connection',
 } as const;

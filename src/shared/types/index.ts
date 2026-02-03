@@ -872,3 +872,12 @@ export * from './routing';
 
 // Re-export all plant types from dedicated module (Phase 7)
 export * from './plant';
+
+// Re-export all shape catalog types from dedicated module (Phase 7.5)
+export * from './shape-catalog';
+
+// Re-export all canvas object types from dedicated module (Phase 7.5)
+export * from './canvas-object';
+
+// Re-export all canvas tool types from dedicated module (Phase 7.5)
+export * from './canvas-tool';
