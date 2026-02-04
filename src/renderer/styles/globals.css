@@ -133,18 +133,44 @@
    ============================================ */
 
 /* Default cursor: crosshair for precision (like AutoCAD) */
+/* Note: Cursor is now managed by data-tool attribute for better tool control */
 .react-flow__pane {
+  cursor: crosshair;
+}
+
+/* Pan tool: open hand when idle */
+.react-flow[data-tool="pan"] .react-flow__pane {
+  cursor: grab !important;
+}
+
+/* Pan tool: closed hand when dragging */
+.react-flow[data-tool="pan"] .react-flow__pane.dragging {
+  cursor: grabbing !important;
+}
+
+/* Connect tool: crosshair for precision connection */
+.react-flow[data-tool="connect"] .react-flow__pane {
   cursor: crosshair !important;
 }
 
-/* When panning (middle/right mouse button drag): grab cursor */
-.react-flow__pane.dragging {
+/* Place tool: copy cursor to indicate placement */
+.react-flow[data-tool="place"] .react-flow__pane {
+  cursor: copy !important;
+}
+
+/* Select tool: default crosshair */
+.react-flow[data-tool="select"] .react-flow__pane {
+  cursor: crosshair !important;
+}
+
+/* When panning with middle/right mouse in select mode */
+.react-flow[data-tool="select"] .react-flow__pane.dragging {
   cursor: grabbing !important;
 }
 
 /* Selection box cursor */
 .react-flow__selectionpane {
-  cursor: crosshair !important;
+  cursor: crosshair;
 }
 
 /* Nodes: pointer cursor for clickable elements */

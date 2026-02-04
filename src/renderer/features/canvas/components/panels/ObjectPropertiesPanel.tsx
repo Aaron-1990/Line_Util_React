@@ -5,7 +5,7 @@
 // ============================================
 
 import { memo, useState, useEffect } from 'react';
-import { X, Cog, Box, Link2, Unlink } from 'lucide-react';
+import { X, Cog, Box, Link2, Unlink, Trash2, AlertTriangle } from 'lucide-react';
 import { useToolStore } from '../../store/useToolStore';
 import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
 import { BufferProperties, OverflowPolicy } from '@shared/types';
@@ -27,7 +27,8 @@ export const ObjectPropertiesPanel = memo(() => {
     updateObject,
     getBufferProps,
     setBufferProps,
-    unlinkFromLine
+    unlinkFromLine,
+    deleteObject
   } = useCanvasObjectStore();
 
   // Only show panel if exactly one object is selected
@@ -43,6 +44,10 @@ export const ObjectPropertiesPanel = memo(() => {
 
   // Modal state for linking process to line
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+
+  // Delete confirmation modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Sync form state with selected object
   useEffect(() => {
@@ -89,6 +94,28 @@ export const ObjectPropertiesPanel = memo(() => {
 
   const handleUnlinkLine = async () => {
     await unlinkFromLine(object.id);
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteObject(object.id);
+      clearSelection();
+      setShowDeleteModal(false);
+    } catch (error) {
+      console.error('[ObjectPropertiesPanel] Error deleting object:', error);
+      alert('Failed to delete object. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false);
   };
 
   const clearSelection = useToolStore((state) => state.clearSelection);
@@ -265,8 +292,66 @@ export const ObjectPropertiesPanel = memo(() => {
             </div>
           </div>
         )}
+
+        {/* Delete Button */}
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <button
+            onClick={handleDeleteClick}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 text-sm font-medium rounded-md transition-colors border border-red-200 dark:border-red-800"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Object
+          </button>
+        </div>
       </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+            {/* Header */}
+            <div className="flex items-center gap-3 p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Delete Object</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone</p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-700 dark:text-gray-300">
+                Are you sure you want to delete{' '}
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{object.name}</span>?
+              </p>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                This object will be removed from the canvas permanently.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 p-6 bg-gray-50 dark:bg-gray-900 rounded-b-lg">
+              <button
+                onClick={handleCancelDelete}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition-colors"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Object'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 });

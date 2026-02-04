@@ -22,6 +22,7 @@ import ReactFlow, {
   ReactFlowProvider,
   useReactFlow,
   MarkerType,
+  OnSelectionChangeParams,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -104,12 +105,15 @@ const CanvasInner = () => {
   const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string; connectionType: string } | null>(null);
 
   // Tool store for placement and connect modes (Phase 7.5)
-  const { activeTool, setGhostPosition, clearSelection, setSelectTool, connectionSource, clearConnectionSource } = useToolStore();
+  const { activeTool, setGhostPosition, setSelectTool, connectionSource, clearConnectionSource, clearSelection } = useToolStore();
   const { loadCatalog, getShapeById } = useShapeCatalogStore();
   const { createObject, addObject, connections, loadConnectionsForPlant } = useCanvasObjectStore();
 
   // Check if we're in connect mode
   const isConnectMode = activeTool === 'connect';
+
+  // Check if we're in pan mode
+  const isPanMode = activeTool === 'pan';
 
   // Load shape catalog on mount
   useEffect(() => {
@@ -269,6 +273,109 @@ const CanvasInner = () => {
     };
   }, [fitView]);
 
+  // Handle contextmenu event to prevent it from blocking right-click panning on Mac trackpads
+  // Mac trackpads trigger 'contextmenu' event on two-finger click (right-click),
+  // which prevents the mousedown event with button=2 from being processed for panning
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleContextMenu = (event: MouseEvent) => {
+      // Get the target element
+      const target = event.target as HTMLElement;
+
+      // Check if the click is on the pane (not on a node or edge)
+      const isOnPane = target.classList.contains('react-flow__pane') ||
+                       target.closest('.react-flow__pane') !== null;
+
+      // Prevent context menu on pane to allow right-click panning
+      // In both pan mode and normal mode, right-click (button 2) should pan, not show context menu
+      if (isOnPane) {
+        event.preventDefault();
+        return;
+      }
+    };
+
+    // Capture contextmenu events to prevent them from blocking panning
+    container.addEventListener('contextmenu', handleContextMenu, { capture: false });
+
+    return () => {
+      container.removeEventListener('contextmenu', handleContextMenu, { capture: false });
+    };
+  }, [isPanMode]);
+
+  // Delete key handler for selected objects
+  // Note: We get current state directly from stores to avoid stale closure issues
+  useEffect(() => {
+    const handleKeyDown = async (event: KeyboardEvent) => {
+      // Check for Delete or Backspace key (Mac uses Backspace for Delete)
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        // Don't delete if user is typing in an input field
+        const target = event.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+          return;
+        }
+
+        // Get CURRENT state directly from stores to avoid stale closure
+        const currentSelectedNode = useCanvasStore.getState().selectedNode;
+        const currentSelectedObjectIds = useToolStore.getState().selectedObjectIds;
+        const currentNodes = useCanvasStore.getState().nodes;
+
+        // Combine BOTH selection sources (prioritize multi-select if available):
+        // - selectedObjectIds from useToolStore (used for multi-select via onSelectionChange)
+        // - selectedNode from useCanvasStore (fallback for single click selection)
+        const objectsToDelete = currentSelectedObjectIds.length > 0
+          ? currentSelectedObjectIds
+          : currentSelectedNode
+            ? [currentSelectedNode]
+            : [];
+
+        if (objectsToDelete.length > 0) {
+          event.preventDefault();
+
+          // Delete each selected object
+          for (const objectId of objectsToDelete) {
+            // Find the node to determine its type
+            const node = currentNodes.find((n) => n.id === objectId);
+
+            if (node) {
+              if (node.type === 'genericShape') {
+                // Canvas object - use deleteObject from useCanvasObjectStore
+                await useCanvasObjectStore.getState().deleteObject(objectId);
+              } else if (node.type === 'productionLine') {
+                // Production line - use lines:delete IPC
+                try {
+                  const response = await window.electronAPI.invoke('lines:delete', objectId);
+                  if (response.success) {
+                    useCanvasStore.getState().deleteNode(objectId);
+                    useCanvasStore.getState().setSelectedNode(null);
+                  } else {
+                    console.error('[ProductionCanvas] Failed to delete line:', response.error);
+                  }
+                } catch (error) {
+                  console.error('[ProductionCanvas] Error deleting line:', error);
+                }
+              }
+            } else {
+              console.warn('[ProductionCanvas] Node not found for deletion:', objectId);
+            }
+          }
+
+          // Clear selection after deletion
+          useToolStore.getState().clearSelection();
+          useCanvasStore.getState().setSelectedNode(null);
+        }
+      }
+    };
+
+    // Add event listener to document for keyboard events
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // Empty deps - we get current state directly from stores
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const updatedNodes = applyNodeChanges(changes, nodes);
@@ -341,6 +448,20 @@ const CanvasInner = () => {
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setSelectedNode(node.id);
+    },
+    [setSelectedNode]
+  );
+
+  // Sync ReactFlow's multi-selection to useToolStore
+  const onSelectionChange = useCallback(
+    ({ nodes: selectedNodes }: OnSelectionChangeParams) => {
+      const selectedIds = selectedNodes.map((n) => n.id);
+      useToolStore.getState().setSelectedObjects(selectedIds);
+
+      // If multiple nodes selected, clear single selection to avoid confusion
+      if (selectedIds.length > 1) {
+        setSelectedNode(null);
+      }
     },
     [setSelectedNode]
   );
@@ -434,8 +555,9 @@ const CanvasInner = () => {
   const onNodeContextMenu = useCallback((event: React.MouseEvent, node: Node) => {
     event.preventDefault();
     setEdgeContextMenu(null); // Close edge menu if open
-    // Show context menu for genericShape nodes
-    if (node.type === 'genericShape') {
+
+    // Show context menu for both genericShape and productionLine nodes
+    if (node.type === 'genericShape' || node.type === 'productionLine') {
       setContextMenu({ x: event.clientX, y: event.clientY, objectId: node.id });
     }
   }, []);
@@ -446,6 +568,13 @@ const CanvasInner = () => {
     setContextMenu(null); // Close node menu if open
     const connectionType = edge.data?.connectionType || 'flow';
     setEdgeContextMenu({ x: event.clientX, y: event.clientY, edgeId: edge.id, connectionType });
+  }, []);
+
+  // Handle pane context menu - prevent default to allow right-click panning
+  const onPaneContextMenu = useCallback((_event: React.MouseEvent) => {
+    // Don't prevent default - this allows ReactFlow's panOnDrag with button 2 to work
+    // For Mac trackpads, we need to NOT prevent the contextmenu event
+    // ReactFlow will handle the panning internally
   }, []);
 
   // Handle changing connection type
@@ -500,6 +629,9 @@ const CanvasInner = () => {
     );
   }
 
+  // Get current tool type for cursor styling
+  const currentToolType = isPlaceTool(activeTool) ? 'place' : activeTool;
+
   return (
     <div
       ref={containerRef}
@@ -523,25 +655,28 @@ const CanvasInner = () => {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onPaneClick={onPaneClick}
+        onSelectionChange={onSelectionChange}
         onNodeContextMenu={onNodeContextMenu}
         onEdgeContextMenu={onEdgeContextMenu}
+        onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-right"
         connectOnClick={isConnectMode}
-        className={`bg-gray-50 dark:bg-gray-900 [&_.react-flow__pane]:!cursor-crosshair [&_.react-flow__node]:!cursor-pointer [&_.react-flow__pane.dragging]:!cursor-grabbing [&_.react-flow__node.dragging]:!cursor-grabbing ${
-          isPlaceTool(activeTool) ? '[&_.react-flow__pane]:!cursor-copy' : ''
-        } ${
-          isConnectMode ? '[&_.react-flow__pane]:!cursor-crosshair' : ''
-        }`}
+        className="bg-gray-50 dark:bg-gray-900"
+        data-tool={currentToolType}
         // Dynamic zoom limits - adapts to content spread
         minZoom={dynamicMinZoom}
         maxZoom={MAX_ZOOM}
-        // AutoCAD-style selection: left-click drag = selection box
-        selectionOnDrag={true}
+        // AutoCAD-style selection: left-click drag = selection box (unless pan mode)
+        selectionOnDrag={!isPanMode}
         selectionMode={SelectionMode.Partial}
-        // Pan with middle mouse button (1) or right mouse button (2)
-        panOnDrag={[1, 2]}
+        // Pan with middle mouse button (1) or right mouse button (2), OR left button (0) in pan mode
+        panOnDrag={isPanMode ? [0, 1, 2] : [1, 2]}
+        // Enable trackpad scroll to pan
+        panOnScroll
+        // Disable node dragging in pan mode
+        nodesDraggable={!isPanMode}
         // Allow multi-select with Ctrl/Cmd+click
         multiSelectionKeyCode="Meta"
         // Allow source-to-source connections (eliminates need for dual handles)

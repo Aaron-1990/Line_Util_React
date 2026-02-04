@@ -256,7 +256,7 @@ export class SQLiteCanvasObjectRepository {
     const id = nanoid();
     const now = new Date().toISOString();
 
-    this.db
+    const result = this.db
       .prepare(`
         INSERT INTO canvas_objects (
           id, plant_id, shape_id, object_type, name, description,
@@ -285,9 +285,17 @@ export class SQLiteCanvasObjectRepository {
         now
       );
 
+    // Verify insert succeeded
+    if (result.changes === 0) {
+      throw new Error('Failed to insert canvas object');
+    }
+
+    // Force WAL checkpoint for persistence
+    this.db.pragma('wal_checkpoint(PASSIVE)');
+
     const obj = await this.findByIdSimple(id);
     if (!obj) {
-      throw new Error('Failed to create canvas object');
+      throw new Error('Failed to retrieve created canvas object');
     }
     return obj;
   }
@@ -361,11 +369,19 @@ export class SQLiteCanvasObjectRepository {
     // Add id for WHERE clause
     params.push(id);
 
-    this.db.prepare(`UPDATE canvas_objects SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+    const result = this.db.prepare(`UPDATE canvas_objects SET ${updates.join(', ')} WHERE id = ?`).run(...params);
+
+    // Verify update succeeded
+    if (result.changes === 0) {
+      throw new Error(`Failed to update canvas object ${id} - no rows modified`);
+    }
+
+    // Force WAL checkpoint for persistence
+    this.db.pragma('wal_checkpoint(PASSIVE)');
 
     const updated = await this.findByIdSimple(id);
     if (!updated) {
-      throw new Error('Failed to update canvas object');
+      throw new Error('Failed to retrieve updated canvas object');
     }
     return updated;
   }
@@ -375,13 +391,21 @@ export class SQLiteCanvasObjectRepository {
    */
   async delete(id: string): Promise<void> {
     const existing = await this.findByIdSimple(id);
+
     if (!existing) {
       throw new Error(`Canvas object with id "${id}" not found`);
     }
 
-    this.db
+    const result = this.db
       .prepare('UPDATE canvas_objects SET active = 0, updated_at = ? WHERE id = ?')
       .run(new Date().toISOString(), id);
+
+    if (result.changes === 0) {
+      throw new Error(`Failed to delete canvas object ${id} - no rows updated`);
+    }
+
+    // Force WAL checkpoint to ensure persistence across app restarts
+    this.db.pragma('wal_checkpoint(PASSIVE)');
   }
 
   /**

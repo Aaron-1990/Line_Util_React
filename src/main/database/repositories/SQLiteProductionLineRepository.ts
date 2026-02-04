@@ -46,7 +46,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async findAll(): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines ORDER BY name')
+      .prepare('SELECT * FROM production_lines WHERE active = 1 ORDER BY name')
       .all() as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -62,7 +62,7 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async findByArea(area: string): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE area = ? ORDER BY name')
+      .prepare('SELECT * FROM production_lines WHERE area = ? AND active = 1 ORDER BY name')
       .all(area) as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -124,7 +124,16 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
   }
 
   async delete(id: string): Promise<void> {
-    this.db.prepare('UPDATE production_lines SET active = 0 WHERE id = ?').run(id);
+    const result = this.db
+      .prepare('UPDATE production_lines SET active = 0, updated_at = ? WHERE id = ?')
+      .run(new Date().toISOString(), id);
+
+    if (result.changes === 0) {
+      throw new Error(`Failed to delete production line ${id} - no rows updated`);
+    }
+
+    // Force WAL checkpoint to ensure persistence across app restarts
+    this.db.pragma('wal_checkpoint(PASSIVE)');
   }
 
   async existsByName(name: string, excludeId?: string): Promise<boolean> {
@@ -222,11 +231,11 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
   }
 
   /**
-   * Phase 7: Get all lines for a specific plant (including inactive)
+   * Phase 7: Get all active lines for a specific plant
    */
   async findAllByPlant(plantId: string): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE plant_id = ? ORDER BY active DESC, name')
+      .prepare('SELECT * FROM production_lines WHERE plant_id = ? AND active = 1 ORDER BY name')
       .all(plantId) as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));

@@ -16,9 +16,11 @@ import {
   ChevronRight,
   ArrowRightCircle,
   CircleOff,
-  ShieldCheck
+  ShieldCheck,
+  Edit2
 } from 'lucide-react';
 import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
+import { useCanvasStore } from '../store/useCanvasStore';
 import { CanvasObjectType } from '@shared/types';
 
 interface ContextMenuProps {
@@ -69,6 +71,8 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     deleteObject,
     updateObject
   } = useCanvasObjectStore();
+
+  const { nodes, setSelectedNode, deleteNode } = useCanvasStore();
 
   // Clear all pending timeouts
   const clearAllTimeouts = useCallback(() => {
@@ -170,7 +174,12 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     };
   }, [clearAllTimeouts]);
 
-  const object = getObjectById(objectId);
+  // Try to get the object from canvas object store (for genericShape nodes)
+  const canvasObject = getObjectById(objectId);
+
+  // Try to get the node from canvas store (for productionLine nodes)
+  const node = nodes.find((n) => n.id === objectId);
+  const isProductionLine = node?.type === 'productionLine';
 
   // Close submenu when hovering over other menu items
   const handleOtherItemHover = useCallback(() => {
@@ -228,7 +237,8 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     }
   }, [x, y]);
 
-  if (!object) {
+  // If neither canvas object nor production line found, don't render
+  if (!canvasObject && !isProductionLine) {
     return null;
   }
 
@@ -243,18 +253,41 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
   };
 
   const handleDelete = async () => {
-    await deleteObject(objectId);
+    if (isProductionLine) {
+      // Delete production line via IPC
+      try {
+        const response = await window.electronAPI.invoke('lines:delete', objectId);
+        if (response.success) {
+          deleteNode(objectId);
+          setSelectedNode(null);
+        } else {
+          console.error('[ContextMenu] Failed to delete line:', response.error);
+        }
+      } catch (error) {
+        console.error('[ContextMenu] Error deleting line:', error);
+      }
+    } else {
+      // Delete canvas object
+      await deleteObject(objectId);
+    }
     onClose();
   };
 
   const handleToggleLock = async () => {
-    await updateObject(objectId, { locked: !object.locked });
+    if (canvasObject) {
+      await updateObject(objectId, { locked: !canvasObject.locked });
+    }
     onClose();
   };
 
   const handleProperties = () => {
-    // TODO: Open properties panel
-    console.log('Open properties for:', objectId);
+    if (isProductionLine) {
+      // Select the node to open LinePropertiesPanel
+      setSelectedNode(objectId);
+    } else {
+      // TODO: Open properties panel for canvas objects
+      console.log('Open properties for:', objectId);
+    }
     onClose();
   };
 
@@ -267,6 +300,41 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     { label: 'Quality Gate', icon: <ShieldCheck className="w-4 h-4" />, type: 'quality_gate', disabled: true },
   ];
 
+  // Different menu for production lines vs canvas objects
+  if (isProductionLine) {
+    // Production Line Context Menu
+    return (
+      <div
+        ref={menuRef}
+        className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] z-50"
+        style={{ left: x, top: y }}
+      >
+        {/* Edit (Open Properties) */}
+        <button
+          onClick={handleProperties}
+          className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+        >
+          <Edit2 className="w-4 h-4" />
+          <span>Edit Line...</span>
+        </button>
+
+        {/* Divider */}
+        <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+
+        {/* Delete */}
+        <button
+          onClick={handleDelete}
+          className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Delete Line</span>
+          <span className="ml-auto text-xs text-red-400">⌫</span>
+        </button>
+      </div>
+    );
+  }
+
+  // Canvas Object Context Menu
   return (
     <div
       ref={menuRef}
@@ -327,16 +395,16 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
                 <button
                   key={item.type}
                   onClick={() => !item.disabled && handleConvertTo(item.type)}
-                  disabled={item.disabled || object.objectType === item.type}
+                  disabled={item.disabled || canvasObject?.objectType === item.type}
                   className={`w-full px-3 py-2 text-left flex items-center gap-2 ${
-                    item.disabled || object.objectType === item.type
+                    item.disabled || canvasObject?.objectType === item.type
                       ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
                       : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
                   {item.icon}
                   <span>{item.label}</span>
-                  {object.objectType === item.type && (
+                  {canvasObject?.objectType === item.type && (
                     <span className="ml-auto text-xs text-gray-400">Current</span>
                   )}
                 </button>
@@ -366,7 +434,7 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
         onMouseEnter={handleOtherItemHover}
         className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
       >
-        {object.locked ? (
+        {canvasObject?.locked ? (
           <>
             <Unlock className="w-4 h-4" />
             <span>Unlock</span>

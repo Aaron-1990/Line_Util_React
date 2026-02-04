@@ -4,7 +4,7 @@
 // Phase 7.5: Shape Catalog & Polymorphic Objects
 // ============================================
 
-import { memo, useEffect, useCallback } from 'react';
+import { memo, useEffect, useCallback, useState } from 'react';
 import {
   MousePointer2,
   Hand,
@@ -18,6 +18,7 @@ import {
 import { useToolStore } from '../../store/useToolStore';
 import { useShapeCatalogStore } from '../../store/useShapeCatalogStore';
 import { isPlaceTool } from '@shared/types';
+import { ShapeBrowserModal } from '../modals/ShapeBrowserModal';
 
 /**
  * ObjectPalette
@@ -38,6 +39,9 @@ export const ObjectPalette = memo(() => {
 
   const { shapes, loadCatalog } = useShapeCatalogStore();
 
+  // State for ShapeBrowserModal
+  const [isShapeBrowserOpen, setIsShapeBrowserOpen] = useState(false);
+
   // Load catalog on mount
   useEffect(() => {
     loadCatalog();
@@ -49,8 +53,12 @@ export const ObjectPalette = memo(() => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      // Ignore if user is typing in an input or modal is open
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        isShapeBrowserOpen
+      ) {
         return;
       }
 
@@ -67,12 +75,16 @@ export const ObjectPalette = memo(() => {
         case 'escape':
           setSelectTool();
           break;
+        case 'm':
+          // Open shape catalog (M for More)
+          setIsShapeBrowserOpen(true);
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setSelectTool, setPanTool, setConnectTool]);
+  }, [setSelectTool, setPanTool, setConnectTool, isShapeBrowserOpen]);
 
   const handleShapeClick = useCallback((shapeId: string) => {
     setPlaceTool(shapeId);
@@ -183,16 +195,19 @@ export const ObjectPalette = memo(() => {
 
         {/* More Shapes Button */}
         <button
-          onClick={() => {
-            // TODO: Open ShapeBrowserModal
-            console.log('Open shape browser');
-          }}
+          onClick={() => setIsShapeBrowserOpen(true)}
           className="p-2 rounded-md transition-colors flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
-          title="More shapes..."
+          title="More shapes (M)"
         >
           <Plus className="w-5 h-5" />
         </button>
       </div>
+
+      {/* Shape Browser Modal */}
+      <ShapeBrowserModal
+        isOpen={isShapeBrowserOpen}
+        onClose={() => setIsShapeBrowserOpen(false)}
+      />
     </div>
   );
 });

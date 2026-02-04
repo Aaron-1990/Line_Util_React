@@ -13,6 +13,7 @@ import {
   CanvasObjectType,
 } from '@shared/types/canvas-object';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
+import { useCanvasStore } from './useCanvasStore';
 
 // ============================================
 // TYPES
@@ -183,18 +184,34 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
    */
   deleteObject: async (objectId: string) => {
     const { objects } = get();
+    const objectToDelete = objects.find((obj) => obj.id === objectId);
 
-    // Optimistic update
+    if (!objectToDelete) {
+      return;
+    }
+
+    // Optimistic update - remove from objects array
     set({
       objects: objects.filter((obj) => obj.id !== objectId),
     });
 
+    // Also remove the ReactFlow node immediately (optimistic)
+    useCanvasStore.getState().deleteNode(objectId);
+
     try {
-      await window.electronAPI.invoke(CANVAS_OBJECT_CHANNELS.DELETE, objectId);
+      const response = await window.electronAPI.invoke(CANVAS_OBJECT_CHANNELS.DELETE, objectId);
+
+      if (!response.success) {
+        console.error('[CanvasObjectStore] Delete failed:', response.error);
+        // Revert on error - add object back
+        set({ objects: [...get().objects, objectToDelete] });
+        alert(`Failed to delete object: ${response.error}`);
+      }
     } catch (error) {
       console.error('[CanvasObjectStore] Error deleting object:', error);
       // Revert on error
-      set({ objects });
+      set({ objects: [...get().objects, objectToDelete] });
+      alert('Failed to delete object. Please try again.');
     }
   },
 

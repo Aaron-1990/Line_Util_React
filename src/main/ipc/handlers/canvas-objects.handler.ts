@@ -130,8 +130,8 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.UPDATE,
     async (
       _event,
-      payload: {
-        id: string;
+      objectId: string,
+      updates: {
         name?: string;
         description?: string;
         colorOverride?: string;
@@ -139,14 +139,13 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
-        const { id, ...updates } = payload;
-        console.log('[Canvas Object Handler] Updating object:', id);
+        console.log('[Canvas Object Handler] Updating object:', objectId);
 
-        if (!id) {
+        if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
-        const object = await repo.update(id, updates);
+        const object = await repo.update(objectId, updates);
         return { success: true, data: object };
       } catch (error) {
         console.error('[Canvas Object Handler] Update error:', error);
@@ -164,16 +163,15 @@ export function registerCanvasObjectHandlers(): void {
 
   ipcMain.handle(
     CANVAS_OBJECT_CHANNELS.DELETE,
-    async (_event, payload: { id: string }): Promise<ApiResponse<void>> => {
+    async (_event, objectId: string): Promise<ApiResponse<void>> => {
       try {
-        const { id } = payload;
-        console.log('[Canvas Object Handler] Deleting object:', id);
+        console.log('[Canvas Object Handler] Deleting object:', objectId);
 
-        if (!id) {
+        if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
-        await repo.delete(id);
+        await repo.delete(objectId);
         return { success: true, data: undefined };
       } catch (error) {
         console.error('[Canvas Object Handler] Delete error:', error);
@@ -193,17 +191,18 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.UPDATE_POSITION,
     async (
       _event,
-      payload: { id: string; xPosition: number; yPosition: number }
+      objectId: string,
+      x: number,
+      y: number
     ): Promise<ApiResponse<void>> => {
       try {
-        const { id, xPosition, yPosition } = payload;
-        console.log('[Canvas Object Handler] Updating position:', id, xPosition, yPosition);
+        console.log('[Canvas Object Handler] Updating position:', objectId, x, y);
 
-        if (!id || xPosition === undefined || yPosition === undefined) {
+        if (!objectId || x === undefined || y === undefined) {
           return { success: false, error: 'Missing object ID or position coordinates' };
         }
 
-        await repo.updatePosition(id, xPosition, yPosition);
+        await repo.updatePosition(objectId, x, y);
         return { success: true, data: undefined };
       } catch (error) {
         console.error('[Canvas Object Handler] Update position error:', error);
@@ -283,17 +282,17 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.CONVERT_TYPE,
     async (
       _event,
-      payload: { id: string; newType: CanvasObjectType }
+      objectId: string,
+      newType: CanvasObjectType
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
-        const { id, newType } = payload;
-        console.log('[Canvas Object Handler] Converting object type:', id, 'to', newType);
+        console.log('[Canvas Object Handler] Converting object type:', objectId, 'to', newType);
 
-        if (!id || !newType) {
+        if (!objectId || !newType) {
           return { success: false, error: 'Missing object ID or new type' };
         }
 
-        const object = await repo.convertType(id, newType);
+        const object = await repo.convertType(objectId, newType);
         return { success: true, data: object };
       } catch (error) {
         console.error('[Canvas Object Handler] Convert type error:', error);
@@ -339,8 +338,8 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.SET_BUFFER_PROPS,
     async (
       _event,
-      payload: {
-        objectId: string;
+      objectId: string,
+      props: {
         maxCapacity?: number;
         bufferTimeHours?: number;
         fifoEnforced?: boolean;
@@ -348,7 +347,6 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<BufferProperties>> => {
       try {
-        const { objectId, ...props } = payload;
         console.log('[Canvas Object Handler] Setting buffer properties:', objectId);
 
         if (!objectId) {
@@ -375,10 +373,10 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.LINK_TO_LINE,
     async (
       _event,
-      payload: { objectId: string; productionLineId: string }
+      objectId: string,
+      productionLineId: string
     ): Promise<ApiResponse<ProcessLineLink>> => {
       try {
-        const { objectId, productionLineId } = payload;
         console.log('[Canvas Object Handler] Linking to production line:', objectId, productionLineId);
 
         if (!objectId || !productionLineId) {

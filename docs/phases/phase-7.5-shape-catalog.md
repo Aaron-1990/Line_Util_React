@@ -658,16 +658,16 @@ async function importImage(imagePath: string): Promise<ShapeDefinition> {
 | Connect Tool | 2026-02-02 | Visual connections between ANY nodes |
 | ConnectionContextMenu | 2026-02-02 | Change type, delete connections |
 | Migration 014 | 2026-02-02 | Fixed polymorphic connections (removed FK constraint) |
+| ShapeBrowserModal | 2026-02-02 | Full catalog browser with search, favorites, categories |
+| Keyboard shortcut M | 2026-02-02 | Press M to open shape browser |
 
 ### Próximos Pasos 🚧
 
 | Item | Prioridad | Descripción |
 |------|-----------|-------------|
-| ShapeBrowserModal | Media | Modal para explorar catálogo completo, favoritos, búsqueda |
-| Import SVG | Media | Importar shapes personalizados desde SVG |
+| Import SVG | Media | Importar shapes personalizados desde SVG (button ready in modal) |
 | Import DXF | Baja | Parser DXF → SVG para AutoCAD |
 | Import Image | Baja | Convertir imágenes a shapes |
-| Keyboard shortcuts refinement | Media | Mejorar atajos (actualmente V, C, Esc funcionan) |
 | Multi-select operations | Baja | Alinear, distribuir, agrupar |
 
 ### Bugs Conocidos / Deuda Técnica
@@ -687,18 +687,21 @@ Para continuar en otra sesión, proporciona este contexto:
 >
 > **Plan completo:** `docs/phases/phase-7.5-shape-catalog.md`
 >
-> **Estado actual:** Core functionality COMPLETO
+> **Estado actual:** Core + UI COMPLETO
 > - Shape catalog con 4 shapes básicos (rect, triangle, circle, diamond)
 > - Click-to-place objetos genéricos
 > - Convert to Process/Buffer via context menu
 > - Connections funcionan entre TODOS los nodos (nuevos + importados Excel)
 > - Properties panel para editar objetos
 > - Link Process to ProductionLine modal
+> - **ShapeBrowserModal** con búsqueda, favoritos, categorías
+> - Keyboard shortcuts: V (Select), H (Pan), C (Connect), M (More shapes), Esc
 >
-> **Próximo:** ShapeBrowserModal para explorar todo el catálogo y agregar favoritos.
+> **Próximo:** Import SVG para agregar shapes personalizados.
 >
 > **Archivos clave:**
 > - `src/renderer/features/canvas/components/toolbar/ObjectPalette.tsx`
+> - `src/renderer/features/canvas/components/modals/ShapeBrowserModal.tsx`
 > - `src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx`
 > - `src/renderer/features/canvas/store/useCanvasObjectStore.ts`
 > - `src/main/database/repositories/SQLiteCanvasObjectRepository.ts`"
