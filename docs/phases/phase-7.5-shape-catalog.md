@@ -660,11 +660,20 @@ async function importImage(imagePath: string): Promise<ShapeDefinition> {
 | Migration 014 | 2026-02-02 | Fixed polymorphic connections (removed FK constraint) |
 | ShapeBrowserModal | 2026-02-02 | Full catalog browser with search, favorites, categories |
 | Keyboard shortcut M | 2026-02-02 | Press M to open shape browser |
+| **Canvas Object Compatibilities** | 2026-02-03 | Migration 016 + Repository + IPC handlers + Zustand store |
+| **Assign Models to Process objects** | 2026-02-03 | AssignModelToObjectModal (cycle time, efficiency, priority) |
+| **Convert Production Line to Canvas Object** | 2026-02-03 | Context menu works for imported lines, copies compatibilities |
+| **Unified Properties Panel** | 2026-02-03 | Single floating panel for Lines AND Canvas Objects |
+| **useSelectionState hook** | 2026-02-03 | Unified selection logic (line/object/multi/none) |
+| **MiniMap dynamic positioning** | 2026-02-03 | Shifts left when properties panel is open |
+| **Grid layout for AnalysisControlBar** | 2026-02-03 | Panel no longer overlaps control bar |
+| **Tailwind slide-in animation** | 2026-02-03 | Smooth panel entrance animation |
 
 ### Próximos Pasos 🚧
 
 | Item | Prioridad | Descripción |
 |------|-----------|-------------|
+| MiniMap UX refinement | Alta | Posición óptima cuando panel está abierto |
 | Import SVG | Media | Importar shapes personalizados desde SVG (button ready in modal) |
 | Import DXF | Baja | Parser DXF → SVG para AutoCAD |
 | Import Image | Baja | Convertir imágenes a shapes |
@@ -676,6 +685,7 @@ async function importImage(imagePath: string): Promise<ShapeDefinition> {
 |------|-----------|-------|
 | VIEW v_process_objects_with_lines | Fixed | Migración 014 arregló referencia a columna incorrecta |
 | ProductionLineNode vs GenericShapeNode IDs | Info | ProductionLineNode usa IDs de `production_lines`, GenericShapeNode usa IDs de `canvas_objects`. Migración 014 quitó FK constraint para permitir conexiones mixtas. |
+| LinePropertiesPanel / ObjectPropertiesPanel | Deprecated | Replaced by UnifiedPropertiesPanel, old files kept for reference |
 
 ---
 
@@ -687,21 +697,29 @@ Para continuar en otra sesión, proporciona este contexto:
 >
 > **Plan completo:** `docs/phases/phase-7.5-shape-catalog.md`
 >
-> **Estado actual:** Core + UI COMPLETO
+> **Estado actual:** Core + UI + Unified Properties COMPLETO
 > - Shape catalog con 4 shapes básicos (rect, triangle, circle, diamond)
 > - Click-to-place objetos genéricos
-> - Convert to Process/Buffer via context menu
+> - Convert to Process/Buffer via context menu (incluye production lines importadas)
 > - Connections funcionan entre TODOS los nodos (nuevos + importados Excel)
-> - Properties panel para editar objetos
+> - **UnifiedPropertiesPanel**: Panel flotante único para Lines y Canvas Objects
+> - **Canvas Object Compatibilities**: Asignar modelos a Process objects
+> - **MiniMap dinámico**: Se desplaza cuando el panel está abierto
 > - Link Process to ProductionLine modal
-> - **ShapeBrowserModal** con búsqueda, favoritos, categorías
+> - ShapeBrowserModal con búsqueda, favoritos, categorías
 > - Keyboard shortcuts: V (Select), H (Pan), C (Connect), M (More shapes), Esc
 >
-> **Próximo:** Import SVG para agregar shapes personalizados.
+> **Próximo:** Refinar UX del MiniMap, Import SVG para agregar shapes personalizados.
 >
-> **Archivos clave:**
+> **Archivos clave (nuevos 2026-02-03):**
+> - `src/renderer/features/canvas/components/panels/UnifiedPropertiesPanel.tsx`
+> - `src/renderer/features/canvas/hooks/useSelectionState.ts`
+> - `src/renderer/features/canvas/store/useCanvasObjectCompatibilityStore.ts`
+> - `src/main/database/repositories/SQLiteCanvasObjectCompatibilityRepository.ts`
+> - `src/main/database/migrations/016_canvas_object_compatibilities.sql`
+>
+> **Archivos clave (existentes):**
+> - `src/renderer/features/canvas/ProductionCanvas.tsx`
 > - `src/renderer/features/canvas/components/toolbar/ObjectPalette.tsx`
-> - `src/renderer/features/canvas/components/modals/ShapeBrowserModal.tsx`
 > - `src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx`
-> - `src/renderer/features/canvas/store/useCanvasObjectStore.ts`
-> - `src/main/database/repositories/SQLiteCanvasObjectRepository.ts`"
+> - `src/renderer/features/canvas/store/useCanvasObjectStore.ts`"
