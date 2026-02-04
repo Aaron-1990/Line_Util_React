@@ -11,6 +11,8 @@ import type {
   CanvasObjectType,
   BufferProperties,
   ProcessLineLink,
+  ProcessProperties,
+  UpdateProcessPropertiesInput,
   CanvasConnection,
   CreateCanvasObjectInput,
   UpdateCanvasObjectInput,
@@ -19,6 +21,7 @@ import type {
   CanvasObjectRow,
   BufferPropertiesRow,
   ProcessLineLinkRow,
+  ProcessPropertiesRow,
   CanvasConnectionRow,
 } from '@shared/types';
 
@@ -68,6 +71,17 @@ export class SQLiteCanvasObjectRepository {
       id: row.id,
       canvasObjectId: row.canvas_object_id,
       productionLineId: row.production_line_id ?? undefined,
+    };
+  }
+
+  private mapProcessPropertiesRowToEntity(row: ProcessPropertiesRow): ProcessProperties {
+    return {
+      id: row.id,
+      canvasObjectId: row.canvas_object_id,
+      area: row.area,
+      timeAvailableDaily: row.time_available_daily,
+      lineType: row.line_type as 'shared' | 'dedicated',
+      changeoverEnabled: Boolean(row.changeover_enabled),
     };
   }
 
@@ -206,8 +220,18 @@ export class SQLiteCanvasObjectRepository {
       }
     }
 
-    // Get process link if object type is process
+    // Get process properties and link if object type is process
     if (obj.objectType === 'process') {
+      // Get process properties (new approach - process has its own properties)
+      const propsRow = this.db
+        .prepare('SELECT * FROM process_properties WHERE canvas_object_id = ?')
+        .get(id) as ProcessPropertiesRow | undefined;
+
+      if (propsRow) {
+        result.processProperties = this.mapProcessPropertiesRowToEntity(propsRow);
+      }
+
+      // Get process link (legacy approach - link to existing production line)
       const linkRow = this.db
         .prepare('SELECT * FROM process_line_links WHERE canvas_object_id = ?')
         .get(id) as ProcessLineLinkRow | undefined;
@@ -496,8 +520,34 @@ export class SQLiteCanvasObjectRepository {
       }
     }
 
-    // If it's a process, create unlinked process link (don't duplicate the link)
+    // If it's a process, duplicate process properties and create unlinked link
     if (original.objectType === 'process') {
+      // Duplicate process properties if they exist
+      const propsRow = this.db
+        .prepare('SELECT * FROM process_properties WHERE canvas_object_id = ?')
+        .get(id) as ProcessPropertiesRow | undefined;
+
+      if (propsRow) {
+        this.db
+          .prepare(`
+            INSERT INTO process_properties (
+              id, canvas_object_id, area, time_available_daily,
+              line_type, changeover_enabled, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `)
+          .run(
+            nanoid(),
+            newId,
+            propsRow.area,
+            propsRow.time_available_daily,
+            propsRow.line_type,
+            propsRow.changeover_enabled,
+            now,
+            now
+          );
+      }
+
+      // Create unlinked process link (don't duplicate the link)
       this.db
         .prepare(`
           INSERT INTO process_line_links (id, canvas_object_id, production_line_id, created_at)
@@ -539,6 +589,7 @@ export class SQLiteCanvasObjectRepository {
         this.db.prepare('DELETE FROM buffer_properties WHERE canvas_object_id = ?').run(id);
       } else if (existing.objectType === 'process') {
         this.db.prepare('DELETE FROM process_line_links WHERE canvas_object_id = ?').run(id);
+        this.db.prepare('DELETE FROM process_properties WHERE canvas_object_id = ?').run(id);
       }
 
       // Create new type-specific data
@@ -552,12 +603,23 @@ export class SQLiteCanvasObjectRepository {
           `)
           .run(nanoid(), id, 100, 4.0, 0, 1, 'block', now, now);
       } else if (newType === 'process') {
+        // Create process link (legacy)
         this.db
           .prepare(`
             INSERT INTO process_line_links (id, canvas_object_id, production_line_id, created_at)
             VALUES (?, ?, NULL, ?)
           `)
           .run(nanoid(), id, now);
+
+        // Create process properties with defaults
+        this.db
+          .prepare(`
+            INSERT INTO process_properties (
+              id, canvas_object_id, area, time_available_daily,
+              line_type, changeover_enabled, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `)
+          .run(nanoid(), id, '', 72000, 'shared', 1, now, now);
       }
     });
 
@@ -661,6 +723,103 @@ export class SQLiteCanvasObjectRepository {
       const updated = await this.getBufferProperties(canvasObjectId);
       if (!updated) {
         throw new Error('Failed to update buffer properties');
+      }
+      return updated;
+    }
+  }
+
+  // ============================================
+  // PROCESS PROPERTIES
+  // ============================================
+
+  /**
+   * Get process properties for a canvas object
+   */
+  async getProcessProperties(canvasObjectId: string): Promise<ProcessProperties | null> {
+    const row = this.db
+      .prepare('SELECT * FROM process_properties WHERE canvas_object_id = ?')
+      .get(canvasObjectId) as ProcessPropertiesRow | undefined;
+
+    return row ? this.mapProcessPropertiesRowToEntity(row) : null;
+  }
+
+  /**
+   * Set process properties (create or update)
+   */
+  async setProcessProperties(
+    canvasObjectId: string,
+    props: UpdateProcessPropertiesInput
+  ): Promise<ProcessProperties> {
+    const existing = await this.getProcessProperties(canvasObjectId);
+    const now = new Date().toISOString();
+
+    if (!existing) {
+      // Create new process properties
+      const id = nanoid();
+      this.db
+        .prepare(`
+          INSERT INTO process_properties (
+            id, canvas_object_id, area, time_available_daily,
+            line_type, changeover_enabled, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+        .run(
+          id,
+          canvasObjectId,
+          props.area ?? '',
+          props.timeAvailableDaily ?? 72000,  // 20 hours default
+          props.lineType ?? 'shared',
+          props.changeoverEnabled !== false ? 1 : 0,
+          now,
+          now
+        );
+
+      // Force WAL checkpoint for persistence
+      this.db.pragma('wal_checkpoint(PASSIVE)');
+
+      const created = await this.getProcessProperties(canvasObjectId);
+      if (!created) {
+        throw new Error('Failed to create process properties');
+      }
+      return created;
+    } else {
+      // Update existing process properties
+      const updates: string[] = [];
+      const params: unknown[] = [];
+
+      if (props.area !== undefined) {
+        updates.push('area = ?');
+        params.push(props.area);
+      }
+      if (props.timeAvailableDaily !== undefined) {
+        updates.push('time_available_daily = ?');
+        params.push(props.timeAvailableDaily);
+      }
+      if (props.lineType !== undefined) {
+        updates.push('line_type = ?');
+        params.push(props.lineType);
+      }
+      if (props.changeoverEnabled !== undefined) {
+        updates.push('changeover_enabled = ?');
+        params.push(props.changeoverEnabled ? 1 : 0);
+      }
+
+      if (updates.length > 0) {
+        updates.push('updated_at = ?');
+        params.push(now);
+        params.push(canvasObjectId);
+
+        this.db
+          .prepare(`UPDATE process_properties SET ${updates.join(', ')} WHERE canvas_object_id = ?`)
+          .run(...params);
+
+        // Force WAL checkpoint for persistence
+        this.db.pragma('wal_checkpoint(PASSIVE)');
+      }
+
+      const updated = await this.getProcessProperties(canvasObjectId);
+      if (!updated) {
+        throw new Error('Failed to update process properties');
       }
       return updated;
     }

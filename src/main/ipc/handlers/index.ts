@@ -20,6 +20,7 @@ import { registerRoutingHandlers } from './routing.handler';
 import { registerPlantHandlers } from './plant.handler';
 import { registerShapeCatalogHandlers } from './shape-catalog.handler';
 import { registerCanvasObjectHandlers } from './canvas-objects.handler';
+import { registerCanvasObjectCompatibilityHandlers } from './canvas-object-compatibility.handler';
 
 export function registerAllHandlers(): void {
   console.log('Registering IPC handlers...');
@@ -41,6 +42,7 @@ export function registerAllHandlers(): void {
   registerPlantHandlers();
   registerShapeCatalogHandlers();
   registerCanvasObjectHandlers();
+  registerCanvasObjectCompatibilityHandlers();
 
   console.log('IPC handlers registered successfully');
 }

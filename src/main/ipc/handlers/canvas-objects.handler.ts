@@ -13,6 +13,7 @@ import type {
   CanvasObjectWithDetails,
   BufferProperties,
   ProcessLineLink,
+  ProcessProperties,
   CanvasConnection,
 } from '@shared/types/canvas-object';
 import type { CanvasObjectType } from '@shared/types/canvas-object';
@@ -448,6 +449,67 @@ export function registerCanvasObjectHandlers(): void {
   );
 
   // ============================================
+  // GET PROCESS PROPERTIES
+  // ============================================
+
+  ipcMain.handle(
+    CANVAS_OBJECT_CHANNELS.GET_PROCESS_PROPS,
+    async (_event, objectId: string): Promise<ApiResponse<ProcessProperties | null>> => {
+      try {
+        console.log('[Canvas Object Handler] Getting process properties:', objectId);
+
+        if (!objectId) {
+          return { success: false, error: 'Missing object ID' };
+        }
+
+        const props = await repo.getProcessProperties(objectId);
+        return { success: true, data: props };
+      } catch (error) {
+        console.error('[Canvas Object Handler] Get process props error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // SET PROCESS PROPERTIES
+  // ============================================
+
+  ipcMain.handle(
+    CANVAS_OBJECT_CHANNELS.SET_PROCESS_PROPS,
+    async (
+      _event,
+      objectId: string,
+      props: {
+        area?: string;
+        timeAvailableDaily?: number;
+        lineType?: 'shared' | 'dedicated';
+        changeoverEnabled?: boolean;
+      }
+    ): Promise<ApiResponse<ProcessProperties>> => {
+      try {
+        console.log('[Canvas Object Handler] Setting process properties:', objectId);
+
+        if (!objectId) {
+          return { success: false, error: 'Missing object ID' };
+        }
+
+        const processProps = await repo.setProcessProperties(objectId, props);
+        return { success: true, data: processProps };
+      } catch (error) {
+        console.error('[Canvas Object Handler] Set process props error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ============================================
   // GET CONNECTIONS
   // ============================================
 
@@ -572,6 +634,92 @@ export function registerCanvasObjectHandlers(): void {
         return { success: true, data: connection };
       } catch (error) {
         console.error('[Canvas Object Handler] Update connection error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // CONVERT FROM PRODUCTION LINE
+  // Converts a production_line to a canvas_object
+  // ============================================
+
+  ipcMain.handle(
+    CANVAS_OBJECT_CHANNELS.CONVERT_FROM_LINE,
+    async (
+      _event,
+      payload: {
+        lineId: string;
+        newType: CanvasObjectType;
+        shapeId: string;
+      }
+    ): Promise<ApiResponse<CanvasObject>> => {
+      try {
+        console.log('[Canvas Object Handler] Converting production line to canvas object:', payload.lineId, 'as', payload.newType);
+
+        if (!payload.lineId || !payload.newType || !payload.shapeId) {
+          return { success: false, error: 'Missing required fields: lineId, newType, or shapeId' };
+        }
+
+        // Get the production line data
+        const lineRow = db
+          .prepare('SELECT * FROM production_lines WHERE id = ? AND active = 1')
+          .get(payload.lineId) as {
+            id: string;
+            plant_id: string;
+            name: string;
+            area: string;
+            line_type: string;
+            time_available_daily: number;
+            x_position: number;
+            y_position: number;
+            changeover_enabled: number;
+          } | undefined;
+
+        if (!lineRow) {
+          return { success: false, error: 'Production line not found' };
+        }
+
+        // Create canvas object with the line's data
+        const canvasObject = await repo.create({
+          plantId: lineRow.plant_id,
+          shapeId: payload.shapeId,
+          name: lineRow.name,
+          xPosition: lineRow.x_position,
+          yPosition: lineRow.y_position,
+          objectType: payload.newType,
+        });
+
+        // If converting to process, set up process properties from line data
+        if (payload.newType === 'process') {
+          await repo.setProcessProperties(canvasObject.id, {
+            area: lineRow.area,
+            timeAvailableDaily: lineRow.time_available_daily,
+            lineType: (lineRow.line_type as 'shared' | 'dedicated') || 'shared',
+            changeoverEnabled: Boolean(lineRow.changeover_enabled),
+          });
+        }
+
+        // Copy model compatibilities from line to canvas object
+        const { SQLiteCanvasObjectCompatibilityRepository } = await import('../../database/repositories/SQLiteCanvasObjectCompatibilityRepository');
+        const compatRepo = new SQLiteCanvasObjectCompatibilityRepository(db);
+        await compatRepo.copyFromLine(payload.lineId, canvasObject.id);
+
+        // Soft-delete the production line
+        db.prepare('UPDATE production_lines SET active = 0, updated_at = ? WHERE id = ?')
+          .run(new Date().toISOString(), payload.lineId);
+
+        // Force WAL checkpoint for persistence
+        db.pragma('wal_checkpoint(PASSIVE)');
+
+        console.log('[Canvas Object Handler] Successfully converted line', payload.lineId, 'to canvas object', canvasObject.id);
+
+        return { success: true, data: canvasObject };
+      } catch (error) {
+        console.error('[Canvas Object Handler] Convert from line error:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',

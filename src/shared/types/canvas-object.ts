@@ -76,6 +76,30 @@ export interface ProcessLineLink {
 }
 
 /**
+ * Process-specific properties (type = 'process')
+ * Stores production properties directly on the process object
+ * Alternative to linking to an existing production line
+ */
+export interface ProcessProperties {
+  id: string;
+  canvasObjectId: string;
+  area: string;                    // FK to area_catalog.code
+  timeAvailableDaily: number;      // Seconds (same as production_lines)
+  lineType: 'shared' | 'dedicated';
+  changeoverEnabled: boolean;
+}
+
+/**
+ * Input for updating process properties
+ */
+export interface UpdateProcessPropertiesInput {
+  area?: string;
+  timeAvailableDaily?: number;
+  lineType?: 'shared' | 'dedicated';
+  changeoverEnabled?: boolean;
+}
+
+/**
  * Canvas connection between objects
  * Represents material/info flow
  */
@@ -98,8 +122,9 @@ export interface CanvasConnection {
 export interface CanvasObjectWithDetails extends CanvasObject {
   shape: ShapeDefinition;
   bufferProperties?: BufferProperties;
-  processLink?: ProcessLineLink;
-  linkedLine?: ProductionLine;
+  processProperties?: ProcessProperties;  // Process's own production properties
+  processLink?: ProcessLineLink;           // Legacy: link to existing production line
+  linkedLine?: ProductionLine;             // Legacy: the linked production line data
 }
 
 /**
@@ -215,6 +240,20 @@ export interface ProcessLineLinkRow {
 }
 
 /**
+ * Database row for process_properties table
+ */
+export interface ProcessPropertiesRow {
+  id: string;
+  canvas_object_id: string;
+  area: string;
+  time_available_daily: number;
+  line_type: string;
+  changeover_enabled: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Database row for canvas_connections table
  */
 export interface CanvasConnectionRow {
@@ -227,4 +266,79 @@ export interface CanvasConnectionRow {
   connection_type: string;
   label: string | null;
   active: number;
+}
+
+// ============================================
+// CANVAS OBJECT COMPATIBILITY TYPES
+// Model assignments for canvas objects (process types)
+// ============================================
+
+/**
+ * Canvas object model compatibility
+ * Similar to LineModelCompatibility but for canvas objects
+ */
+export interface CanvasObjectCompatibility {
+  id: string;
+  canvasObjectId: string;
+  modelId: string;
+  cycleTime: number;          // Seconds per unit
+  efficiency: number;         // 1-100 percentage
+  priority: number;           // Lower = higher priority
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Canvas object compatibility with model details for display
+ */
+export interface CanvasObjectCompatibilityWithModel extends CanvasObjectCompatibility {
+  modelName: string;
+  modelFamily?: string;
+}
+
+/**
+ * Input for creating canvas object compatibility
+ */
+export interface CreateCanvasObjectCompatibilityInput {
+  canvasObjectId: string;
+  modelId: string;
+  cycleTime: number;
+  efficiency: number;
+  priority: number;
+}
+
+/**
+ * Input for updating canvas object compatibility
+ */
+export interface UpdateCanvasObjectCompatibilityInput {
+  cycleTime?: number;
+  efficiency?: number;
+  priority?: number;
+}
+
+/**
+ * Database row for canvas_object_compatibilities table
+ */
+export interface CanvasObjectCompatibilityRow {
+  id: string;
+  canvas_object_id: string;
+  model_id: string;
+  cycle_time: number;
+  efficiency: number;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================
+// CONVERT FROM PRODUCTION LINE TYPES
+// ============================================
+
+/**
+ * Input for converting a production line to a canvas object
+ */
+export interface ConvertFromLineInput {
+  lineId: string;
+  newType: CanvasObjectType;
+  shapeId: string;
 }

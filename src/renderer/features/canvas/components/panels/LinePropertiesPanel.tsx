@@ -110,7 +110,7 @@ export const LinePropertiesPanel = () => {
 
   return (
     <>
-      <div className="absolute top-0 right-0 h-full w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-lg z-20 animate-slide-in flex flex-col">
+      <div className="absolute top-0 right-0 w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-lg z-20 animate-slide-in flex flex-col" style={{ height: 'calc(100% - 60px)' }}>
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {isEditing ? 'Edit Line' : 'Line Properties'}

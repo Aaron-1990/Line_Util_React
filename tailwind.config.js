@@ -37,6 +37,15 @@ module.exports = {
         sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
         mono: ['Monaco', 'Menlo', '"Courier New"', 'monospace'],
       },
+      animation: {
+        'slide-in': 'slideIn 200ms ease-out',
+      },
+      keyframes: {
+        slideIn: {
+          from: { opacity: '0', transform: 'translateX(20px)' },
+          to: { opacity: '1', transform: 'translateX(0)' },
+        },
+      },
     },
   },
   plugins: [],

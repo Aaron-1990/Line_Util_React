@@ -21,7 +21,11 @@ import {
 } from 'lucide-react';
 import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
 import { useCanvasStore } from '../store/useCanvasStore';
+import { useNavigationStore } from '../../../store/useNavigationStore';
 import { CanvasObjectType } from '@shared/types';
+
+// Default shape for converting production lines to canvas objects
+const DEFAULT_SHAPE_ID = 'rect-basic';
 
 interface ContextMenuProps {
   x: number;
@@ -67,12 +71,14 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
   const {
     getObjectById,
     convertType,
+    convertFromLine,
     duplicateObject,
     deleteObject,
     updateObject
   } = useCanvasObjectStore();
 
-  const { nodes, setSelectedNode, deleteNode } = useCanvasStore();
+  const { nodes, setSelectedNode, deleteNode, addNode } = useCanvasStore();
+  const currentPlantId = useNavigationStore((state) => state.currentPlantId);
 
   // Clear all pending timeouts
   const clearAllTimeouts = useCallback(() => {
@@ -243,12 +249,53 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
   }
 
   const handleConvertTo = async (newType: CanvasObjectType) => {
-    await convertType(objectId, newType);
+    if (isProductionLine) {
+      // Convert production line to canvas object
+      if (!currentPlantId) {
+        console.error('[ContextMenu] No plant selected');
+        onClose();
+        return;
+      }
+
+      // Get the old node position before deleting
+      const oldNode = nodes.find(n => n.id === objectId);
+      const position = oldNode?.position ?? { x: 0, y: 0 };
+
+      const newObject = await convertFromLine(objectId, newType, DEFAULT_SHAPE_ID, currentPlantId);
+      if (newObject) {
+        // Remove the old production line node from canvas
+        deleteNode(objectId);
+
+        // Add the new genericShape node to the canvas
+        addNode({
+          id: newObject.id,
+          type: 'genericShape',
+          position,
+          data: {
+            id: newObject.id,
+            name: newObject.name,
+            objectType: newObject.objectType,
+            shapeId: newObject.shapeId,
+          },
+        });
+      }
+    } else {
+      // Convert existing canvas object type
+      await convertType(objectId, newType);
+    }
     onClose();
   };
 
   const handleDuplicate = async () => {
-    await duplicateObject(objectId);
+    if (isProductionLine) {
+      // TODO: Duplicate production line
+      console.log('[ContextMenu] Duplicate production line:', objectId);
+      // For now, we don't have duplicate functionality for production lines
+      // This would require duplicating the line in the database with a new ID
+    } else {
+      // Duplicate canvas object
+      await duplicateObject(objectId);
+    }
     onClose();
   };
 
@@ -274,7 +321,12 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
   };
 
   const handleToggleLock = async () => {
-    if (canvasObject) {
+    if (isProductionLine) {
+      // TODO: Lock production line
+      console.log('[ContextMenu] Toggle lock for production line:', objectId);
+      // For now, production lines don't have a locked field in the database
+      // This would require adding a `locked` column to production_lines table
+    } else if (canvasObject) {
       await updateObject(objectId, { locked: !canvasObject.locked });
     }
     onClose();
@@ -291,7 +343,7 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     onClose();
   };
 
-  // Convert to submenu items
+  // Convert to submenu items (only for canvas objects, not production lines)
   const convertTypes: { label: string; icon: React.ReactNode; type: CanvasObjectType; disabled?: boolean }[] = [
     { label: 'Process', icon: <Cog className="w-4 h-4" />, type: 'process' },
     { label: 'Buffer', icon: <Box className="w-4 h-4" />, type: 'buffer' },
@@ -300,48 +352,21 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     { label: 'Quality Gate', icon: <ShieldCheck className="w-4 h-4" />, type: 'quality_gate', disabled: true },
   ];
 
-  // Different menu for production lines vs canvas objects
-  if (isProductionLine) {
-    // Production Line Context Menu
-    return (
-      <div
-        ref={menuRef}
-        className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] z-50"
-        style={{ left: x, top: y }}
-      >
-        {/* Edit (Open Properties) */}
-        <button
-          onClick={handleProperties}
-          className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-        >
-          <Edit2 className="w-4 h-4" />
-          <span>Edit Line...</span>
-        </button>
+  // Check if object is locked (for lock/unlock button)
+  const isLocked = canvasObject?.locked || false;
 
-        {/* Divider */}
-        <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
+  // Get appropriate label for properties button
+  const propertiesLabel = isProductionLine ? 'Edit Line...' : 'Properties...';
+  const propertiesIcon = isProductionLine ? <Edit2 className="w-4 h-4" /> : <Settings className="w-4 h-4" />;
 
-        {/* Delete */}
-        <button
-          onClick={handleDelete}
-          className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
-        >
-          <Trash2 className="w-4 h-4" />
-          <span>Delete Line</span>
-          <span className="ml-auto text-xs text-red-400">⌫</span>
-        </button>
-      </div>
-    );
-  }
-
-  // Canvas Object Context Menu
+  // Unified Context Menu for all node types
   return (
     <div
       ref={menuRef}
       className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] z-50"
       style={{ left: x, top: y }}
     >
-      {/* Convert to... with submenu */}
+      {/* Convert to... with submenu - Available for both production lines and canvas objects */}
       <div
         ref={submenuContainerRef}
         className="relative"
@@ -391,24 +416,31 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
 
             {/* Actual submenu content */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[150px] ml-2">
-              {convertTypes.map((item) => (
-                <button
-                  key={item.type}
-                  onClick={() => !item.disabled && handleConvertTo(item.type)}
-                  disabled={item.disabled || canvasObject?.objectType === item.type}
-                  className={`w-full px-3 py-2 text-left flex items-center gap-2 ${
-                    item.disabled || canvasObject?.objectType === item.type
-                      ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                  {canvasObject?.objectType === item.type && (
-                    <span className="ml-auto text-xs text-gray-400">Current</span>
-                  )}
-                </button>
-              ))}
+              {convertTypes.map((item) => {
+                // For production lines, all types are available (no "Current" state)
+                // For canvas objects, disable if already that type
+                const isCurrent = !isProductionLine && canvasObject?.objectType === item.type;
+                const isDisabled = item.disabled || isCurrent;
+
+                return (
+                  <button
+                    key={item.type}
+                    onClick={() => !isDisabled && handleConvertTo(item.type)}
+                    disabled={isDisabled}
+                    className={`w-full px-3 py-2 text-left flex items-center gap-2 ${
+                      isDisabled
+                        ? 'text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                    {isCurrent && (
+                      <span className="ml-auto text-xs text-gray-400">Current</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -417,32 +449,36 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
       {/* Divider */}
       <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
 
-      {/* Duplicate */}
+      {/* Duplicate - Available for both types */}
       <button
         onClick={handleDuplicate}
         onMouseEnter={handleOtherItemHover}
         className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+        disabled={isProductionLine} // TODO: Remove when duplicate is implemented for production lines
+        title={isProductionLine ? 'Duplicate not yet available for production lines' : undefined}
       >
         <Copy className="w-4 h-4" />
-        <span>Duplicate</span>
-        <span className="ml-auto text-xs text-gray-400">⌘D</span>
+        <span className={isProductionLine ? 'text-gray-400' : ''}>Duplicate</span>
+        {!isProductionLine && <span className="ml-auto text-xs text-gray-400">⌘D</span>}
       </button>
 
-      {/* Lock/Unlock */}
+      {/* Lock/Unlock - Available for both types */}
       <button
         onClick={handleToggleLock}
         onMouseEnter={handleOtherItemHover}
         className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+        disabled={isProductionLine} // TODO: Remove when lock is implemented for production lines
+        title={isProductionLine ? 'Lock not yet available for production lines' : undefined}
       >
-        {canvasObject?.locked ? (
+        {isLocked ? (
           <>
             <Unlock className="w-4 h-4" />
-            <span>Unlock</span>
+            <span className={isProductionLine ? 'text-gray-400' : ''}>Unlock</span>
           </>
         ) : (
           <>
             <Lock className="w-4 h-4" />
-            <span>Lock</span>
+            <span className={isProductionLine ? 'text-gray-400' : ''}>Lock</span>
           </>
         )}
       </button>
@@ -450,27 +486,27 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
       {/* Divider */}
       <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
 
-      {/* Properties */}
+      {/* Properties - Available for both types with different labels */}
       <button
         onClick={handleProperties}
         onMouseEnter={handleOtherItemHover}
         className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
       >
-        <Settings className="w-4 h-4" />
-        <span>Properties...</span>
+        {propertiesIcon}
+        <span>{propertiesLabel}</span>
       </button>
 
       {/* Divider */}
       <div className="h-px bg-gray-200 dark:bg-gray-700 my-1" />
 
-      {/* Delete */}
+      {/* Delete - Available for both types */}
       <button
         onClick={handleDelete}
         onMouseEnter={handleOtherItemHover}
         className="w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
       >
         <Trash2 className="w-4 h-4" />
-        <span>Delete</span>
+        <span>{isProductionLine ? 'Delete Line' : 'Delete'}</span>
         <span className="ml-auto text-xs text-red-400">⌫</span>
       </button>
     </div>

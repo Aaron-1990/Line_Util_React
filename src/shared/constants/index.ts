@@ -370,14 +370,30 @@ export const CANVAS_OBJECT_CHANNELS = {
   GET_BUFFER_PROPS: 'canvas-objects:get-buffer-props',
   SET_BUFFER_PROPS: 'canvas-objects:set-buffer-props',
 
-  // Process linking
+  // Process linking (legacy - link to existing production line)
   LINK_TO_LINE: 'canvas-objects:link-to-line',
   UNLINK_FROM_LINE: 'canvas-objects:unlink-from-line',
   GET_LINKED_LINE: 'canvas-objects:get-linked-line',
+
+  // Process properties (new - process has its own production properties)
+  GET_PROCESS_PROPS: 'canvas-objects:get-process-props',
+  SET_PROCESS_PROPS: 'canvas-objects:set-process-props',
 
   // Connections
   GET_CONNECTIONS: 'canvas-objects:get-connections',
   CREATE_CONNECTION: 'canvas-objects:create-connection',
   DELETE_CONNECTION: 'canvas-objects:delete-connection',
   UPDATE_CONNECTION: 'canvas-objects:update-connection',
+
+  // Convert from production line
+  CONVERT_FROM_LINE: 'canvas-objects:convert-from-line',
+} as const;
+
+// Canvas Object Compatibilities (Phase 7.5: Unified Object Properties)
+export const CANVAS_OBJECT_COMPATIBILITY_CHANNELS = {
+  GET_BY_OBJECT: 'canvas-object-compatibility:get-by-object',
+  GET_BY_MODEL: 'canvas-object-compatibility:get-by-model',
+  CREATE: 'canvas-object-compatibility:create',
+  UPDATE: 'canvas-object-compatibility:update',
+  DELETE: 'canvas-object-compatibility:delete',
 } as const;

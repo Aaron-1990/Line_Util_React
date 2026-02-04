@@ -8,9 +8,12 @@ import { create } from 'zustand';
 import {
   CanvasObjectWithDetails,
   CanvasConnection,
+  CanvasObject,
   CreateCanvasObjectInput,
   UpdateCanvasObjectInput,
   CanvasObjectType,
+  ProcessProperties,
+  UpdateProcessPropertiesInput,
 } from '@shared/types/canvas-object';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 import { useCanvasStore } from './useCanvasStore';
@@ -40,11 +43,18 @@ interface CanvasObjectStore {
   convertType: (objectId: string, newType: CanvasObjectType) => Promise<void>; // Alias
   updatePosition: (objectId: string, x: number, y: number) => Promise<void>;
 
-  // Buffer/Process methods
+  // Buffer methods
   getBufferProps: (objectId: string) => Promise<unknown>;
   setBufferProps: (objectId: string, props: Record<string, unknown>) => Promise<void>;
+
+  // Process methods
+  getProcessProps: (objectId: string) => Promise<ProcessProperties | null>;
+  setProcessProps: (objectId: string, props: UpdateProcessPropertiesInput) => Promise<void>;
   linkToLine: (objectId: string, lineId: string) => Promise<void>;
   unlinkFromLine: (objectId: string) => Promise<void>;
+
+  // Conversion
+  convertFromLine: (lineId: string, newType: CanvasObjectType, shapeId: string, plantId: string) => Promise<CanvasObject | null>;
 
   // Helpers
   getObjectById: (id: string) => CanvasObjectWithDetails | undefined;
@@ -366,6 +376,43 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
   },
 
   /**
+   * Get process properties for an object
+   */
+  getProcessProps: async (objectId: string): Promise<ProcessProperties | null> => {
+    try {
+      const response = await window.electronAPI.invoke<ProcessProperties>(
+        CANVAS_OBJECT_CHANNELS.GET_PROCESS_PROPS,
+        objectId
+      );
+      return response.success ? response.data ?? null : null;
+    } catch (error) {
+      console.error('[CanvasObjectStore] Error getting process props:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Set process properties for an object
+   */
+  setProcessProps: async (objectId: string, props: UpdateProcessPropertiesInput) => {
+    try {
+      await window.electronAPI.invoke(
+        CANVAS_OBJECT_CHANNELS.SET_PROCESS_PROPS,
+        objectId,
+        props
+      );
+      // Reload to get updated properties
+      const { objects } = get();
+      const obj = objects.find((o) => o.id === objectId);
+      if (obj) {
+        await get().loadObjectsForPlant(obj.plantId);
+      }
+    } catch (error) {
+      console.error('[CanvasObjectStore] Error setting process props:', error);
+    }
+  },
+
+  /**
    * Link a process object to a production line
    */
   linkToLine: async (objectId: string, lineId: string) => {
@@ -403,6 +450,33 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
       }
     } catch (error) {
       console.error('[CanvasObjectStore] Error unlinking from line:', error);
+    }
+  },
+
+  /**
+   * Convert a production line to a canvas object
+   * This creates a new canvas object with the line's data and deletes the line
+   */
+  convertFromLine: async (lineId: string, newType: CanvasObjectType, shapeId: string, plantId: string): Promise<CanvasObject | null> => {
+    try {
+      console.log('[CanvasObjectStore] Converting line to canvas object:', lineId, newType);
+
+      const response = await window.electronAPI.invoke<CanvasObject>(
+        CANVAS_OBJECT_CHANNELS.CONVERT_FROM_LINE,
+        { lineId, newType, shapeId }
+      );
+
+      if (response.success && response.data) {
+        // Reload objects for the plant to get the new canvas object
+        await get().loadObjectsForPlant(plantId);
+        return response.data;
+      }
+
+      console.error('[CanvasObjectStore] Convert from line failed:', response.error);
+      return null;
+    } catch (error) {
+      console.error('[CanvasObjectStore] Error converting from line:', error);
+      return null;
     }
   },
 }));

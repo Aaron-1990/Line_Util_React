@@ -51,12 +51,12 @@ import { useToolStore } from './store/useToolStore';
 import { useShapeCatalogStore } from './store/useShapeCatalogStore';
 import { useCanvasObjectStore } from './store/useCanvasObjectStore';
 import { useLoadLines } from './hooks/useLoadLines';
+import { useSelectionState } from './hooks/useSelectionState';
 import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { GenericShapeNode } from './components/nodes/GenericShapeNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { ObjectPalette } from './components/toolbar/ObjectPalette';
-import { LinePropertiesPanel } from './components/panels/LinePropertiesPanel';
-import { ObjectPropertiesPanel } from './components/panels/ObjectPropertiesPanel';
+import { UnifiedPropertiesPanel } from './components/panels/UnifiedPropertiesPanel';
 import { YearNavigator } from './components/YearNavigator';
 import { CanvasEmptyState } from './components/CanvasEmptyState';
 import { AddLineModal } from './components/modals/AddLineModal';
@@ -91,6 +91,10 @@ const CanvasInner = () => {
   const lastMiddleClickTime = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Detect if properties panel is open (for MiniMap positioning)
+  const selection = useSelectionState();
+  const isPanelOpen = selection.type === 'line' || selection.type === 'object';
 
   // Get current plant ID for creating objects
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
@@ -635,125 +639,132 @@ const CanvasInner = () => {
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150"
+      className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150 grid grid-rows-[1fr_auto]"
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
     >
       {/* Custom CSS for edge animations */}
       <style>{edgeAnimationStyles}</style>
 
-      <CanvasToolbar />
+      {/* Main canvas area - takes available space (min-h-0 needed for grid to work) */}
+      <div className="relative w-full min-h-0 h-full overflow-hidden">
+        <CanvasToolbar />
 
-      {/* Object Palette - Phase 7.5 */}
-      <ObjectPalette />
+        {/* Object Palette - Phase 7.5 */}
+        <ObjectPalette />
 
-      <ReactFlow
-        nodes={nodes}
-        edges={allEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
-        onSelectionChange={onSelectionChange}
-        onNodeContextMenu={onNodeContextMenu}
-        onEdgeContextMenu={onEdgeContextMenu}
-        onPaneContextMenu={onPaneContextMenu}
-        nodeTypes={nodeTypes}
-        fitView
-        attributionPosition="bottom-right"
-        connectOnClick={isConnectMode}
-        className="bg-gray-50 dark:bg-gray-900"
-        data-tool={currentToolType}
-        // Dynamic zoom limits - adapts to content spread
-        minZoom={dynamicMinZoom}
-        maxZoom={MAX_ZOOM}
-        // AutoCAD-style selection: left-click drag = selection box (unless pan mode)
-        selectionOnDrag={!isPanMode}
-        selectionMode={SelectionMode.Partial}
-        // Pan with middle mouse button (1) or right mouse button (2), OR left button (0) in pan mode
-        panOnDrag={isPanMode ? [0, 1, 2] : [1, 2]}
-        // Enable trackpad scroll to pan
-        panOnScroll
-        // Disable node dragging in pan mode
-        nodesDraggable={!isPanMode}
-        // Allow multi-select with Ctrl/Cmd+click
-        multiSelectionKeyCode="Meta"
-        // Allow source-to-source connections (eliminates need for dual handles)
-        connectionMode={ConnectionMode.Loose}
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          className="[&>pattern>circle]:fill-gray-300 dark:[&>pattern>circle]:fill-gray-700"
-        />
+        <ReactFlow
+          nodes={nodes}
+          edges={allEdges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          onSelectionChange={onSelectionChange}
+          onNodeContextMenu={onNodeContextMenu}
+          onEdgeContextMenu={onEdgeContextMenu}
+          onPaneContextMenu={onPaneContextMenu}
+          nodeTypes={nodeTypes}
+          fitView
+          attributionPosition="bottom-right"
+          connectOnClick={isConnectMode}
+          className="bg-gray-50 dark:bg-gray-900"
+          data-tool={currentToolType}
+          // Dynamic zoom limits - adapts to content spread
+          minZoom={dynamicMinZoom}
+          maxZoom={MAX_ZOOM}
+          // AutoCAD-style selection: left-click drag = selection box (unless pan mode)
+          selectionOnDrag={!isPanMode}
+          selectionMode={SelectionMode.Partial}
+          // Pan with middle mouse button (1) or right mouse button (2), OR left button (0) in pan mode
+          panOnDrag={isPanMode ? [0, 1, 2] : [1, 2]}
+          // Mouse wheel = zoom (not pan)
+          zoomOnScroll={true}
+          panOnScroll={false}
+          // Disable node dragging in pan mode
+          nodesDraggable={!isPanMode}
+          // Allow multi-select with Ctrl/Cmd+click
+          multiSelectionKeyCode="Meta"
+          // Allow source-to-source connections (eliminates need for dual handles)
+          connectionMode={ConnectionMode.Loose}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            className="[&>pattern>circle]:fill-gray-300 dark:[&>pattern>circle]:fill-gray-700"
+          />
 
-        <Controls
-          position="bottom-left"
-          showInteractive={false}
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm [&>button]:bg-white [&>button]:dark:bg-gray-800 [&>button]:border-gray-200 [&>button]:dark:border-gray-700 [&>button]:text-gray-600 [&>button]:dark:text-gray-400 [&>button:hover]:bg-gray-100 [&>button:hover]:dark:bg-gray-700"
-        />
+          <Controls
+            position="bottom-left"
+            showInteractive={false}
+            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm [&>button]:bg-white [&>button]:dark:bg-gray-800 [&>button]:border-gray-200 [&>button]:dark:border-gray-700 [&>button]:text-gray-600 [&>button]:dark:text-gray-400 [&>button:hover]:bg-gray-100 [&>button:hover]:dark:bg-gray-700"
+          />
 
-        <MiniMap
-          nodeColor={(node) => {
-            const areaColors: Record<string, string> = {
-              ICT: '#60a5fa',
-              SMT: '#34d399',
-              WAVE: '#fbbf24',
-              ASSEMBLY: '#f472b6',
-              TEST: '#a78bfa',
-            };
-            return areaColors[node.data.area as string] || '#9ca3af';
-          }}
-          maskColor="rgba(0, 0, 0, 0.1)"
-          position="bottom-right"
-          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm"
-        />
-      </ReactFlow>
+          <MiniMap
+            nodeColor={(node) => {
+              const areaColors: Record<string, string> = {
+                ICT: '#60a5fa',
+                SMT: '#34d399',
+                WAVE: '#fbbf24',
+                ASSEMBLY: '#f472b6',
+                TEST: '#a78bfa',
+              };
+              return areaColors[node.data.area as string] || '#9ca3af';
+            }}
+            maskColor="rgba(0, 0, 0, 0.1)"
+            position="bottom-right"
+            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm transition-all duration-300"
+            style={{
+              // Shift MiniMap left when properties panel is open to avoid overlap
+              // Panel width is 20rem (w-80) + 1rem (right-4) = 21rem
+              right: isPanelOpen ? '22rem' : undefined,
+            }}
+          />
+        </ReactFlow>
 
-      <LinePropertiesPanel />
+        {/* Year Navigator - Shows when multi-year results available */}
+        <YearNavigator />
 
-      {/* Year Navigator - Shows when multi-year results available */}
-      <YearNavigator />
+        {/* Status Badge - Shows when results are available in Timeline Window */}
+        <TimelineStatusBadge />
 
-      {/* Analysis Control Bar - Fixed at bottom */}
+        {/* Changeover Matrix Modal */}
+        <ChangeoverMatrixModal />
+
+        {/* Unified Properties Panel - Shows for both Lines and Canvas Objects */}
+        <UnifiedPropertiesPanel />
+
+        {/* Phase 7.5: Context Menu for Objects */}
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            objectId={contextMenu.objectId}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+
+        {/* Phase 7.5: Context Menu for Connections */}
+        {edgeContextMenu && (
+          <ConnectionContextMenu
+            x={edgeContextMenu.x}
+            y={edgeContextMenu.y}
+            edgeId={edgeContextMenu.edgeId}
+            currentType={edgeContextMenu.connectionType}
+            onClose={() => setEdgeContextMenu(null)}
+            onTypeChange={handleConnectionTypeChange}
+            onDelete={handleConnectionDelete}
+          />
+        )}
+
+        {/* Phase 7.5: Ghost Preview for placement */}
+        <GhostPreview />
+      </div>
+
+      {/* Analysis Control Bar - Auto-sized, always at bottom */}
       <AnalysisControlBar />
-
-      {/* Status Badge - Shows when results are available in Timeline Window */}
-      <TimelineStatusBadge />
-
-      {/* Changeover Matrix Modal */}
-      <ChangeoverMatrixModal />
-
-      {/* Phase 7.5: Object Properties Panel */}
-      <ObjectPropertiesPanel />
-
-      {/* Phase 7.5: Context Menu for Objects */}
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          objectId={contextMenu.objectId}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
-
-      {/* Phase 7.5: Context Menu for Connections */}
-      {edgeContextMenu && (
-        <ConnectionContextMenu
-          x={edgeContextMenu.x}
-          y={edgeContextMenu.y}
-          edgeId={edgeContextMenu.edgeId}
-          currentType={edgeContextMenu.connectionType}
-          onClose={() => setEdgeContextMenu(null)}
-          onTypeChange={handleConnectionTypeChange}
-          onDelete={handleConnectionDelete}
-        />
-      )}
-
-      {/* Phase 7.5: Ghost Preview for placement */}
-      <GhostPreview />
     </div>
   );
 };

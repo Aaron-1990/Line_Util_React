@@ -5,11 +5,14 @@
 // ============================================
 
 import { memo, useState, useEffect } from 'react';
-import { X, Cog, Box, Link2, Unlink, Trash2, AlertTriangle } from 'lucide-react';
+import { X, Cog, Box, Link2, Unlink, Trash2, AlertTriangle, ChevronDown, ChevronRight, Plus, Edit2, Loader2 } from 'lucide-react';
 import { useToolStore } from '../../store/useToolStore';
 import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
-import { BufferProperties, OverflowPolicy } from '@shared/types';
+import { useCanvasObjectCompatibilityStore } from '../../store/useCanvasObjectCompatibilityStore';
+import { useAreaStore } from '../../../areas/store/useAreaStore';
+import { BufferProperties, OverflowPolicy, ProcessProperties } from '@shared/types';
 import { LinkProcessModal } from '../modals/LinkProcessModal';
+import { AssignModelToObjectModal } from '../modals/AssignModelToObjectModal';
 
 /**
  * ObjectPropertiesPanel
@@ -22,14 +25,29 @@ import { LinkProcessModal } from '../modals/LinkProcessModal';
  */
 export const ObjectPropertiesPanel = memo(() => {
   const selectedObjectIds = useToolStore((state) => state.selectedObjectIds);
+  const clearSelection = useToolStore((state) => state.clearSelection);
   const {
     getObjectById,
     updateObject,
     getBufferProps,
     setBufferProps,
+    getProcessProps,
+    setProcessProps,
     unlinkFromLine,
     deleteObject
   } = useCanvasObjectStore();
+
+  // Area catalog for process properties dropdown
+  const { areas, loadAreas } = useAreaStore();
+
+  // Canvas object compatibilities (assigned models)
+  const {
+    loadForObject: loadCompatibilities,
+    getForObject: getCompatibilities,
+    deleteCompatibility,
+    openForm: openAssignModelForm,
+    isLoading: isCompatLoading,
+  } = useCanvasObjectCompatibilityStore();
 
   // Only show panel if exactly one object is selected
   const selectedId = selectedObjectIds.length === 1 ? selectedObjectIds[0] : null;
@@ -42,12 +60,18 @@ export const ObjectPropertiesPanel = memo(() => {
   // Buffer properties state
   const [bufferProps, setLocalBufferProps] = useState<Partial<BufferProperties>>({});
 
+  // Process properties state
+  const [processProps, setLocalProcessProps] = useState<Partial<ProcessProperties>>({});
+
   // Modal state for linking process to line
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
 
   // Delete confirmation modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Assigned models section expanded state
+  const [isModelsExpanded, setIsModelsExpanded] = useState(true);
 
   // Sync form state with selected object
   useEffect(() => {
@@ -58,6 +82,16 @@ export const ObjectPropertiesPanel = memo(() => {
       if (object.objectType === 'buffer') {
         loadBufferProps();
       }
+
+      if (object.objectType === 'process') {
+        loadProcessProps();
+        // Load areas for dropdown if not already loaded
+        if (areas.length === 0) {
+          loadAreas();
+        }
+        // Load assigned models for process objects
+        loadCompatibilities(object.id);
+      }
     }
   }, [object?.id, object?.objectType]);
 
@@ -66,6 +100,15 @@ export const ObjectPropertiesPanel = memo(() => {
       const props = await getBufferProps(selectedId);
       if (props) {
         setLocalBufferProps(props);
+      }
+    }
+  };
+
+  const loadProcessProps = async () => {
+    if (selectedId) {
+      const props = await getProcessProps(selectedId);
+      if (props) {
+        setLocalProcessProps(props as Partial<ProcessProperties>);
       }
     }
   };
@@ -91,6 +134,17 @@ export const ObjectPropertiesPanel = memo(() => {
     setLocalBufferProps((prev) => ({ ...prev, [key]: value }));
     await setBufferProps(object.id, { [key]: value });
   };
+
+  const handleProcessPropChange = async (key: keyof ProcessProperties, value: unknown) => {
+    setLocalProcessProps((prev) => ({ ...prev, [key]: value }));
+    await setProcessProps(object.id, { [key]: value });
+  };
+
+  // Helper to convert seconds to hours for display
+  const secondsToHours = (seconds: number): number => Math.round(seconds / 3600);
+
+  // Helper to convert hours to seconds for storage
+  const hoursToSeconds = (hours: number): number => hours * 3600;
 
   const handleUnlinkLine = async () => {
     await unlinkFromLine(object.id);
@@ -118,8 +172,6 @@ export const ObjectPropertiesPanel = memo(() => {
     setShowDeleteModal(false);
   };
 
-  const clearSelection = useToolStore((state) => state.clearSelection);
-
   return (
     <>
       {/* Link Process Modal */}
@@ -131,9 +183,12 @@ export const ObjectPropertiesPanel = memo(() => {
         />
       )}
 
-      <div className="absolute right-4 top-20 z-20 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Assign Model Modal */}
+      <AssignModelToObjectModal />
+
+      <div className="absolute right-4 top-20 z-20 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(100% - 100px)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
         <div className="flex items-center gap-2">
           {object.objectType === 'process' && <Cog className="w-4 h-4 text-blue-500" />}
           {object.objectType === 'buffer' && <Box className="w-4 h-4 text-amber-500" />}
@@ -149,8 +204,8 @@ export const ObjectPropertiesPanel = memo(() => {
         </button>
       </div>
 
-      {/* Content */}
-      <div className="p-4 space-y-4">
+      {/* Content - scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Name Field */}
         <div>
           <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
@@ -179,7 +234,188 @@ export const ObjectPropertiesPanel = memo(() => {
           />
         </div>
 
-        {/* Process-specific: Linked Line */}
+        {/* Process-specific: Production Properties */}
+        {object.objectType === 'process' && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-4">
+            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Production Properties
+            </div>
+
+            {/* Area */}
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Area
+              </label>
+              <select
+                value={processProps.area ?? ''}
+                onChange={(e) => handleProcessPropChange('area', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select area...</option>
+                {areas.map((area) => (
+                  <option key={area.id} value={area.code}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Time Available */}
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Time Available (hours/day)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={secondsToHours(processProps.timeAvailableDaily ?? 72000)}
+                  onChange={(e) => handleProcessPropChange('timeAvailableDaily', hoursToSeconds(parseFloat(e.target.value) || 0))}
+                  min={0}
+                  max={24}
+                  step={0.5}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {/* Quick select buttons */}
+                <div className="flex gap-1">
+                  {[20, 21, 22, 23].map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => handleProcessPropChange('timeAvailableDaily', hoursToSeconds(h))}
+                      className={`px-2 py-1 text-xs rounded border transition-colors ${
+                        secondsToHours(processProps.timeAvailableDaily ?? 72000) === h
+                          ? 'bg-blue-500 text-white border-blue-500'
+                          : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                      title={`${h} hours`}
+                    >
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Line Type */}
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Line Type
+              </label>
+              <select
+                value={processProps.lineType ?? 'shared'}
+                onChange={(e) => handleProcessPropChange('lineType', e.target.value as 'shared' | 'dedicated')}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="shared">Shared (multiple models)</option>
+                <option value="dedicated">Dedicated (single model)</option>
+              </select>
+            </div>
+
+            {/* Changeover Toggle */}
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-gray-500 dark:text-gray-400">
+                Changeover Enabled
+              </label>
+              <button
+                onClick={() => handleProcessPropChange('changeoverEnabled', !processProps.changeoverEnabled)}
+                className={`w-10 h-6 rounded-full transition-colors ${
+                  processProps.changeoverEnabled !== false
+                    ? 'bg-blue-500'
+                    : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                    processProps.changeoverEnabled !== false ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Process-specific: Assigned Models */}
+        {object.objectType === 'process' && (
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            {/* Collapsible Header */}
+            <div className="w-full flex items-center justify-between text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+              <button
+                onClick={() => setIsModelsExpanded(!isModelsExpanded)}
+                className="flex items-center gap-2 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                {isModelsExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                Assigned Models
+                <span className="text-xs text-gray-400">
+                  ({getCompatibilities(object.id).length})
+                </span>
+              </button>
+              <button
+                onClick={() => openAssignModelForm(object.id)}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-blue-500"
+                title="Assign Model"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {isModelsExpanded && (
+              <div className="space-y-2">
+                {isCompatLoading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                  </div>
+                ) : getCompatibilities(object.id).length === 0 ? (
+                  <div className="text-center py-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      No models assigned
+                    </p>
+                    <button
+                      onClick={() => openAssignModelForm(object.id)}
+                      className="text-xs text-blue-500 hover:text-blue-600 font-medium"
+                    >
+                      + Assign a model
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {getCompatibilities(object.id).map((compat) => (
+                      <div
+                        key={compat.id}
+                        className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-md text-xs group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-700 dark:text-gray-300 truncate">
+                            {compat.modelName}
+                          </div>
+                          <div className="text-gray-500 dark:text-gray-400">
+                            CT: {compat.cycleTime}s · Eff: {compat.efficiency}% · Pri: {compat.priority}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => openAssignModelForm(object.id, compat)}
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-blue-500"
+                            title="Edit"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => deleteCompatibility(compat.id, object.id)}
+                            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-red-500"
+                            title="Remove"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Process-specific: Linked Line (Legacy) */}
         {object.objectType === 'process' && (
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
@@ -205,13 +441,13 @@ export const ObjectPropertiesPanel = memo(() => {
               <div className="space-y-2">
                 <button
                   onClick={() => setIsLinkModalOpen(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md transition-colors border border-gray-300 dark:border-gray-600"
                 >
                   <Link2 className="w-4 h-4" />
-                  Link to Line
+                  Link to Existing Line
                 </button>
                 <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                  Connect this process to an existing production line
+                  Or connect to an imported production line
                 </p>
               </div>
             )}
