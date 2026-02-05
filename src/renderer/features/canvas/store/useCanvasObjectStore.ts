@@ -54,7 +54,7 @@ interface CanvasObjectStore {
   unlinkFromLine: (objectId: string) => Promise<void>;
 
   // Conversion
-  convertFromLine: (lineId: string, newType: CanvasObjectType, shapeId: string, plantId: string) => Promise<CanvasObject | null>;
+  convertFromLine: (lineId: string, newType: CanvasObjectType, shapeId: string, plantId: string) => Promise<CanvasObjectWithDetails | null>;
 
   // Helpers
   getObjectById: (id: string) => CanvasObjectWithDetails | undefined;
@@ -456,8 +456,9 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
   /**
    * Convert a production line to a canvas object
    * This creates a new canvas object with the line's data and deletes the line
+   * Returns the full CanvasObjectWithDetails (including shape) from the updated store
    */
-  convertFromLine: async (lineId: string, newType: CanvasObjectType, shapeId: string, plantId: string): Promise<CanvasObject | null> => {
+  convertFromLine: async (lineId: string, newType: CanvasObjectType, shapeId: string, plantId: string): Promise<CanvasObjectWithDetails | null> => {
     try {
       console.log('[CanvasObjectStore] Converting line to canvas object:', lineId, newType);
 
@@ -467,9 +468,12 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
       );
 
       if (response.success && response.data) {
-        // Reload objects for the plant to get the new canvas object
+        // Reload objects for the plant to get the new canvas object with shape details
         await get().loadObjectsForPlant(plantId);
-        return response.data;
+
+        // Get the full object with shape details from the UPDATED store
+        const fullObject = get().objects.find(obj => obj.id === response.data!.id);
+        return fullObject || null;
       }
 
       console.error('[CanvasObjectStore] Convert from line failed:', response.error);

@@ -56,6 +56,14 @@ export const MultiSheetProgressTracker = ({
       (importResult.compatibilities?.updated || 0) +
       (importResult.volumes?.updated || 0);
 
+    const totalUnchanged =
+      (importResult.plants?.unchanged || 0) +  // Smart update
+      (importResult.areas?.unchanged || 0) +
+      (importResult.lines?.unchanged || 0) +
+      (importResult.models?.unchanged || 0) +
+      (importResult.compatibilities?.unchanged || 0) +
+      (importResult.volumes?.unchanged || 0);
+
     const totalErrors =
       (importResult.plants?.errors || 0) +  // Phase 7.3
       (importResult.areas?.errors || 0) +
@@ -98,20 +106,24 @@ export const MultiSheetProgressTracker = ({
         </div>
 
         {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-green-50 rounded-lg p-4 text-center">
-            <div className="text-3xl font-bold text-green-600">{totalCreated}</div>
-            <div className="text-sm text-green-700">Created</div>
+        <div className="grid grid-cols-4 gap-3">
+          <div className="bg-green-50 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-green-600">{totalCreated}</div>
+            <div className="text-xs text-green-700">Created</div>
           </div>
-          <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <div className="text-3xl font-bold text-blue-600">{totalUpdated}</div>
-            <div className="text-sm text-blue-700">Updated</div>
+          <div className="bg-blue-50 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-blue-600">{totalUpdated}</div>
+            <div className="text-xs text-blue-700">Updated</div>
           </div>
-          <div className={`rounded-lg p-4 text-center ${totalErrors > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
-            <div className={`text-3xl font-bold ${totalErrors > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+          <div className="bg-gray-50 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-gray-500">{totalUnchanged}</div>
+            <div className="text-xs text-gray-600">Unchanged</div>
+          </div>
+          <div className={`rounded-lg p-3 text-center ${totalErrors > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+            <div className={`text-2xl font-bold ${totalErrors > 0 ? 'text-red-600' : 'text-gray-400'}`}>
               {totalErrors}
             </div>
-            <div className={`text-sm ${totalErrors > 0 ? 'text-red-700' : 'text-gray-500'}`}>
+            <div className={`text-xs ${totalErrors > 0 ? 'text-red-700' : 'text-gray-500'}`}>
               Errors
             </div>
           </div>
@@ -126,6 +138,7 @@ export const MultiSheetProgressTracker = ({
               title="Plants (Auto-Created)"
               created={importResult.plants.created}
               updated={importResult.plants.updated}
+              unchanged={importResult.plants.unchanged}
               errors={importResult.plants.errors}
             />
           )}
@@ -135,6 +148,7 @@ export const MultiSheetProgressTracker = ({
               title="Process Areas (Flow Order)"
               created={importResult.areas.created}
               updated={importResult.areas.updated}
+              unchanged={importResult.areas.unchanged}
               errors={importResult.areas.errors}
             />
           )}
@@ -144,6 +158,7 @@ export const MultiSheetProgressTracker = ({
               title="Production Lines"
               created={importResult.lines.created}
               updated={importResult.lines.updated}
+              unchanged={importResult.lines.unchanged}
               errors={importResult.lines.errors}
             />
           )}
@@ -153,6 +168,7 @@ export const MultiSheetProgressTracker = ({
               title="Product Models"
               created={importResult.models.created}
               updated={importResult.models.updated}
+              unchanged={importResult.models.unchanged}
               errors={importResult.models.errors}
             />
           )}
@@ -162,6 +178,7 @@ export const MultiSheetProgressTracker = ({
               title="Compatibilities"
               created={importResult.compatibilities.created}
               updated={importResult.compatibilities.updated}
+              unchanged={importResult.compatibilities.unchanged}
               errors={importResult.compatibilities.errors}
             />
           )}
@@ -171,6 +188,7 @@ export const MultiSheetProgressTracker = ({
               title={`Volumes${importResult.volumes.yearRange ? ` (${importResult.volumes.yearRange.min}-${importResult.volumes.yearRange.max})` : ''}`}
               created={importResult.volumes.created}
               updated={importResult.volumes.updated}
+              unchanged={importResult.volumes.unchanged}
               errors={importResult.volumes.errors}
             />
           )}
@@ -213,27 +231,30 @@ const SheetResultRow = ({
   title,
   created,
   updated,
+  unchanged,
   errors,
 }: {
   icon: string;
   title: string;
   created: number;
   updated: number;
+  unchanged: number;
   errors: number;
 }) => {
   const hasErrors = errors > 0;
+  const hasChanges = created > 0 || updated > 0;
 
   return (
     <div
       className={`flex items-center justify-between p-3 rounded-lg border ${
-        hasErrors ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'
+        hasErrors ? 'border-red-200 bg-red-50' : hasChanges ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
       }`}
     >
       <div className="flex items-center gap-3">
         <span className="text-xl">{icon}</span>
         <span className="font-medium text-gray-900">{title}</span>
       </div>
-      <div className="flex items-center gap-4 text-sm">
+      <div className="flex items-center gap-3 text-sm">
         {created > 0 && (
           <span className="text-green-700">
             <strong>{created}</strong> created
@@ -244,13 +265,18 @@ const SheetResultRow = ({
             <strong>{updated}</strong> updated
           </span>
         )}
+        {unchanged > 0 && (
+          <span className="text-gray-500">
+            <strong>{unchanged}</strong> unchanged
+          </span>
+        )}
         {errors > 0 && (
           <span className="text-red-700">
             <strong>{errors}</strong> errors
           </span>
         )}
-        {created === 0 && updated === 0 && errors === 0 && (
-          <span className="text-gray-500">No changes</span>
+        {created === 0 && updated === 0 && unchanged === 0 && errors === 0 && (
+          <span className="text-gray-500">No data</span>
         )}
         {hasErrors ? (
           <XCircle className="w-5 h-5 text-red-500" />

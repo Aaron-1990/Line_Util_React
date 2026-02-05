@@ -52,7 +52,6 @@ import { useShapeCatalogStore } from './store/useShapeCatalogStore';
 import { useCanvasObjectStore } from './store/useCanvasObjectStore';
 import { useLoadLines } from './hooks/useLoadLines';
 import { useSelectionState } from './hooks/useSelectionState';
-import { ProductionLineNode } from './components/nodes/ProductionLineNode';
 import { GenericShapeNode } from './components/nodes/GenericShapeNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { ObjectPalette } from './components/toolbar/ObjectPalette';
@@ -70,8 +69,10 @@ import { ExternalLink, CheckCircle } from 'lucide-react';
 import { isPlaceTool, CanvasConnection, ConnectionType } from '@shared/types';
 import { useNavigationStore } from '../../store/useNavigationStore';
 
+// Phase 7.5: All nodes now use GenericShapeNode (unified)
+// Keep productionLine key for backward compatibility with any cached state
 const nodeTypes = {
-  productionLine: ProductionLineNode,
+  productionLine: GenericShapeNode,  // Deprecated - uses same component
   genericShape: GenericShapeNode,
 };
 
@@ -337,29 +338,14 @@ const CanvasInner = () => {
         if (objectsToDelete.length > 0) {
           event.preventDefault();
 
-          // Delete each selected object
+          // Delete each selected object (Phase 7.5: all objects are canvas_objects)
           for (const objectId of objectsToDelete) {
-            // Find the node to determine its type
+            // Find the node
             const node = currentNodes.find((n) => n.id === objectId);
 
             if (node) {
-              if (node.type === 'genericShape') {
-                // Canvas object - use deleteObject from useCanvasObjectStore
-                await useCanvasObjectStore.getState().deleteObject(objectId);
-              } else if (node.type === 'productionLine') {
-                // Production line - use lines:delete IPC
-                try {
-                  const response = await window.electronAPI.invoke('lines:delete', objectId);
-                  if (response.success) {
-                    useCanvasStore.getState().deleteNode(objectId);
-                    useCanvasStore.getState().setSelectedNode(null);
-                  } else {
-                    console.error('[ProductionCanvas] Failed to delete line:', response.error);
-                  }
-                } catch (error) {
-                  console.error('[ProductionCanvas] Error deleting line:', error);
-                }
-              }
+              // All objects now use deleteObject from useCanvasObjectStore
+              await useCanvasObjectStore.getState().deleteObject(objectId);
             } else {
               console.warn('[ProductionCanvas] Node not found for deletion:', objectId);
             }
@@ -392,10 +378,11 @@ const CanvasInner = () => {
           if (updatedNode) {
             updateNodePosition(change.id, updatedNode.position.x, updatedNode.position.y);
 
+            // Phase 7.5: Use unified canvas object position update
             window.electronAPI
-              .invoke('lines:update-position', change.id, updatedNode.position.x, updatedNode.position.y)
+              .invoke(CANVAS_OBJECT_CHANNELS.UPDATE_POSITION, change.id, updatedNode.position.x, updatedNode.position.y)
               .catch((error) => {
-                console.error('[ProductionCanvas] Error updating line position:', error);
+                console.error('[ProductionCanvas] Error updating object position:', error);
               });
           }
         }

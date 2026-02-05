@@ -142,8 +142,7 @@ export class SQLiteCanvasObjectCompatibilityRepository {
         now
       );
 
-    // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // Note: WAL checkpoint removed to prevent table locks during bulk imports
 
     const created = await this.findById(id);
     if (!created) {
@@ -191,8 +190,7 @@ export class SQLiteCanvasObjectCompatibilityRepository {
       .prepare(`UPDATE canvas_object_compatibilities SET ${updates.join(', ')} WHERE id = ?`)
       .run(...params);
 
-    // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // Note: WAL checkpoint removed to prevent table locks during bulk imports
 
     const updated = await this.findById(id);
     if (!updated) {
@@ -210,8 +208,7 @@ export class SQLiteCanvasObjectCompatibilityRepository {
       .prepare('DELETE FROM canvas_object_compatibilities WHERE id = ?')
       .run(id);
 
-    // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // Note: WAL checkpoint removed to prevent table locks during bulk imports
   }
 
   /**
@@ -222,8 +219,7 @@ export class SQLiteCanvasObjectCompatibilityRepository {
       .prepare('DELETE FROM canvas_object_compatibilities WHERE canvas_object_id = ?')
       .run(canvasObjectId);
 
-    // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // Note: WAL checkpoint removed to prevent table locks during bulk imports
   }
 
   /**
@@ -288,8 +284,7 @@ export class SQLiteCanvasObjectCompatibilityRepository {
       );
     }
 
-    // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // Note: WAL checkpoint removed to prevent table locks during bulk imports
   }
 
   /**
@@ -321,7 +316,6 @@ export class SQLiteCanvasObjectCompatibilityRepository {
 
     insertMany(compatibilities);
 
-    // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // Note: WAL checkpoint removed to prevent table locks during bulk imports
   }
 }

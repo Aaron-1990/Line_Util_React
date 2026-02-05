@@ -62,13 +62,17 @@ function getTypeColorClass(type: CanvasObjectType) {
 
 /**
  * Render the shape based on primitive type
+ * Using CSS classes for dark mode support
  */
 function renderPrimitive(
   primitiveType: string | undefined,
   width: number,
   height: number,
-  fill: string
+  hasColorOverride: boolean
 ) {
+  // Use CSS classes for dark mode support
+  const fillClass = hasColorOverride ? '' : 'fill-white dark:fill-gray-800';
+
   switch (primitiveType) {
     case 'rectangle':
       return (
@@ -78,16 +82,14 @@ function renderPrimitive(
           width={width}
           height={height}
           rx={8}
-          fill={fill}
-          className="transition-colors"
+          className={`transition-colors ${fillClass}`}
         />
       );
     case 'triangle':
       return (
         <polygon
           points={`${width / 2},0 ${width},${height} 0,${height}`}
-          fill={fill}
-          className="transition-colors"
+          className={`transition-colors ${fillClass}`}
         />
       );
     case 'circle':
@@ -97,16 +99,14 @@ function renderPrimitive(
           cy={height / 2}
           rx={width / 2}
           ry={height / 2}
-          fill={fill}
-          className="transition-colors"
+          className={`transition-colors ${fillClass}`}
         />
       );
     case 'diamond':
       return (
         <polygon
           points={`${width / 2},0 ${width},${height / 2} ${width / 2},${height} 0,${height / 2}`}
-          fill={fill}
-          className="transition-colors"
+          className={`transition-colors ${fillClass}`}
         />
       );
     default:
@@ -117,8 +117,7 @@ function renderPrimitive(
           width={width}
           height={height}
           rx={8}
-          fill={fill}
-          className="transition-colors"
+          className={`transition-colors ${fillClass}`}
         />
       );
   }
@@ -148,9 +147,31 @@ function anchorToPosition(position: string): Position {
  * A polymorphic node that can render different shapes and represent
  * different functional types (process, buffer, source, sink, quality_gate).
  */
+// Default shape for fallback when shape data is missing
+const DEFAULT_SHAPE = {
+  id: 'default',
+  categoryId: 'default',
+  name: 'Default',
+  source: 'builtin' as const,
+  renderType: 'primitive' as const,
+  primitiveType: 'rectangle' as const,
+  defaultWidth: 120,
+  defaultHeight: 60,
+  isActive: true,
+  isFavorite: false,
+  usageCount: 0,
+  anchors: [
+    { id: 'left', shapeId: 'default', position: 'left' as const, offsetX: 0, offsetY: 0.5, isInput: true, isOutput: false },
+    { id: 'right', shapeId: 'default', position: 'right' as const, offsetX: 1, offsetY: 0.5, isInput: false, isOutput: true },
+  ],
+};
+
 export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
   ({ data, selected, id }) => {
-    const { shape, objectType, name, colorOverride, bufferProperties, linkedLine } = data;
+    const { objectType, name, colorOverride, bufferProperties, linkedLine } = data;
+
+    // Use default shape if shape is undefined (can happen during type changes)
+    const shape = data.shape ?? DEFAULT_SHAPE;
 
     // Get tool state to show anchors prominently in connect mode
     const activeTool = useToolStore((state) => state.activeTool);
@@ -162,14 +183,22 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
     const width = data.width ?? shape.defaultWidth;
     const height = data.height ?? shape.defaultHeight;
 
-    // Determine fill color
-    const fill = colorOverride ?? (selected ? '#3B82F6' : '#E5E7EB');
-    const strokeColor = selected ? '#2563EB' : isConnectionSource ? '#10B981' : '#9CA3AF';
+    // Determine if we have a color override
+    const hasColorOverride = !!colorOverride;
+
+    // Stroke color - matching ProductionLineNode border colors
+    const strokeColor = selected
+      ? '#6366F1' // primary-500
+      : isConnectionSource
+      ? '#10B981' // green-500 for connection source
+      : '#D1D5DB'; // gray-300
+    const strokeWidth = selected ? 2 : 1;
 
     // Generate handles from shape anchors
     // Single handle per anchor with type="source" - connectionMode="loose" allows source-to-source connections
+    const anchors = shape.anchors ?? [];
     const handles = useMemo(() => {
-      return shape.anchors.map((anchor) => {
+      return anchors.map((anchor) => {
         const position = anchorToPosition(anchor.position);
 
         // Calculate handle position based on offset
@@ -180,14 +209,14 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
           style.top = `${anchor.offsetY * 100}%`;
         }
 
-        // Determine handle styling based on mode
+        // Determine handle styling based on mode - matching ProductionLineNode
         const isSelectedAnchor = connectionSource?.anchor === anchor.id && isConnectionSource;
         const handleSize = isConnectMode ? 'w-3 h-3' : 'w-2 h-2';
         const handleColor = isSelectedAnchor
           ? '!bg-green-500'
           : isConnectMode
           ? '!bg-blue-400 hover:!bg-blue-600'
-          : '!bg-gray-400 hover:!bg-blue-500';
+          : '!bg-gray-400 hover:!bg-primary-500'; // Matches ProductionLineNode
         const handleVisibility = isConnectMode ? 'opacity-100' : 'opacity-0 hover:opacity-100';
 
         return (
@@ -201,7 +230,7 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
           />
         );
       });
-    }, [shape.anchors, isConnectMode, connectionSource, isConnectionSource]);
+    }, [anchors, isConnectMode, connectionSource, isConnectionSource]);
 
     // Type badge
     const typeIcon = getTypeIcon(objectType);
@@ -209,11 +238,11 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
 
     return (
       <div
-        className={`relative transition-all duration-200 ${
+        className={`relative transition-all duration-200 shadow-md ${
           isConnectionSource
             ? 'ring-2 ring-green-500 ring-offset-2'
             : selected
-            ? 'ring-2 ring-blue-500 ring-offset-2'
+            ? 'ring-2 ring-primary-200 dark:ring-primary-800 ring-offset-2'
             : isConnectMode
             ? 'hover:ring-2 hover:ring-blue-300 hover:ring-offset-1'
             : ''
@@ -226,15 +255,16 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
           height={height}
           viewBox={`0 0 ${width} ${height}`}
           className="overflow-visible"
+          style={hasColorOverride ? { fill: colorOverride } : undefined}
         >
           {/* Render based on renderType */}
-          {shape.renderType === 'primitive' && renderPrimitive(shape.primitiveType, width, height, fill)}
+          {shape.renderType === 'primitive' && renderPrimitive(shape.primitiveType, width, height, hasColorOverride)}
 
           {shape.renderType === 'svg' && shape.svgContent && (
             <g dangerouslySetInnerHTML={{ __html: shape.svgContent }} />
           )}
 
-          {/* Border */}
+          {/* Border - matching ProductionLineNode rounded rectangle style */}
           {shape.renderType === 'primitive' && shape.primitiveType === 'rectangle' && (
             <rect
               x={0}
@@ -244,14 +274,15 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
               rx={8}
               fill="none"
               stroke={strokeColor}
-              strokeWidth={selected ? 2 : 1}
+              strokeWidth={strokeWidth}
+              className="transition-colors"
             />
           )}
         </svg>
 
-        {/* Name Label */}
+        {/* Name Label - matching ProductionLineNode text colors */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 px-2 text-center truncate max-w-full">
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100 px-2 text-center truncate max-w-full">
             {name}
           </span>
         </div>

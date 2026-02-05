@@ -141,14 +141,14 @@ export const LineForm = ({
             id="time"
             value={formData.timeAvailableDaily}
             onChange={(e) =>
-              setFormData({ ...formData, timeAvailableDaily: parseInt(e.target.value) || 0 })
+              setFormData({ ...formData, timeAvailableDaily: parseFloat(e.target.value) || 0 })
             }
             className={`flex-1 px-3 py-2 border rounded-md text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 ${
               errors.timeAvailableDaily ? 'border-red-500' : 'border-gray-300'
             }`}
             min="0"
             max="86400"
-            step="1"
+            step="0.1"
             disabled={isLoading}
           />
           <span className="text-sm text-gray-500 whitespace-nowrap">

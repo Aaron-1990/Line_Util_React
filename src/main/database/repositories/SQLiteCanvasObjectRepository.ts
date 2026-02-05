@@ -315,7 +315,7 @@ export class SQLiteCanvasObjectRepository {
     }
 
     // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // WAL checkpoint removed to prevent table locks during bulk operations
 
     const obj = await this.findByIdSimple(id);
     if (!obj) {
@@ -401,7 +401,7 @@ export class SQLiteCanvasObjectRepository {
     }
 
     // Force WAL checkpoint for persistence
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // WAL checkpoint removed to prevent table locks during bulk operations
 
     const updated = await this.findByIdSimple(id);
     if (!updated) {
@@ -429,7 +429,7 @@ export class SQLiteCanvasObjectRepository {
     }
 
     // Force WAL checkpoint to ensure persistence across app restarts
-    this.db.pragma('wal_checkpoint(PASSIVE)');
+    // WAL checkpoint removed to prevent table locks during bulk operations
   }
 
   /**
@@ -775,7 +775,7 @@ export class SQLiteCanvasObjectRepository {
         );
 
       // Force WAL checkpoint for persistence
-      this.db.pragma('wal_checkpoint(PASSIVE)');
+      // WAL checkpoint removed to prevent table locks during bulk operations
 
       const created = await this.getProcessProperties(canvasObjectId);
       if (!created) {
@@ -814,7 +814,7 @@ export class SQLiteCanvasObjectRepository {
           .run(...params);
 
         // Force WAL checkpoint for persistence
-        this.db.pragma('wal_checkpoint(PASSIVE)');
+        // WAL checkpoint removed to prevent table locks during bulk operations
       }
 
       const updated = await this.getProcessProperties(canvasObjectId);

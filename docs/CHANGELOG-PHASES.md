@@ -486,6 +486,60 @@ Plants are now automatically detected and created during Excel import.
 
 ---
 
+## Phase 7.5: Unified Canvas Objects (2026-02-03 to 2026-02-04)
+
+**Full specification**: `docs/phases/phase-7.5-shape-catalog.md`
+
+### Migration 017: Unify Production Lines into Canvas Objects
+
+Production lines are now stored as canvas_objects with `object_type='process'`.
+
+**Key Changes:**
+- `production_lines` → migrated to `canvas_objects` (type='process')
+- `line_model_compatibilities` → migrated to `canvas_object_compatibilities`
+- Backward-compatible VIEWs created for legacy code
+- ID mapping table for traceability
+
+**Files Modified:**
+- `src/main/database/migrations/017_unify_production_lines.sql` - Main migration
+- `src/main/database/repositories/SQLiteCanvasObjectRepository.ts` - Process properties methods
+- `src/main/database/repositories/SQLiteCanvasObjectCompatibilityRepository.ts` - Compatibilities CRUD
+- `src/main/database/repositories/SQLiteLineModelCompatibilityRepository.ts` - Uses new table
+- `src/main/database/repositories/SQLiteProductionLineRepository.ts` - Uses underlying tables
+- `src/main/ipc/handlers/multi-sheet-excel.handler.ts` - Import to canvas_objects
+- `src/renderer/features/canvas/hooks/useLoadLines.ts` - Load from canvas_objects
+- `src/renderer/features/canvas/store/useCanvasObjectStore.ts` - Process properties
+
+### Bug Fixes (2026-02-04)
+
+1. **WAL Checkpoint Table Locks**: Removed `wal_checkpoint(PASSIVE)` calls that caused table locks during bulk imports
+
+2. **Duplicate Import Records**: Fixed import loop to update `existingObjectsMap` after creating objects, preventing duplicate records when Excel has duplicate line names
+
+3. **Smart Update**: Implemented comparison-based updates that only write to DB when values actually change:
+   - Added `unchanged` count to `EntityImportResult`
+   - UI now shows: Created | Updated | Unchanged | Errors
+   - Each entity type compares relevant fields before deciding to update
+
+### 🚧 PENDING ISSUES (For Next Session)
+
+1. **Optimization Results - Zero Total Pieces**
+   - Most years showing 0 total pieces in optimization results
+   - Need to investigate if distribution code was modified
+   - Check `DataExporter.ts` and `optimizer.py`
+
+2. **Missing Changeover Clock Icon**
+   - Clock symbol (🕐) not visible on canvas objects
+   - Should open changeover menu on click
+   - Check `GenericShapeNode.tsx` changeover button rendering
+
+3. **Missing Changeover Toggle Button**
+   - Button to enable/disable changeover per object not visible
+   - Was previously on production line nodes
+   - Check `GenericShapeNode.tsx` or `UnifiedPropertiesPanel.tsx`
+
+---
+
 ## Future Enhancements (Schema Only, Not in UI)
 
 These fields are included in database schema for future use:

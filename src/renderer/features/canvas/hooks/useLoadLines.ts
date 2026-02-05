@@ -1,21 +1,21 @@
 // ============================================
 // HOOK: useLoadLines
-// Carga lineas y canvas objects desde DB al canvas (plant-scoped)
-// Phase 7: Lines are now filtered by current plant
-// Phase 7.5: Also loads canvas objects (generic shapes)
+// Carga canvas objects desde DB al canvas (plant-scoped)
+// Phase 7.5: Unified - all objects are now canvas_objects
+// Migration 017: production_lines migrated to canvas_objects
 // ============================================
 
 import { useEffect, useState } from 'react';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
-import { ProductionLine, CanvasObjectWithDetails, CanvasConnection } from '@shared/types';
-import { IPC_CHANNELS, CANVAS_OBJECT_CHANNELS } from '@shared/constants';
+import { CanvasObjectWithDetails, CanvasConnection } from '@shared/types';
+import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 
 interface UseLoadLinesResult {
   isLoading: boolean;
   isEmpty: boolean;
-  lineCount: number;
+  lineCount: number;  // Now counts process objects
   objectCount: number;
 }
 
@@ -25,7 +25,6 @@ export function useLoadLines(): UseLoadLinesResult {
   const setConnections = useCanvasObjectStore((state) => state.setConnections);
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
   const [isLoading, setIsLoading] = useState(true);
-  const [lineCount, setLineCount] = useState(0);
   const [objectCount, setObjectCount] = useState(0);
 
   useEffect(() => {
@@ -38,18 +37,14 @@ export function useLoadLines(): UseLoadLinesResult {
 
         // If no plant selected, don't load anything
         if (!currentPlantId) {
-          setLineCount(0);
           setObjectCount(0);
           setIsLoading(false);
           return;
         }
 
-        // Load lines, canvas objects, and connections in parallel
-        const [linesResponse, objectsResponse, connectionsResponse] = await Promise.all([
-          window.electronAPI.invoke<ProductionLine[]>(
-            IPC_CHANNELS.LINES_GET_BY_PLANT,
-            currentPlantId
-          ),
+        // Load canvas objects and connections in parallel
+        // Phase 7.5: All objects (including former production_lines) are now canvas_objects
+        const [objectsResponse, connectionsResponse] = await Promise.all([
           window.electronAPI.invoke<CanvasObjectWithDetails[]>(
             CANVAS_OBJECT_CHANNELS.GET_BY_PLANT,
             currentPlantId
@@ -60,41 +55,17 @@ export function useLoadLines(): UseLoadLinesResult {
           ),
         ]);
 
-        // Add production lines
-        if (linesResponse.success && linesResponse.data) {
-          setLineCount(linesResponse.data.length);
-
-          linesResponse.data.forEach((line) => {
-            addNode({
-              id: line.id,
-              type: 'productionLine',
-              position: { x: line.xPosition, y: line.yPosition },
-              data: {
-                id: line.id,
-                name: line.name,
-                area: line.area,
-                timeAvailableDaily: line.timeAvailableDaily,
-                changeoverEnabled: line.changeoverEnabled,
-                changeoverExplicit: line.changeoverExplicit,
-                assignedModelsCount: 0,
-              },
-            });
-          });
-        } else {
-          setLineCount(0);
-        }
-
-        // Add canvas objects (Phase 7.5)
+        // Add canvas objects (unified structure)
         if (objectsResponse.success && objectsResponse.data) {
           setObjectCount(objectsResponse.data.length);
 
-          // Store objects in useCanvasObjectStore for ContextMenu access
+          // Store objects in useCanvasObjectStore for ContextMenu and panel access
           setCanvasObjects(objectsResponse.data);
 
           objectsResponse.data.forEach((obj) => {
             addNode({
               id: obj.id,
-              type: 'genericShape',
+              type: 'genericShape',  // All objects now use GenericShapeNode
               position: { x: obj.xPosition, y: obj.yPosition },
               data: obj, // Pass the full CanvasObjectWithDetails
             });
@@ -112,7 +83,6 @@ export function useLoadLines(): UseLoadLinesResult {
         }
       } catch (error) {
         console.error('Error loading canvas data:', error);
-        setLineCount(0);
         setObjectCount(0);
       } finally {
         setIsLoading(false);
@@ -122,10 +92,15 @@ export function useLoadLines(): UseLoadLinesResult {
     loadAll();
   }, [addNode, setNodes, currentPlantId, setCanvasObjects, setConnections]);
 
+  // Count process objects as "lines" for backward compatibility
+  const processCount = useCanvasObjectStore.getState().objects.filter(
+    obj => obj.objectType === 'process'
+  ).length;
+
   return {
     isLoading,
-    isEmpty: !isLoading && lineCount === 0 && objectCount === 0,
-    lineCount,
+    isEmpty: !isLoading && objectCount === 0,
+    lineCount: processCount,  // Process objects count as lines
     objectCount,
   };
 }

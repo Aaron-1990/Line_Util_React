@@ -608,6 +608,7 @@ export interface MultiSheetValidationResult {
 export interface EntityImportResult {
   created: number;
   updated: number;
+  unchanged: number;  // Smart update: items that existed but had no changes
   errors: number;
 }
 

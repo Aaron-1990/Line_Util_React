@@ -4,7 +4,7 @@
 // Shows contextual content based on selection type
 // ============================================
 
-import { memo, useState, useEffect } from 'react';
+import { memo, useState, useEffect, useCallback } from 'react';
 import {
   X,
   Factory,
@@ -26,12 +26,87 @@ import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
 import { useCanvasObjectCompatibilityStore } from '../../store/useCanvasObjectCompatibilityStore';
 import { useToolStore } from '../../store/useToolStore';
 import { useAreaStore } from '../../../areas/store/useAreaStore';
-import { ProductionLine, BufferProperties, OverflowPolicy, ProcessProperties } from '@shared/types';
-import { LineForm } from '../forms/LineForm';
+import { BufferProperties, OverflowPolicy, ProcessProperties } from '@shared/types';
 import { CompatibilityList } from '../../../compatibility/components/CompatibilityList';
 import { AssignModelModal } from '../../../compatibility/components/AssignModelModal';
 import { LinkProcessModal } from '../modals/LinkProcessModal';
 import { AssignModelToObjectModal } from '../modals/AssignModelToObjectModal';
+
+// ============================================
+// TIME AVAILABLE INPUT COMPONENT
+// Controlled input with local string state for proper decimal/empty handling
+// ============================================
+
+interface TimeAvailableInputProps {
+  value: number; // seconds
+  onChange: (seconds: number) => void;
+  disabled?: boolean;
+}
+
+const TimeAvailableInput = ({ value, onChange, disabled }: TimeAvailableInputProps) => {
+  // Local string state to allow empty field and proper decimal input
+  const [localValue, setLocalValue] = useState('');
+
+  // Sync with external value when it changes
+  useEffect(() => {
+    const hours = value / 3600;
+    // Show clean integer or up to 2 decimal places
+    setLocalValue(Number.isInteger(hours) ? hours.toString() : hours.toFixed(2).replace(/\.?0+$/, ''));
+  }, [value]);
+
+  const handleBlur = useCallback(() => {
+    const parsed = parseFloat(localValue);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 24) {
+      onChange(parsed * 3600);
+    } else {
+      // Revert to previous valid value
+      const hours = value / 3600;
+      setLocalValue(Number.isInteger(hours) ? hours.toString() : hours.toFixed(2).replace(/\.?0+$/, ''));
+    }
+  }, [localValue, onChange, value]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  }, []);
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="e.g. 21.5"
+      />
+      <div className="flex gap-1">
+        {[20, 21, 22, 23].map((h) => {
+          const isActive = Math.abs(value / 3600 - h) < 0.01;
+          return (
+            <button
+              key={h}
+              type="button"
+              onClick={() => onChange(h * 3600)}
+              disabled={disabled}
+              className={`px-2 py-1 text-xs rounded border transition-colors ${
+                isActive
+                  ? 'bg-blue-500 text-white border-blue-500'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {h}h
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 /**
  * UnifiedPropertiesPanel
@@ -68,146 +143,199 @@ export const UnifiedPropertiesPanel = memo(() => {
 UnifiedPropertiesPanel.displayName = 'UnifiedPropertiesPanel';
 
 // ============================================
-// LINE PROPERTIES CONTENT
+// LINE PROPERTIES CONTENT (Process Objects)
+// Phase 7.5: Now uses canvas_objects (unified structure)
 // ============================================
 
 interface LinePropertiesContentProps {
-  lineId: string;
+  lineId: string;  // Actually a canvas object ID (process type)
 }
 
 const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
   const { nodes, setSelectedNode, updateNode, deleteNode } = useCanvasStore();
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { deleteObject, updateObject, setProcessProps } = useCanvasObjectStore();
+  const { areas, loadAreas } = useAreaStore();
+
+  // Local state for inline editing
+  const [name, setName] = useState('');
+  const [area, setArea] = useState('');
+  const [timeAvailableDaily, setTimeAvailableDaily] = useState(0);
+
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const node = nodes.find((n) => n.id === lineId);
+
+  // Sync local state with selected node
+  useEffect(() => {
+    if (node) {
+      setName(node.data.name || '');
+      // Area and timeAvailableDaily may come from processProperties
+      const processProps = node.data.processProperties;
+      setArea(processProps?.area || node.data.area || '');
+      setTimeAvailableDaily(processProps?.timeAvailableDaily || node.data.timeAvailableDaily || 72000);
+      if (areas.length === 0) {
+        loadAreas();
+      }
+    }
+  }, [node?.id, node?.data.name, node?.data.processProperties?.area, node?.data.processProperties?.timeAvailableDaily, areas.length, loadAreas]);
+
   if (!node) return null;
 
   const data = node.data;
 
   const handleClose = () => {
     setSelectedNode(null);
-    setIsEditing(false);
   };
 
-  const handleSave = async (formData: { name: string; area: string; timeAvailableDaily: number }) => {
-    setIsLoading(true);
-    try {
-      const response = await window.electronAPI.invoke<ProductionLine>('lines:update', data.id, formData);
-      if (response.success && response.data) {
-        updateNode(data.id, {
-          name: response.data.name,
-          area: response.data.area,
-          timeAvailableDaily: response.data.timeAvailableDaily,
-        });
-        setIsEditing(false);
-      } else {
-        alert(`Error: ${response.error || 'Failed to update line'}`);
+  // Save field on blur - Phase 7.5: use canvas object update
+  const handleNameBlur = async () => {
+    if (name.trim() && name !== data.name) {
+      try {
+        await updateObject(data.id, { name: name.trim() });
+        updateNode(data.id, { name: name.trim() });
+      } catch (error) {
+        console.error('Error updating name:', error);
+        setName(data.name); // Revert on error
       }
-    } catch (error) {
-      console.error('Error updating line:', error);
-      alert('Failed to update line.');
-    } finally {
-      setIsLoading(false);
+    } else {
+      setName(data.name); // Revert if empty
     }
   };
 
+  // Phase 7.5: Update process properties for area
+  const handleAreaChange = async (newArea: string) => {
+    setArea(newArea);
+    if (newArea && newArea !== (data.processProperties?.area || data.area)) {
+      try {
+        await setProcessProps(data.id, { area: newArea });
+        updateNode(data.id, {
+          area: newArea,
+          processProperties: { ...data.processProperties, area: newArea }
+        });
+      } catch (error) {
+        console.error('Error updating area:', error);
+        setArea(data.processProperties?.area || data.area); // Revert on error
+      }
+    }
+  };
+
+  // Phase 7.5: Update process properties for time
+  const handleTimeChange = async (seconds: number) => {
+    setTimeAvailableDaily(seconds);
+    const currentTime = data.processProperties?.timeAvailableDaily || data.timeAvailableDaily;
+    if (seconds !== currentTime) {
+      try {
+        await setProcessProps(data.id, { timeAvailableDaily: seconds });
+        updateNode(data.id, {
+          timeAvailableDaily: seconds,
+          processProperties: { ...data.processProperties, timeAvailableDaily: seconds }
+        });
+      } catch (error) {
+        console.error('Error updating time:', error);
+        setTimeAvailableDaily(currentTime); // Revert on error
+      }
+    }
+  };
+
+  // Phase 7.5: Delete using canvas object store
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      const response = await window.electronAPI.invoke('lines:delete', data.id);
-      if (response.success) {
-        deleteNode(data.id);
-        setSelectedNode(null);
-      } else {
-        alert(`Error: ${response.error || 'Failed to delete line'}`);
-      }
+      await deleteObject(data.id);
+      deleteNode(data.id);
+      setSelectedNode(null);
     } catch (error) {
-      console.error('Error deleting line:', error);
-      alert('Failed to delete line.');
+      console.error('Error deleting process object:', error);
+      alert('Failed to delete process object.');
     } finally {
       setIsDeleting(false);
       setShowDeleteModal(false);
     }
   };
 
-  const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(2);
-
   return (
     <>
       {/* Header */}
       <PanelHeader
         icon={<Factory className="w-4 h-4 text-indigo-500" />}
-        title={isEditing ? 'Edit Line' : 'Line Properties'}
+        title="Line Properties"
         onClose={handleClose}
       />
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {isEditing ? (
-          <LineForm
-            initialData={{
-              name: data.name,
-              area: data.area,
-              timeAvailableDaily: data.timeAvailableDaily,
-            }}
-            onSubmit={handleSave}
-            onCancel={() => setIsEditing(false)}
-            submitLabel="Save Changes"
-            isLoading={isLoading}
+        {/* Name - editable */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+            Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={handleNameBlur}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-        ) : (
-          <>
-            {/* Name */}
-            <PropertyField label="Name" value={data.name} />
+        </div>
 
-            {/* Area */}
-            <PropertyField label="Area" value={data.area} />
+        {/* Area - dropdown */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+            Area
+          </label>
+          <select
+            value={area}
+            onChange={(e) => handleAreaChange(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select area...</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.code}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            {/* Time Available */}
-            <PropertyField
-              label="Time Available"
-              value={`${hoursAvailable} hours/day`}
-              subValue={`(${data.timeAvailableDaily} seconds)`}
-            />
+        {/* Time Available - with TimeAvailableInput component */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+            Time Available (hours/day)
+          </label>
+          <TimeAvailableInput
+            value={timeAvailableDaily}
+            onChange={handleTimeChange}
+          />
+        </div>
 
-            {/* Status */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Status
-              </label>
-              <div className="mt-1 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-sm text-gray-900 dark:text-gray-100">Active</span>
-              </div>
-            </div>
+        {/* Status */}
+        <div>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+            Status
+          </label>
+          <div className="mt-1 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-sm text-gray-900 dark:text-gray-100">Active</span>
+          </div>
+        </div>
 
-            {/* Actions */}
-            <div className="pt-2 space-y-2">
-              <button
-                onClick={() => setIsEditing(true)}
-                className="w-full px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-              >
-                <Edit2 className="w-4 h-4" />
-                Edit Line
-              </button>
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className="w-full px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border border-red-200 dark:border-red-800"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete Line
-              </button>
-            </div>
+        {/* Delete Button */}
+        <div className="pt-2">
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="w-full px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border border-red-200 dark:border-red-800"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Line
+          </button>
+        </div>
 
-            {/* Assigned Models */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <CompatibilityList lineId={data.id} />
-            </div>
-          </>
-        )}
+        {/* Assigned Models */}
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+          <CompatibilityList lineId={data.id} />
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -234,8 +362,10 @@ interface ObjectPropertiesContentProps {
 
 const ObjectPropertiesContent = ({ objectId }: ObjectPropertiesContentProps) => {
   const clearSelection = useToolStore((state) => state.clearSelection);
+
+  // Subscribe to objects array to trigger re-render when store updates
+  const objects = useCanvasObjectStore((state) => state.objects);
   const {
-    getObjectById,
     updateObject,
     getBufferProps,
     setBufferProps,
@@ -254,7 +384,8 @@ const ObjectPropertiesContent = ({ objectId }: ObjectPropertiesContentProps) => 
     isLoading: isCompatLoading,
   } = useCanvasObjectCompatibilityStore();
 
-  const object = getObjectById(objectId);
+  // Find object from the subscribed objects array (reactive)
+  const object = objects.find((obj) => obj.id === objectId);
 
   // Form state
   const [name, setName] = useState('');
@@ -323,9 +454,6 @@ const ObjectPropertiesContent = ({ objectId }: ObjectPropertiesContentProps) => 
     setLocalProcessProps((prev) => ({ ...prev, [key]: value }));
     await setProcessProps(object.id, { [key]: value });
   };
-
-  const secondsToHours = (seconds: number): number => Math.round(seconds / 3600);
-  const hoursToSeconds = (hours: number): number => hours * 3600;
 
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
@@ -418,34 +546,10 @@ const ObjectPropertiesContent = ({ objectId }: ObjectPropertiesContentProps) => 
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Time Available (hours/day)
               </label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  value={secondsToHours(processProps.timeAvailableDaily ?? 72000)}
-                  onChange={(e) =>
-                    handleProcessPropChange('timeAvailableDaily', hoursToSeconds(parseFloat(e.target.value) || 0))
-                  }
-                  min={0}
-                  max={24}
-                  step={0.5}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div className="flex gap-1">
-                  {[20, 21, 22, 23].map((h) => (
-                    <button
-                      key={h}
-                      onClick={() => handleProcessPropChange('timeAvailableDaily', hoursToSeconds(h))}
-                      className={`px-2 py-1 text-xs rounded border transition-colors ${
-                        secondsToHours(processProps.timeAvailableDaily ?? 72000) === h
-                          ? 'bg-blue-500 text-white border-blue-500'
-                          : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {h}h
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <TimeAvailableInput
+                value={processProps.timeAvailableDaily ?? 72000}
+                onChange={(seconds) => handleProcessPropChange('timeAvailableDaily', seconds)}
+              />
             </div>
 
             {/* Line Type */}
@@ -679,22 +783,6 @@ const PanelHeader = ({ icon, title, onClose }: PanelHeaderProps) => (
     >
       <X className="w-4 h-4" />
     </button>
-  </div>
-);
-
-interface PropertyFieldProps {
-  label: string;
-  value: string;
-  subValue?: string;
-}
-
-const PropertyField = ({ label, value, subValue }: PropertyFieldProps) => (
-  <div>
-    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</label>
-    <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 font-medium">
-      {value}
-      {subValue && <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">{subValue}</span>}
-    </p>
   </div>
 );
 

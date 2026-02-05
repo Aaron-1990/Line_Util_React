@@ -1,7 +1,7 @@
 // ============================================
 // USE SELECTION STATE HOOK
 // Unified selection state for properties panel
-// Determines if a line or canvas object is selected
+// Phase 7.5: All objects are now canvas_objects (unified)
 // ============================================
 
 import { useCanvasStore } from '../store/useCanvasStore';
@@ -19,9 +19,11 @@ export interface SelectionState {
  * Hook to get unified selection state across different selection mechanisms
  *
  * - 'none': Nothing selected
- * - 'line': A production line node is selected
- * - 'object': A canvas object (process, buffer, generic) is selected
+ * - 'line': A process object is selected (former production line)
+ * - 'object': A canvas object (buffer, generic, etc.) is selected
  * - 'multi': Multiple items selected (no properties panel shown)
+ *
+ * Phase 7.5: All nodes are now genericShape. We distinguish by objectType in data.
  */
 export function useSelectionState(): SelectionState {
   const selectedNode = useCanvasStore((s) => s.selectedNode);
@@ -34,24 +36,28 @@ export function useSelectionState(): SelectionState {
   }
 
   // Single selection from either store
-  // Priority: selectedObjectIds (canvas objects) > selectedNode (legacy lines)
   const activeId = selectedObjectIds[0] || selectedNode;
 
   if (!activeId) {
     return { type: 'none', selectedId: null, selectedIds: [] };
   }
 
-  // Determine type from node
+  // Find the node
   const node = nodes.find((n) => n.id === activeId);
 
   if (!node) {
     return { type: 'none', selectedId: null, selectedIds: [] };
   }
 
-  if (node.type === 'productionLine') {
+  // Phase 7.5: All nodes are now genericShape
+  // Determine type by objectType in data (process = line, others = object)
+  const objectType = node.data?.objectType;
+
+  if (objectType === 'process') {
+    // Process objects show as 'line' for UnifiedPropertiesPanel
     return { type: 'line', selectedId: activeId, selectedIds: [activeId] };
   }
 
-  // genericShape or any other type = canvas object
+  // Buffer, generic, source, sink, quality_gate = object
   return { type: 'object', selectedId: activeId, selectedIds: [activeId] };
 }

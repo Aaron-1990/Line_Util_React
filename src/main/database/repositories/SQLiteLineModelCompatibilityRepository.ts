@@ -2,15 +2,20 @@
 // SQLITE REPOSITORY: LineModelCompatibility
 // Implementation of ILineModelCompatibilityRepository
 // Uses surrogate keys (IDs) for referential integrity
+// Phase 7.5: Now uses canvas_object_compatibilities table
+// (line_model_compatibilities is a VIEW for backward compatibility)
 // ============================================
 
 import Database from 'better-sqlite3';
 import { ILineModelCompatibilityRepository } from '@domain/repositories';
 import { LineModelCompatibility } from '@domain/entities';
 
+// Table name - Phase 7.5: use actual table, not VIEW
+const TABLE_NAME = 'canvas_object_compatibilities';
+
 interface CompatibilityRow {
   id: string;
-  line_id: string;
+  canvas_object_id: string;  // Phase 7.5: renamed from line_id
   model_id: string;
   cycle_time: number;
   efficiency: number;
@@ -25,7 +30,7 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
   private mapRowToEntity(row: CompatibilityRow): LineModelCompatibility {
     return LineModelCompatibility.fromDatabase({
       id: row.id,
-      lineId: row.line_id,
+      lineId: row.canvas_object_id,  // Phase 7.5: map canvas_object_id to lineId
       modelId: row.model_id,
       cycleTime: row.cycle_time,
       efficiency: row.efficiency,
@@ -40,13 +45,13 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
     this.db
       .prepare(`
-        INSERT INTO line_model_compatibilities
-        (id, line_id, model_id, cycle_time, efficiency, priority, created_at, updated_at)
+        INSERT INTO ${TABLE_NAME}
+        (id, canvas_object_id, model_id, cycle_time, efficiency, priority, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         data.id,
-        data.lineId,
+        data.lineId,  // Maps to canvas_object_id
         data.modelId,
         data.cycleTime,
         data.efficiency,
@@ -85,13 +90,13 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
     values.push(id);
 
     this.db
-      .prepare(`UPDATE line_model_compatibilities SET ${updates.join(', ')} WHERE id = ?`)
+      .prepare(`UPDATE ${TABLE_NAME} SET ${updates.join(', ')} WHERE id = ?`)
       .run(...values);
   }
 
   async findById(id: string): Promise<LineModelCompatibility | null> {
     const row = this.db
-      .prepare('SELECT * FROM line_model_compatibilities WHERE id = ?')
+      .prepare(`SELECT * FROM ${TABLE_NAME} WHERE id = ?`)
       .get(id) as CompatibilityRow | undefined;
 
     return row ? this.mapRowToEntity(row) : null;
@@ -99,7 +104,7 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
   async findByLineAndModel(lineId: string, modelId: string): Promise<LineModelCompatibility | null> {
     const row = this.db
-      .prepare('SELECT * FROM line_model_compatibilities WHERE line_id = ? AND model_id = ?')
+      .prepare(`SELECT * FROM ${TABLE_NAME} WHERE canvas_object_id = ? AND model_id = ?`)
       .get(lineId, modelId) as CompatibilityRow | undefined;
 
     return row ? this.mapRowToEntity(row) : null;
@@ -107,7 +112,7 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
   async findByLine(lineId: string): Promise<LineModelCompatibility[]> {
     const rows = this.db
-      .prepare('SELECT * FROM line_model_compatibilities WHERE line_id = ? ORDER BY priority')
+      .prepare(`SELECT * FROM ${TABLE_NAME} WHERE canvas_object_id = ? ORDER BY priority`)
       .all(lineId) as CompatibilityRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -115,7 +120,7 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
   async findByLineOrderedByPriority(lineId: string): Promise<LineModelCompatibility[]> {
     const rows = this.db
-      .prepare('SELECT * FROM line_model_compatibilities WHERE line_id = ? ORDER BY priority ASC')
+      .prepare(`SELECT * FROM ${TABLE_NAME} WHERE canvas_object_id = ? ORDER BY priority ASC`)
       .all(lineId) as CompatibilityRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -123,7 +128,7 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
   async findByModel(modelId: string): Promise<LineModelCompatibility[]> {
     const rows = this.db
-      .prepare('SELECT * FROM line_model_compatibilities WHERE model_id = ? ORDER BY priority')
+      .prepare(`SELECT * FROM ${TABLE_NAME} WHERE model_id = ? ORDER BY priority`)
       .all(modelId) as CompatibilityRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -131,7 +136,7 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
   async findAll(): Promise<LineModelCompatibility[]> {
     const rows = this.db
-      .prepare('SELECT * FROM line_model_compatibilities ORDER BY line_id, priority')
+      .prepare(`SELECT * FROM ${TABLE_NAME} ORDER BY canvas_object_id, priority`)
       .all() as CompatibilityRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -139,26 +144,26 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
   async delete(id: string): Promise<void> {
     this.db
-      .prepare('DELETE FROM line_model_compatibilities WHERE id = ?')
+      .prepare(`DELETE FROM ${TABLE_NAME} WHERE id = ?`)
       .run(id);
   }
 
   async deleteByLine(lineId: string): Promise<void> {
     this.db
-      .prepare('DELETE FROM line_model_compatibilities WHERE line_id = ?')
+      .prepare(`DELETE FROM ${TABLE_NAME} WHERE canvas_object_id = ?`)
       .run(lineId);
   }
 
   async deleteByModel(modelId: string): Promise<void> {
     this.db
-      .prepare('DELETE FROM line_model_compatibilities WHERE model_id = ?')
+      .prepare(`DELETE FROM ${TABLE_NAME} WHERE model_id = ?`)
       .run(modelId);
   }
 
   async batchCreate(compatibilities: LineModelCompatibility[]): Promise<void> {
     const insert = this.db.prepare(`
-      INSERT INTO line_model_compatibilities
-      (id, line_id, model_id, cycle_time, efficiency, priority, created_at, updated_at)
+      INSERT INTO ${TABLE_NAME}
+      (id, canvas_object_id, model_id, cycle_time, efficiency, priority, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
@@ -167,7 +172,7 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
         const data = compat.toJSON();
         insert.run(
           data.id,
-          data.lineId,
+          data.lineId,  // Maps to canvas_object_id
           data.modelId,
           data.cycleTime,
           data.efficiency,
@@ -183,22 +188,22 @@ export class SQLiteLineModelCompatibilityRepository implements ILineModelCompati
 
   async existsByLineAndModel(lineId: string, modelId: string): Promise<boolean> {
     const row = this.db
-      .prepare('SELECT 1 FROM line_model_compatibilities WHERE line_id = ? AND model_id = ?')
+      .prepare(`SELECT 1 FROM ${TABLE_NAME} WHERE canvas_object_id = ? AND model_id = ?`)
       .get(lineId, modelId);
     return row !== undefined;
   }
 
   async getAllLineIds(): Promise<string[]> {
     const rows = this.db
-      .prepare('SELECT DISTINCT line_id FROM line_model_compatibilities ORDER BY line_id')
-      .all() as { line_id: string }[];
+      .prepare(`SELECT DISTINCT canvas_object_id FROM ${TABLE_NAME} ORDER BY canvas_object_id`)
+      .all() as { canvas_object_id: string }[];
 
-    return rows.map(row => row.line_id);
+    return rows.map(row => row.canvas_object_id);
   }
 
   async getAllModelIds(): Promise<string[]> {
     const rows = this.db
-      .prepare('SELECT DISTINCT model_id FROM line_model_compatibilities ORDER BY model_id')
+      .prepare(`SELECT DISTINCT model_id FROM ${TABLE_NAME} ORDER BY model_id`)
       .all() as { model_id: string }[];
 
     return rows.map(row => row.model_id);

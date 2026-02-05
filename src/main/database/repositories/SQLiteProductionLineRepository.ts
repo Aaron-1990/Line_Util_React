@@ -1,6 +1,8 @@
 // ============================================
 // SQLITE REPOSITORY: ProductionLine
 // Implementacion de IProductionLineRepository
+// Phase 7.5: production_lines is now a VIEW over canvas_objects + process_properties
+// Reads use the VIEW, writes go to the underlying tables
 // ============================================
 
 import Database from 'better-sqlite3';
@@ -78,45 +80,82 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async save(line: ProductionLine): Promise<void> {
     const data = line.toJSON();
+    const now = new Date().toISOString();
 
     const existing = await this.findById(line.id);
 
     if (existing) {
+      // Phase 7.5: Update underlying tables (not the VIEW)
+      // Update canvas_objects
       this.db
         .prepare(`
-          UPDATE production_lines
-          SET name = ?, area = ?, line_type = ?, time_available_daily = ?,
-              active = ?, x_position = ?, y_position = ?, plant_id = COALESCE(?, plant_id)
+          UPDATE canvas_objects
+          SET name = ?, active = ?, x_position = ?, y_position = ?,
+              plant_id = COALESCE(?, plant_id), updated_at = ?
           WHERE id = ?
         `)
         .run(
           data.name,
-          data.area,
-          data.lineType,
-          data.timeAvailableDaily,
           data.active ? 1 : 0,
           data.xPosition,
           data.yPosition,
           data.plantId ?? null,
+          now,
+          data.id
+        );
+
+      // Update process_properties
+      this.db
+        .prepare(`
+          UPDATE process_properties
+          SET area = ?, line_type = ?, time_available_daily = ?, updated_at = ?
+          WHERE canvas_object_id = ?
+        `)
+        .run(
+          data.area,
+          data.lineType,
+          data.timeAvailableDaily,
+          now,
           data.id
         );
     } else {
+      // Phase 7.5: Insert into underlying tables (not the VIEW)
+      const { nanoid } = require('nanoid');
+      const ppId = nanoid();
+
+      // Insert into canvas_objects
       this.db
         .prepare(`
-          INSERT INTO production_lines
-          (id, name, area, line_type, time_available_daily, active, x_position, y_position, plant_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO canvas_objects
+          (id, plant_id, shape_id, object_type, name, description, x_position, y_position,
+           width, height, rotation, z_index, locked, active, created_at, updated_at)
+          VALUES (?, ?, 'rect-basic', 'process', ?, '', ?, ?, 180, 80, 0, 1, 0, ?, ?, ?)
         `)
         .run(
           data.id,
+          data.plantId ?? null,
           data.name,
+          data.xPosition,
+          data.yPosition,
+          data.active ? 1 : 0,
+          data.createdAt.toISOString(),
+          data.updatedAt.toISOString()
+        );
+
+      // Insert into process_properties
+      this.db
+        .prepare(`
+          INSERT INTO process_properties
+          (id, canvas_object_id, area, line_type, time_available_daily,
+           changeover_enabled, changeover_explicit, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?)
+        `)
+        .run(
+          ppId,
+          data.id,
           data.area,
           data.lineType,
           data.timeAvailableDaily,
-          data.active ? 1 : 0,
-          data.xPosition,
-          data.yPosition,
-          data.plantId ?? null,
           data.createdAt.toISOString(),
           data.updatedAt.toISOString()
         );
@@ -124,8 +163,9 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
   }
 
   async delete(id: string): Promise<void> {
+    // Phase 7.5: Soft delete in canvas_objects (underlying table)
     const result = this.db
-      .prepare('UPDATE production_lines SET active = 0, updated_at = ? WHERE id = ?')
+      .prepare('UPDATE canvas_objects SET active = 0, updated_at = ? WHERE id = ?')
       .run(new Date().toISOString(), id);
 
     if (result.changes === 0) {
@@ -158,18 +198,20 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
   }
 
   async updatePosition(id: string, x: number, y: number): Promise<void> {
+    // Phase 7.5: Update position in canvas_objects (underlying table)
     this.db
-      .prepare('UPDATE production_lines SET x_position = ?, y_position = ? WHERE id = ?')
+      .prepare('UPDATE canvas_objects SET x_position = ?, y_position = ? WHERE id = ?')
       .run(x, y, id);
   }
 
   /**
    * Phase 5.6: Update changeover toggle for a specific line
    * Phase 5.6.1: Also marks the toggle as explicitly set by user
+   * Phase 7.5: Updates process_properties (underlying table)
    */
   async updateChangeoverEnabled(id: string, enabled: boolean): Promise<void> {
     this.db
-      .prepare('UPDATE production_lines SET changeover_enabled = ?, changeover_explicit = 1 WHERE id = ?')
+      .prepare('UPDATE process_properties SET changeover_enabled = ?, changeover_explicit = 1 WHERE canvas_object_id = ?')
       .run(enabled ? 1 : 0, id);
   }
 
@@ -195,11 +237,18 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
   /**
    * Phase 5.6.3: Reset all changeover toggles to a specific state
    * Clears explicit flag (so lines follow global again)
+   * Phase 7.5: Updates process_properties via join with canvas_objects
    * @param enabled - Target state for all lines (true = ON, false = OFF)
    */
   async resetAllChangeoverToggles(enabled: boolean = true): Promise<number> {
     const result = this.db
-      .prepare('UPDATE production_lines SET changeover_enabled = ?, changeover_explicit = 0 WHERE active = 1')
+      .prepare(`
+        UPDATE process_properties
+        SET changeover_enabled = ?, changeover_explicit = 0
+        WHERE canvas_object_id IN (
+          SELECT id FROM canvas_objects WHERE active = 1 AND object_type = 'process'
+        )
+      `)
       .run(enabled ? 1 : 0);
     return result.changes;
   }
@@ -207,10 +256,18 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
   /**
    * Phase 5.6.3: Set changeover enabled for non-sticky lines only
    * Lines with changeover_explicit = 1 (sticky) are NOT affected
+   * Phase 7.5: Updates process_properties via join with canvas_objects
    */
   async setAllChangeoverEnabled(enabled: boolean): Promise<number> {
     const result = this.db
-      .prepare('UPDATE production_lines SET changeover_enabled = ? WHERE active = 1 AND (changeover_explicit = 0 OR changeover_explicit IS NULL)')
+      .prepare(`
+        UPDATE process_properties
+        SET changeover_enabled = ?
+        WHERE canvas_object_id IN (
+          SELECT id FROM canvas_objects WHERE active = 1 AND object_type = 'process'
+        )
+        AND (changeover_explicit = 0 OR changeover_explicit IS NULL)
+      `)
       .run(enabled ? 1 : 0);
     return result.changes;
   }
@@ -299,10 +356,17 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   /**
    * Phase 7: Reset changeover toggles for a specific plant
+   * Phase 7.5: Updates process_properties via join with canvas_objects
    */
   async resetAllChangeoverTogglesByPlant(plantId: string, enabled: boolean = true): Promise<number> {
     const result = this.db
-      .prepare('UPDATE production_lines SET changeover_enabled = ?, changeover_explicit = 0 WHERE active = 1 AND plant_id = ?')
+      .prepare(`
+        UPDATE process_properties
+        SET changeover_enabled = ?, changeover_explicit = 0
+        WHERE canvas_object_id IN (
+          SELECT id FROM canvas_objects WHERE active = 1 AND object_type = 'process' AND plant_id = ?
+        )
+      `)
       .run(enabled ? 1 : 0, plantId);
     return result.changes;
   }

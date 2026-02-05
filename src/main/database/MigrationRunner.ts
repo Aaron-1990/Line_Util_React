@@ -46,7 +46,10 @@ export class MigrationRunner {
       return [];
     }
 
-    const files = fs.readdirSync(this.migrationsDir).filter(f => f.endsWith('.sql'));
+    const files = fs.readdirSync(this.migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      // Exclude rollback and validation scripts
+      .filter(f => !f.includes('_ROLLBACK') && !f.includes('_VALIDATION'));
 
     return files
       .map(file => {

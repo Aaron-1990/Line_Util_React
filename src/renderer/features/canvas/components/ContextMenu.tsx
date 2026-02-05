@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
 import { useCanvasStore } from '../store/useCanvasStore';
+import { useToolStore } from '../store/useToolStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
 import { CanvasObjectType } from '@shared/types';
 
@@ -77,7 +78,8 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     updateObject
   } = useCanvasObjectStore();
 
-  const { nodes, setSelectedNode, deleteNode, addNode } = useCanvasStore();
+  const { nodes, setSelectedNode, deleteNode, addNode, updateNode } = useCanvasStore();
+  const setSelectedObjects = useToolStore((state) => state.setSelectedObjects);
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
 
   // Clear all pending timeouts
@@ -261,27 +263,42 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
       const oldNode = nodes.find(n => n.id === objectId);
       const position = oldNode?.position ?? { x: 0, y: 0 };
 
-      const newObject = await convertFromLine(objectId, newType, DEFAULT_SHAPE_ID, currentPlantId);
-      if (newObject) {
+      // convertFromLine now returns the full object with shape details
+      const fullObject = await convertFromLine(objectId, newType, DEFAULT_SHAPE_ID, currentPlantId);
+      if (fullObject) {
         // Remove the old production line node from canvas
         deleteNode(objectId);
 
-        // Add the new genericShape node to the canvas
+        // Add the new genericShape node with complete data
         addNode({
-          id: newObject.id,
+          id: fullObject.id,
           type: 'genericShape',
           position,
-          data: {
-            id: newObject.id,
-            name: newObject.name,
-            objectType: newObject.objectType,
-            shapeId: newObject.shapeId,
-          },
+          data: fullObject, // Already has CanvasObjectWithDetails including shape
         });
+
+        // Select the newly created object so the properties panel shows
+        setSelectedObjects([fullObject.id]);
       }
     } else {
       // Convert existing canvas object type
       await convertType(objectId, newType);
+
+      // Get the updated object with new type from store (loadObjectsForPlant already ran)
+      const updatedObject = getObjectById(objectId);
+      if (updatedObject) {
+        // Update the node data in place (don't delete/add to preserve selection)
+        updateNode(objectId, updatedObject);
+      }
+
+      // Close menu first, then ensure selection is maintained after React re-renders
+      onClose();
+
+      // Re-select after a tick to ensure selection persists through any re-renders
+      setTimeout(() => {
+        setSelectedObjects([objectId]);
+      }, 0);
+      return; // Skip the onClose below since we already called it
     }
     onClose();
   };

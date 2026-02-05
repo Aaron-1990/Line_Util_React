@@ -1,10 +1,11 @@
 // ============================================
 // IPC HANDLER: Multi-Sheet Excel Import
 // Handles parsing, validation, and import of multi-sheet Excel files
+// Phase 7.5: Unified canvas_objects (migration 017)
 // ============================================
 
 import { ipcMain } from 'electron';
-import { randomUUID } from 'crypto';
+import { nanoid } from 'nanoid';
 import { EXCEL_CHANNELS } from '@shared/constants';
 import {
   ApiResponse,
@@ -16,19 +17,102 @@ import {
 import { MultiSheetImporter } from '../../services/excel/MultiSheetImporter';
 import { MultiSheetValidator } from '../../services/excel/MultiSheetValidator';
 import DatabaseConnection from '../../database/connection';
-import { SQLiteProductionLineRepository } from '../../database/repositories/SQLiteProductionLineRepository';
+import { SQLiteCanvasObjectRepository } from '../../database/repositories/SQLiteCanvasObjectRepository';
+import { SQLiteCanvasObjectCompatibilityRepository } from '../../database/repositories/SQLiteCanvasObjectCompatibilityRepository';
 import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLiteProductModelV2Repository';
-import { SQLiteLineModelCompatibilityRepository } from '../../database/repositories/SQLiteLineModelCompatibilityRepository';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
 import { SQLiteChangeoverRepository } from '../../database/repositories/SQLiteChangeoverRepository';
 import { SQLitePlantRepository } from '../../database/repositories/SQLitePlantRepository';
-import { ProductionLine, ProductModelV2, LineModelCompatibility, ProductVolume } from '@domain/entities';
+import { ProductModelV2, ProductVolume } from '@domain/entities';
+
+// ============================================
+// CANVAS LAYOUT ENGINE
+// Auto-positions imported objects on canvas by area
+// ============================================
+
+interface LayoutConfig {
+  startX: number;
+  startY: number;
+  objectWidth: number;
+  objectHeight: number;
+  horizontalGap: number;
+  verticalGap: number;
+  objectsPerRow: number;
+  areaGap: number;  // Vertical gap between area groups
+}
+
+const DEFAULT_LAYOUT: LayoutConfig = {
+  startX: 100,
+  startY: 100,
+  objectWidth: 200,
+  objectHeight: 100,
+  horizontalGap: 50,
+  verticalGap: 30,
+  objectsPerRow: 4,
+  areaGap: 80,
+};
+
+/**
+ * Calculate positions for imported objects, grouped by area
+ */
+function calculateLayoutPositions(
+  objects: Array<{ name: string; area: string }>,
+  areaSequence: Map<string, number>,
+  config: LayoutConfig = DEFAULT_LAYOUT
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+
+  // Group objects by area
+  const objectsByArea = new Map<string, string[]>();
+  for (const obj of objects) {
+    const areaKey = obj.area.toUpperCase();
+    if (!objectsByArea.has(areaKey)) {
+      objectsByArea.set(areaKey, []);
+    }
+    objectsByArea.get(areaKey)!.push(obj.name);
+  }
+
+  // Sort areas by sequence (from area_catalog) or alphabetically
+  const sortedAreas = Array.from(objectsByArea.keys()).sort((a, b) => {
+    const seqA = areaSequence.get(a) ?? 999;
+    const seqB = areaSequence.get(b) ?? 999;
+    if (seqA !== seqB) return seqA - seqB;
+    return a.localeCompare(b);
+  });
+
+  // Calculate positions
+  let currentY = config.startY;
+
+  for (const area of sortedAreas) {
+    const areaObjects = objectsByArea.get(area) || [];
+
+    for (let i = 0; i < areaObjects.length; i++) {
+      const objectName = areaObjects[i];
+      if (!objectName) continue;
+
+      const col = i % config.objectsPerRow;
+      const row = Math.floor(i / config.objectsPerRow);
+
+      const x = config.startX + col * (config.objectWidth + config.horizontalGap);
+      const y = currentY + row * (config.objectHeight + config.verticalGap);
+
+      positions.set(objectName, { x, y });
+    }
+
+    // Move Y down for next area group
+    const rowsInArea = Math.ceil(areaObjects.length / config.objectsPerRow);
+    currentY += rowsInArea * (config.objectHeight + config.verticalGap) + config.areaGap;
+  }
+
+  return positions;
+}
 
 export function registerMultiSheetExcelHandlers(): void {
   const db = DatabaseConnection.getInstance();
-  const lineRepository = new SQLiteProductionLineRepository(db);
+  // Phase 7.5: Use unified canvas_objects instead of production_lines
+  const canvasObjectRepository = new SQLiteCanvasObjectRepository(db);
+  const canvasCompatibilityRepository = new SQLiteCanvasObjectCompatibilityRepository(db);
   const modelRepository = new SQLiteProductModelV2Repository(db);
-  const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(db);
   const volumeRepository = new SQLiteProductVolumeRepository(db);
   const changeoverRepository = new SQLiteChangeoverRepository(db);
   const plantRepository = new SQLitePlantRepository(db);
@@ -125,9 +209,13 @@ export function registerMultiSheetExcelHandlers(): void {
           };
         }
 
-        // Get existing lines and models from database
-        const existingLines = await lineRepository.findAll();
-        const existingLineNames = existingLines.map(l => l.name);
+        // Get existing process objects and models from database
+        // Phase 7.5: Query canvas_objects instead of production_lines
+        const existingObjects = await canvasObjectRepository.findByPlantAndType(
+          (await plantRepository.getDefault())?.id || '',
+          'process'
+        );
+        const existingLineNames = existingObjects.map(obj => obj.name);
 
         const existingModels = await modelRepository.findAll();
         const existingModelNames = existingModels.map(m => m.name);
@@ -245,7 +333,7 @@ export function registerMultiSheetExcelHandlers(): void {
             for (const plantInfo of plantsToCreate) {
               try {
                 // Create plant with code as both code and name
-                const plantId = randomUUID();
+                const plantId = nanoid();
                 db.prepare(
                   'INSERT INTO plants (id, code, name, is_default, is_active) VALUES (?, ?, ?, 0, 1)'
                 ).run(plantId, plantInfo.code, plantInfo.code);
@@ -261,7 +349,7 @@ export function registerMultiSheetExcelHandlers(): void {
               }
             }
 
-            result.plants = { created, updated: 0, errors };
+            result.plants = { created, updated: 0, unchanged: 0, errors };
             console.log('[Multi-Sheet Handler] Plants created:', result.plants);
           }
         }
@@ -286,6 +374,7 @@ export function registerMultiSheetExcelHandlers(): void {
 
             let created = 0;
             let updated = 0;
+            let unchanged = 0;
             let errors = 0;
 
             const defaultColors = [
@@ -296,20 +385,31 @@ export function registerMultiSheetExcelHandlers(): void {
 
             for (const validArea of validationResult.areas.validAreas) {
               try {
-                // Check if area exists (case-insensitive)
+                // Check if area exists (case-insensitive) - fetch all fields for comparison
                 const existingArea = db.prepare(
-                  'SELECT id, code FROM area_catalog WHERE UPPER(code) = UPPER(?)'
-                ).get(validArea.code) as { id: string; code: string } | undefined;
+                  'SELECT id, code, name, sequence, color FROM area_catalog WHERE UPPER(code) = UPPER(?)'
+                ).get(validArea.code) as { id: string; code: string; name: string; sequence: number; color: string } | undefined;
 
                 if (existingArea) {
                   // Update existing area (keep original code case)
                   if (mode === 'create') {
                     continue; // Skip in create mode
                   }
-                  db.prepare(
-                    'UPDATE area_catalog SET name = ?, sequence = ?, color = COALESCE(?, color) WHERE id = ?'
-                  ).run(validArea.name, validArea.sequence, validArea.color || null, existingArea.id);
-                  updated++;
+
+                  // Smart update: compare values to detect actual changes
+                  const hasChanges =
+                    existingArea.name !== validArea.name ||
+                    existingArea.sequence !== validArea.sequence ||
+                    (validArea.color && existingArea.color !== validArea.color);
+
+                  if (hasChanges) {
+                    db.prepare(
+                      'UPDATE area_catalog SET name = ?, sequence = ?, color = COALESCE(?, color) WHERE id = ?'
+                    ).run(validArea.name, validArea.sequence, validArea.color || null, existingArea.id);
+                    updated++;
+                  } else {
+                    unchanged++;
+                  }
                 } else {
                   // Create new area
                   if (mode === 'update') {
@@ -318,7 +418,7 @@ export function registerMultiSheetExcelHandlers(): void {
                   const color = validArea.color || defaultColors[colorIndex % defaultColors.length] || '#9ca3af';
                   colorIndex++;
 
-                  const areaId = randomUUID();
+                  const areaId = nanoid();
                   db.prepare(
                     'INSERT INTO area_catalog (id, code, name, color, sequence, active) VALUES (?, ?, ?, ?, ?, 1)'
                   ).run(areaId, validArea.code, validArea.name, color, validArea.sequence);
@@ -330,7 +430,7 @@ export function registerMultiSheetExcelHandlers(): void {
               }
             }
 
-            result.areas = { created, updated, errors };
+            result.areas = { created, updated, unchanged, errors };
             console.log('[Multi-Sheet Handler] Areas imported:', result.areas);
           }
 
@@ -355,7 +455,7 @@ export function registerMultiSheetExcelHandlers(): void {
                 const color = defaultColors[colorIndex % defaultColors.length] ?? '#9ca3af';
                 colorIndex++;
 
-                const areaId = randomUUID();
+                const areaId = nanoid();
                 db.prepare(
                   'INSERT INTO area_catalog (id, code, name, color, active) VALUES (?, ?, ?, ?, 1)'
                 ).run(areaId, areaCode, areaCode, color);
@@ -365,26 +465,72 @@ export function registerMultiSheetExcelHandlers(): void {
             }
           }
 
-          // 1. Import Lines (if present)
+          // 1. Import Lines as Canvas Objects (Phase 7.5: unified structure)
           if (validationResult.lines && validationResult.lines.validLines.length > 0) {
-            console.log('[Multi-Sheet Handler] Importing lines:', validationResult.lines.validLines.length);
+            console.log('[Multi-Sheet Handler] Importing lines as canvas objects:', validationResult.lines.validLines.length);
 
             let created = 0;
             let updated = 0;
+            let unchanged = 0;
             let errors = 0;
 
             // Build area code lookup map (case-insensitive -> actual code in DB)
             const areaCodeMap = new Map<string, string>();
-            const allAreas = db.prepare('SELECT code FROM area_catalog WHERE active = 1').all() as { code: string }[];
-            allAreas.forEach(a => areaCodeMap.set(a.code.toUpperCase(), a.code));
+            const areaSequenceMap = new Map<string, number>();
+            const allAreas = db.prepare('SELECT code, sequence FROM area_catalog WHERE active = 1').all() as { code: string; sequence: number }[];
+            allAreas.forEach(a => {
+              areaCodeMap.set(a.code.toUpperCase(), a.code);
+              areaSequenceMap.set(a.code.toUpperCase(), a.sequence ?? 999);
+            });
+
+            // Calculate layout positions for all objects
+            const layoutPositions = calculateLayoutPositions(
+              validationResult.lines.validLines.map(l => ({ name: l.name, area: l.area })),
+              areaSequenceMap
+            );
+
+            // Build name-to-object map for existing objects with process properties (for smart update)
+            interface ExistingObjectInfo {
+              id: string;
+              name: string;
+              area?: string;
+              lineType?: string;
+              timeAvailableDaily?: number;
+            }
+            const existingObjectsMap = new Map<string, ExistingObjectInfo>();
+            const existingProcessObjects = await canvasObjectRepository.findByPlantAndType(defaultPlantId, 'process');
+
+            // Fetch process properties for each existing object
+            for (const obj of existingProcessObjects) {
+              const props = await canvasObjectRepository.getProcessProperties(obj.id);
+              existingObjectsMap.set(obj.name.toLowerCase(), {
+                id: obj.id,
+                name: obj.name,
+                area: props?.area,
+                lineType: props?.lineType,
+                timeAvailableDaily: props?.timeAvailableDaily,
+              });
+            }
+
+            // Diagnostic logging: Check for duplicates in Excel data
+            const excelLineNames = validationResult.lines.validLines.map(l => l.name.toLowerCase());
+            const uniqueNames = new Set(excelLineNames);
+            const duplicateCount = excelLineNames.length - uniqueNames.size;
+            console.log('[Multi-Sheet Handler] Import diagnostics:', {
+              existingObjectsInDB: existingProcessObjects.length,
+              totalLinesInExcel: validationResult.lines.validLines.length,
+              uniqueNamesInExcel: uniqueNames.size,
+              duplicateRowsInExcel: duplicateCount,
+              plantId: defaultPlantId,
+            });
 
             for (const validLine of validationResult.lines.validLines) {
               try {
                 // Get the correct area code from DB (case-insensitive match)
                 const areaCode = areaCodeMap.get(validLine.area.toUpperCase()) || validLine.area;
 
-                const existingLine = await lineRepository.findByName(validLine.name);
-                const exists = existingLine !== null;
+                const existingObj = existingObjectsMap.get(validLine.name.toLowerCase());
+                const exists = existingObj !== undefined;
 
                 if (mode === 'create' && exists) {
                   continue; // Skip existing in create mode
@@ -394,34 +540,69 @@ export function registerMultiSheetExcelHandlers(): void {
                   continue; // Skip new in update mode
                 }
 
-                if (exists && existingLine) {
-                  // Update existing
-                  existingLine.update({
-                    area: areaCode,
-                    lineType: validLine.lineType,
-                    timeAvailableDaily: validLine.timeAvailableDaily,
-                  });
-                  await lineRepository.save(existingLine);
-                  updated++;
+                // Phase 7.2: Use plant code from Excel if present, otherwise default
+                const plantId = resolvePlantId(validLine.plantCode);
+
+                if (exists && existingObj) {
+                  // Smart update: compare values to detect actual changes
+                  const hasChanges =
+                    existingObj.area !== areaCode ||
+                    existingObj.lineType !== validLine.lineType ||
+                    existingObj.timeAvailableDaily !== validLine.timeAvailableDaily;
+
+                  if (hasChanges) {
+                    // Update existing canvas object's process properties
+                    await canvasObjectRepository.setProcessProperties(existingObj.id, {
+                      area: areaCode,
+                      lineType: validLine.lineType,
+                      timeAvailableDaily: validLine.timeAvailableDaily,
+                    });
+                    updated++;
+
+                    // Update map with new values for duplicate handling within same batch
+                    existingObjectsMap.set(validLine.name.toLowerCase(), {
+                      ...existingObj,
+                      area: areaCode,
+                      lineType: validLine.lineType,
+                      timeAvailableDaily: validLine.timeAvailableDaily,
+                    });
+                  } else {
+                    unchanged++;
+                  }
                 } else {
-                  // Create new
-                  const existingLines = await lineRepository.findAll();
-                  const xPosition = 100 + (existingLines.length * 250) % 1000;
-                  const yPosition = 100 + Math.floor((existingLines.length * 250) / 1000) * 200;
+                  // Create new canvas object + process properties
+                  const position = layoutPositions.get(validLine.name) || { x: 100, y: 100 };
 
-                  // Phase 7.2: Use plant code from Excel if present, otherwise default
-                  const plantId = resolvePlantId(validLine.plantCode);
-
-                  const line = ProductionLine.create({
+                  // Create canvas object
+                  const canvasObject = await canvasObjectRepository.create({
+                    plantId,
+                    shapeId: 'rect-basic',  // Default rectangle shape
+                    objectType: 'process',
                     name: validLine.name,
+                    description: `Imported from Excel`,
+                    xPosition: position.x,
+                    yPosition: position.y,
+                    width: DEFAULT_LAYOUT.objectWidth,
+                    height: DEFAULT_LAYOUT.objectHeight,
+                  });
+
+                  // Add to map so duplicate names in same import batch are handled as updates
+                  existingObjectsMap.set(validLine.name.toLowerCase(), {
+                    id: canvasObject.id,
+                    name: canvasObject.name,
                     area: areaCode,
                     lineType: validLine.lineType,
                     timeAvailableDaily: validLine.timeAvailableDaily,
-                    xPosition,
-                    yPosition,
-                    plantId,  // Phase 7.2: Use resolved plant from Excel
                   });
-                  await lineRepository.save(line);
+
+                  // Create process properties
+                  await canvasObjectRepository.setProcessProperties(canvasObject.id, {
+                    area: areaCode,
+                    lineType: validLine.lineType,
+                    timeAvailableDaily: validLine.timeAvailableDaily,
+                    changeoverEnabled: true,
+                  });
+
                   created++;
                 }
               } catch (error) {
@@ -430,8 +611,14 @@ export function registerMultiSheetExcelHandlers(): void {
               }
             }
 
-            result.lines = { created, updated, errors };
-            console.log('[Multi-Sheet Handler] Lines imported:', result.lines);
+            result.lines = { created, updated, unchanged, errors };
+
+            // Verify final state
+            const finalObjectCount = await canvasObjectRepository.findByPlantAndType(defaultPlantId, 'process');
+            console.log('[Multi-Sheet Handler] Lines imported as canvas objects:', {
+              ...result.lines,
+              totalObjectsInDBAfterImport: finalObjectCount.length,
+            });
           }
 
           // 2. Import Models (if present)
@@ -440,6 +627,7 @@ export function registerMultiSheetExcelHandlers(): void {
 
             let created = 0;
             let updated = 0;
+            let unchanged = 0;
             let errors = 0;
 
             for (const validModel of validationResult.models.validModels) {
@@ -455,17 +643,33 @@ export function registerMultiSheetExcelHandlers(): void {
                   continue;
                 }
 
-                if (exists) {
-                  // Update existing
-                  await modelRepository.update(validModel.name, {
-                    customer: validModel.customer,
-                    program: validModel.program,
-                    family: validModel.family,
-                    annualVolume: validModel.annualVolume ?? 0,
-                    operationsDays: validModel.operationsDays ?? 240,
-                    active: validModel.active,
-                  });
-                  updated++;
+                if (exists && existingModel) {
+                  // Smart update: compare values to detect actual changes
+                  const newAnnualVolume = validModel.annualVolume ?? 0;
+                  const newOperationsDays = validModel.operationsDays ?? 240;
+
+                  const hasChanges =
+                    existingModel.customer !== validModel.customer ||
+                    existingModel.program !== validModel.program ||
+                    existingModel.family !== validModel.family ||
+                    existingModel.annualVolume !== newAnnualVolume ||
+                    existingModel.operationsDays !== newOperationsDays ||
+                    existingModel.active !== validModel.active;
+
+                  if (hasChanges) {
+                    // Update existing
+                    await modelRepository.update(validModel.name, {
+                      customer: validModel.customer,
+                      program: validModel.program,
+                      family: validModel.family,
+                      annualVolume: newAnnualVolume,
+                      operationsDays: newOperationsDays,
+                      active: validModel.active,
+                    });
+                    updated++;
+                  } else {
+                    unchanged++;
+                  }
                 } else {
                   // Create new
                   const model = ProductModelV2.create({
@@ -486,7 +690,7 @@ export function registerMultiSheetExcelHandlers(): void {
               }
             }
 
-            result.models = { created, updated, errors };
+            result.models = { created, updated, unchanged, errors };
             console.log('[Multi-Sheet Handler] Models imported:', result.models);
           }
 
@@ -496,6 +700,7 @@ export function registerMultiSheetExcelHandlers(): void {
 
             let created = 0;
             let updated = 0;
+            let unchanged = 0;
             let errors = 0;
 
             // Build lookup map for model names -> IDs
@@ -524,12 +729,21 @@ export function registerMultiSheetExcelHandlers(): void {
                 }
 
                 if (exists && existingVolume) {
-                  // Update existing
-                  await volumeRepository.update(existingVolume.id, {
-                    volume: validVolume.volume,
-                    operationsDays: validVolume.operationsDays,
-                  });
-                  updated++;
+                  // Smart update: compare values to detect actual changes
+                  const hasChanges =
+                    existingVolume.volume !== validVolume.volume ||
+                    existingVolume.operationsDays !== validVolume.operationsDays;
+
+                  if (hasChanges) {
+                    // Update existing
+                    await volumeRepository.update(existingVolume.id, {
+                      volume: validVolume.volume,
+                      operationsDays: validVolume.operationsDays,
+                    });
+                    updated++;
+                  } else {
+                    unchanged++;
+                  }
                 } else {
                   // Create new
                   const volume = ProductVolume.create({
@@ -550,22 +764,26 @@ export function registerMultiSheetExcelHandlers(): void {
             // Get year range for result
             const yearRange = validationResult.volumes.stats.yearRange;
 
-            result.volumes = { created, updated, errors, yearRange: yearRange ?? undefined };
+            result.volumes = { created, updated, unchanged, errors, yearRange: yearRange ?? undefined };
             console.log('[Multi-Sheet Handler] Volumes imported:', result.volumes);
           }
 
-          // 4. Import Compatibilities (if present)
+          // 4. Import Compatibilities (Phase 7.5: canvas_object_compatibilities)
           // Note: Excel uses names (user-friendly), but we store IDs (referential integrity)
           if (validationResult.compatibilities && validationResult.compatibilities.validCompatibilities.length > 0) {
             console.log('[Multi-Sheet Handler] Importing compatibilities:', validationResult.compatibilities.validCompatibilities.length);
 
             let created = 0;
             let updated = 0;
+            let unchanged = 0;
             let errors = 0;
 
-            // Build lookup maps for line and model names -> IDs
-            const allLines = await lineRepository.findAll();
-            const lineNameToId = new Map(allLines.map(l => [l.name.toLowerCase(), l.id]));
+            // Build lookup maps for canvas object (process) names -> IDs
+            const allProcessObjects = db.prepare(`
+              SELECT co.id, co.name FROM canvas_objects co
+              WHERE co.object_type = 'process' AND co.active = 1
+            `).all() as { id: string; name: string }[];
+            const objectNameToId = new Map(allProcessObjects.map(obj => [obj.name.toLowerCase(), obj.id]));
 
             const allModels = await modelRepository.findAll();
             const modelNameToId = new Map(allModels.map(m => [m.name.toLowerCase(), m.id]));
@@ -573,11 +791,11 @@ export function registerMultiSheetExcelHandlers(): void {
             for (const validCompat of validationResult.compatibilities.validCompatibilities) {
               try {
                 // Look up IDs by name
-                const lineId = lineNameToId.get(validCompat.lineName.toLowerCase());
+                const canvasObjectId = objectNameToId.get(validCompat.lineName.toLowerCase());
                 const modelId = modelNameToId.get(validCompat.modelName.toLowerCase());
 
-                if (!lineId) {
-                  console.error(`[Multi-Sheet Handler] Line not found: ${validCompat.lineName}`);
+                if (!canvasObjectId) {
+                  console.error(`[Multi-Sheet Handler] Process object not found: ${validCompat.lineName}`);
                   errors++;
                   continue;
                 }
@@ -588,7 +806,7 @@ export function registerMultiSheetExcelHandlers(): void {
                   continue;
                 }
 
-                const existingCompat = await compatibilityRepository.findByLineAndModel(lineId, modelId);
+                const existingCompat = await canvasCompatibilityRepository.findByCanvasObjectAndModel(canvasObjectId, modelId);
                 const exists = existingCompat !== null;
 
                 if (mode === 'create' && exists) {
@@ -600,23 +818,32 @@ export function registerMultiSheetExcelHandlers(): void {
                 }
 
                 if (exists && existingCompat) {
-                  // Update existing
-                  await compatibilityRepository.update(existingCompat.id, {
-                    cycleTime: validCompat.cycleTime,
-                    efficiency: validCompat.efficiency,
-                    priority: validCompat.priority,
-                  });
-                  updated++;
+                  // Smart update: compare values to detect actual changes
+                  const hasChanges =
+                    existingCompat.cycleTime !== validCompat.cycleTime ||
+                    existingCompat.efficiency !== validCompat.efficiency ||
+                    existingCompat.priority !== validCompat.priority;
+
+                  if (hasChanges) {
+                    // Update existing
+                    await canvasCompatibilityRepository.update(existingCompat.id, {
+                      cycleTime: validCompat.cycleTime,
+                      efficiency: validCompat.efficiency,
+                      priority: validCompat.priority,
+                    });
+                    updated++;
+                  } else {
+                    unchanged++;
+                  }
                 } else {
-                  // Create new - use IDs instead of names
-                  const compat = LineModelCompatibility.create({
-                    lineId,
+                  // Create new canvas object compatibility
+                  await canvasCompatibilityRepository.create({
+                    canvasObjectId,
                     modelId,
                     cycleTime: validCompat.cycleTime,
                     efficiency: validCompat.efficiency,
                     priority: validCompat.priority,
                   });
-                  await compatibilityRepository.create(compat);
                   created++;
                 }
               } catch (error) {
@@ -625,7 +852,7 @@ export function registerMultiSheetExcelHandlers(): void {
               }
             }
 
-            result.compatibilities = { created, updated, errors };
+            result.compatibilities = { created, updated, unchanged, errors };
             console.log('[Multi-Sheet Handler] Compatibilities imported:', result.compatibilities);
           }
 
@@ -635,6 +862,7 @@ export function registerMultiSheetExcelHandlers(): void {
 
             let created = 0;
             let updated = 0;
+            let unchanged = 0;
             let errors = 0;
 
             for (const validChangeover of validationResult.changeover.validChangeovers) {
@@ -654,16 +882,28 @@ export function registerMultiSheetExcelHandlers(): void {
                   continue;
                 }
 
-                // Set family default (this handles both create and update)
-                await changeoverRepository.setFamilyDefault(
-                  validChangeover.fromFamily,
-                  validChangeover.toFamily,
-                  validChangeover.changeoverMinutes
-                );
+                if (exists && existingDefault) {
+                  // Smart update: compare values to detect actual changes
+                  const hasChanges = existingDefault.changeoverMinutes !== validChangeover.changeoverMinutes;
 
-                if (exists) {
-                  updated++;
+                  if (hasChanges) {
+                    // Set family default (this handles both create and update)
+                    await changeoverRepository.setFamilyDefault(
+                      validChangeover.fromFamily,
+                      validChangeover.toFamily,
+                      validChangeover.changeoverMinutes
+                    );
+                    updated++;
+                  } else {
+                    unchanged++;
+                  }
                 } else {
+                  // Create new
+                  await changeoverRepository.setFamilyDefault(
+                    validChangeover.fromFamily,
+                    validChangeover.toFamily,
+                    validChangeover.changeoverMinutes
+                  );
                   created++;
                 }
               } catch (error) {
@@ -672,7 +912,7 @@ export function registerMultiSheetExcelHandlers(): void {
               }
             }
 
-            result.changeover = { created, updated, errors };
+            result.changeover = { created, updated, unchanged, errors };
             console.log('[Multi-Sheet Handler] Changeover defaults imported:', result.changeover);
           }
 

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS process_properties (
   line_type TEXT NOT NULL DEFAULT 'shared'
     CHECK(line_type IN ('shared', 'dedicated')),
   changeover_enabled INTEGER NOT NULL DEFAULT 1,
+  changeover_explicit INTEGER NOT NULL DEFAULT 0,  -- Phase 7.5: explicit user override flag
 
   -- Timestamps
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
