@@ -7,6 +7,7 @@ import { createHashRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '../components/layout';
 import { ExcelImportPage } from '../pages/ExcelImportPage';
 import { TimelineWindowPage } from '../pages/TimelineWindowPage';
+import { ResultsWindowPage } from '../pages/ResultsWindowPage';
 
 /**
  * Router principal de la aplicacion
@@ -30,6 +31,11 @@ export const router = createHashRouter(
       // Standalone timeline window - opens in separate Electron window
       path: '/timeline-window',
       element: <TimelineWindowPage />,
+    },
+    {
+      // Standalone results window - opens in separate Electron window
+      path: '/results-window',
+      element: <ResultsWindowPage />,
     },
     {
       // Redirect all unknown routes to home

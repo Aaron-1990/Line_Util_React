@@ -254,6 +254,10 @@ export const WINDOW_CHANNELS = {
   GET_TIMELINE_DATA: 'window:get-timeline-data',
   CLOSE_TIMELINE_WINDOW: 'window:close-timeline',
   IS_TIMELINE_OPEN: 'window:is-timeline-open',
+  OPEN_RESULTS: 'window:open-results',  // Optimization Results Validation: Independent results window
+  GET_RESULTS_DATA: 'window:get-results-data',
+  CLOSE_RESULTS_WINDOW: 'window:close-results',
+  IS_RESULTS_OPEN: 'window:is-results-open',
 } as const;
 
 // Timeline Window Events (Phase 4.2)
@@ -261,6 +265,13 @@ export const WINDOW_CHANNELS = {
 export const TIMELINE_EVENTS = {
   DATA_UPDATED: 'timeline:data-updated',
   WINDOW_CLOSED: 'timeline:window-closed',
+} as const;
+
+// Results Window Events
+// These are events sent from main to renderer (not invoke channels)
+export const RESULTS_EVENTS = {
+  DATA_UPDATED: 'results:data-updated',
+  WINDOW_CLOSED: 'results:window-closed',
 } as const;
 
 // Model Area Routing (Phase 6.5)

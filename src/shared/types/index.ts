@@ -883,3 +883,6 @@ export * from './canvas-object';
 
 // Re-export all canvas tool types from dedicated module (Phase 7.5)
 export * from './canvas-tool';
+
+// Re-export all validation types from dedicated module (Optimization Results Validation)
+export * from './validation';

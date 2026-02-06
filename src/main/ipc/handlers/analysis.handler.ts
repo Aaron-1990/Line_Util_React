@@ -16,7 +16,7 @@ import {
 } from '@shared/types';
 import { DataExporter } from '../../services/analysis/DataExporter';
 import { PythonBridge } from '../../services/python/PythonBridge';
-import { openOrUpdateTimelineWindow } from './window.handler';
+import { openOrUpdateTimelineWindow, openOrUpdateResultsWindow } from './window.handler';
 import DatabaseConnection from '../../database/connection';
 
 export function registerAnalysisHandlers(): void {
@@ -110,6 +110,30 @@ export function registerAnalysisHandlers(): void {
         } catch (windowError) {
           // Don't fail the optimization if window opening fails
           console.error('[Analysis Handler] Failed to open timeline window:', windowError);
+        }
+
+        // 5. Auto-open Results window with results (slight delay for cascade effect)
+        try {
+          // Wait for Timeline window to position before opening Results
+          await new Promise(resolve => setTimeout(resolve, 150));
+
+          // Get area catalog for sequence ordering (reuse from above)
+          const db = DatabaseConnection.getInstance();
+          const areas = db.prepare('SELECT code, sequence FROM area_catalog WHERE active = 1 ORDER BY sequence').all() as { code: string; sequence: number }[];
+
+          const areaSequences = areas.map(area => ({
+            code: area.code,
+            sequence: area.sequence,
+          }));
+
+          await openOrUpdateResultsWindow({
+            results: result,
+            areaSequences,
+          });
+          console.log('[Analysis Handler] Results window opened/updated with results');
+        } catch (windowError) {
+          // Don't fail the optimization if window opening fails
+          console.error('[Analysis Handler] Failed to open results window:', windowError);
         }
 
         return {
