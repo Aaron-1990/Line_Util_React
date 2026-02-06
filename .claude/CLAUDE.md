@@ -6,7 +6,7 @@
 
 ## DEVELOPMENT FRAMEWORK (MANDATORY)
 
-**Read and follow:** `~/.claude/FRAMEWORK.md` - Framework de Desarrollo Hibrido v2.0 (Global)
+**Read and follow:** `~/.claude/CLAUDE.md` - Framework de Desarrollo Hibrido v2.0 (Global)
 
 This project follows the global development framework. Key principles:
 - **CONTRACTS-FIRST**: Define interfaces in `@shared/types/` BEFORE implementing
@@ -35,7 +35,7 @@ This project follows the global development framework. Key principles:
 
 ## Agent Orchestration (MANDATORY)
 
-**ALL agents MUST follow `.claude/FRAMEWORK.md`**
+**ALL agents MUST follow `~/.claude/CLAUDE.md`**
 
 | Task Type | Agent Type | BLOQUE 0 Focus |
 |-----------|------------|----------------|
