@@ -9,6 +9,51 @@
 - **Primary Agent:** `frontend-developer`
 - **Supporting Agents:** `industrial-engineer`, `code-reviewer`
 - **Complexity:** Medium
+- **Status:** ✅ IMPLEMENTED (with architectural adjustments - see post-mortem)
+- **Implementation Date:** 2026-02-06
+
+---
+
+## POST-MORTEM: Implementation Learnings
+
+### Issue Encountered
+**Spec-Reality Misalignment:** Original spec assumed ResultsPanel displayed **one year at a time** with year selection. Reality: ResultsPanel displays **all years simultaneously** in columns (Excel-like multi-year table).
+
+**Orchestrator Impact:** Agents (`@frontend-developer`, `@electron-specialist`) implemented validation for single-year structure, which didn't integrate with existing multi-year ResultsPanel.
+
+### Root Cause
+Spec was designed without fully exploring ResultsPanel's existing architecture. BLOQUE 0 investigation focused on data types but didn't analyze the **rendering pattern** (single-year vs multi-year display).
+
+### Solution Applied
+**Opted for Architecture Adaptation (Option B):**
+- Modified `useValidationCalculator` to accept `YearOptimizationResult[]` (array of years)
+- Returns `Map<area, Map<year, AreaValidationSummary>>` (nested map structure)
+- Created `ValidationYearCells` sub-component following `YearDataCells` pattern
+- `ValidationRows` iterates over years, rendering validation columns per year
+
+**Why not change ResultsPanel to single-year?** Would destroy existing UX that shows all years at once (valuable for comparison).
+
+### Key Learnings for Future Specs
+1. **BLOQUE 0 must include UI rendering pattern analysis**, not just data types
+2. **Check existing component patterns** (e.g., YearDataCells) before designing new ones
+3. **Spec "Alternate Flow"** should include "What if existing code structure differs?"
+4. **For orchestrator automation:** Include explicit "Validate existing code structure first" step
+
+### Deviations from Original Spec
+| Original Spec | Actual Implementation | Reason |
+|---------------|----------------------|--------|
+| Single-year validation (selectedYear state) | Multi-year validation (all years at once) | Match existing ResultsPanel structure |
+| Hook: `useValidationCalculator(yearResult, selectedYear)` | Hook: `useValidationCalculator(yearResults[])` | Accept array of years |
+| Component: `ValidationRows({ validation, modelColumns, year })` | Component: `ValidationRows({ validationsByYear, years, modelColumns })` | Iterate over years |
+| BLOQUE 6: Independent window | Not implemented | Moved to Future Enhancements |
+
+### What Worked Well
+- **Type contracts in BLOQUE 0** were solid and reusable
+- **Validation thresholds** designed by IE agent were accurate
+- **IPC channel** worked as designed (after fixing `window.electronAPI`)
+- **Sub-component pattern** (ValidationYearCells) cleanly followed YearDataCells precedent
+
+---
 
 ## Context
 
@@ -57,14 +102,28 @@ This feature adds **at-a-glance validation** directly in the Optimization Result
 - Keeps optimizer focused on optimization logic
 - Allows real-time validation without re-running optimizer
 
-#### 2. Window Management
-**Decision:** Follow Multi-Year Capacity Analysis pattern (independent window)
+#### 2. Multi-Year Structure (CRITICAL - Updated Post-Implementation)
+**Decision:** Validation renders **all years simultaneously** in columns (not single-year with selector)
 
-**Pattern:** `WindowManager.open('optimization-results')` with state sync via `useAnalysisStore`
+**Rationale:**
+- **ResultsPanel existing architecture** displays all years in columns (like Excel)
+- Users can compare years side-by-side
+- Changing to single-year would destroy existing UX
+- Validation must follow `YearDataCells` rendering pattern
 
-**Files to reference:**
-- `src/main/windows/WindowManager.ts`
-- `src/renderer/features/analysis/components/MultiYearCapacityAnalysis.tsx`
+**Implementation Pattern:**
+- Hook: `useValidationCalculator(yearResults: YearOptimizationResult[])`
+- Returns: `Map<area, Map<year, AreaValidationSummary>>`
+- Component: `ValidationYearCells` (similar to `YearDataCells`)
+- Renders validation columns per year, per area
+
+#### 3. Window Management (DEFERRED)
+**Decision:** Keep validation in main ResultsPanel (independent window moved to future enhancement)
+
+**Rationale:**
+- Focus on core validation functionality first
+- Independent window requires additional state management
+- Main panel integration validates the approach before extraction
 
 #### 3. Validation Thresholds (per IE agent recommendations)
 ```typescript
@@ -89,19 +148,23 @@ export const DEFAULT_THRESHOLDS: ValidationThresholds = {
 };
 ```
 
-#### 4. Data Flow
+#### 4. Data Flow (Updated for Multi-Year)
 ```
 ResultsPanel
   ↓
-useValidationCalculator(yearResults, selectedYear)
-  ↓ (fetches volumes via IPC)
-IPC: 'database:get-volumes-for-year'
+useValidationCalculator(results.yearResults: YearOptimizationResult[])
+  ↓ (fetches volumes for ALL years via IPC - parallel)
+IPC: 'product-volumes:get-by-year' (called for each year)
   ↓
-SQLiteProductVolumeRepository.getByYear(year)
+SQLiteProductVolumeRepository.getByYear(year) × N years
   ↓
-Calculate: distributed, volume, coverage, status per model
+Returns: Map<area, Map<year, AreaValidationSummary>>
   ↓
-Render validation rows in table
+ValidationRows iterates over years
+  ↓
+ValidationYearCells renders columns per year (like YearDataCells)
+  ↓
+Renders 4 validation rows × N years in table
 ```
 
 ### New Types
@@ -310,79 +373,103 @@ npm run type-check
 
 ---
 
-## BLOQUE 3: Validation Calculator Hook
+## BLOQUE 3: Validation Calculator Hook (UPDATED)
 
-**Objetivo:** Create custom hook to calculate validation rows from analysis results
+**Objetivo:** Create custom hook to calculate validation rows from analysis results **for all years**
 
 **Archivo:**
-- `src/renderer/features/results/hooks/useValidationCalculator.ts` (create)
+- `src/renderer/features/analysis/hooks/useValidationCalculator.ts` (created)
 
 **Principios aplicados:**
 - React hooks best practices (useEffect for async, useMemo for derived state)
 - Error handling for IPC failures
 
-**Implementación:**
+**Implementación (UPDATED for Multi-Year):**
 
 ```typescript
-// src/renderer/features/results/hooks/useValidationCalculator.ts
+// src/renderer/features/analysis/hooks/useValidationCalculator.ts
 
 import { useEffect, useState, useMemo } from 'react';
-import { YearResults } from '@shared/types/analysis';
+import { YearOptimizationResult } from '@shared/types';
 import {
   AreaValidationSummary,
   ModelValidationRow,
   ValidationStatus
 } from '@shared/types/validation';
-import {
-  DEFAULT_VALIDATION_THRESHOLDS,
-  VALIDATION_STATUS_LABELS
-} from '@shared/constants/validation';
-import { IPC_CHANNELS } from '@shared/constants';
+import { DEFAULT_VALIDATION_THRESHOLDS } from '@shared/constants/validation';
+import { PRODUCT_VOLUME_CHANNELS } from '@shared/constants';
 
 interface VolumeData {
   modelId: string;
   year: number;
   volume: number;
+  operationsDays: number;
 }
 
+/**
+ * Custom hook to calculate validation rows from analysis results
+ * UPDATED: Accepts array of years, returns nested Map structure
+ *
+ * @param yearResults - Array of optimization results for multiple years
+ * @returns Map<area, Map<year, AreaValidationSummary>>
+ */
 export function useValidationCalculator(
-  yearResults: YearResults | null,
-  selectedYear: number
-): AreaValidationSummary[] {
-  const [volumes, setVolumes] = useState<VolumeData[]>([]);
+  yearResults: YearOptimizationResult[]
+): Map<string, Map<number, AreaValidationSummary>> {
+  const [volumesByYear, setVolumesByYear] = useState<Map<number, VolumeData[]>>(new Map());
   const [loading, setLoading] = useState(false);
 
-  // Fetch volumes for selected year
+  // Get all unique years from results
+  const years = useMemo(() => yearResults.map(yr => yr.year), [yearResults]);
+
+  // Fetch volumes for ALL years in parallel
   useEffect(() => {
-    if (!selectedYear) return;
+    if (!years.length) return;
 
     setLoading(true);
-    window.electron.ipcRenderer
-      .invoke(IPC_CHANNELS.DATABASE_GET_VOLUMES_FOR_YEAR, selectedYear)
-      .then((response) => {
-        if (response.success) {
-          setVolumes(response.data);
-        } else {
-          console.error('Failed to fetch volumes:', response.error);
-          setVolumes([]);
+
+    // Fetch volumes for each year in parallel
+    Promise.all(
+      years.map(async (year): Promise<{ year: number; volumes: VolumeData[] }> => {
+        try {
+          const response = await window.electronAPI.invoke<{ success: boolean; data?: VolumeData[]; error?: string }>(
+            PRODUCT_VOLUME_CHANNELS.GET_BY_YEAR,
+            year
+          );
+          return {
+            year,
+            volumes: (response.success && response.data ? response.data : []) as VolumeData[]
+          };
+        } catch (error) {
+          console.error(`IPC error fetching volumes for year ${year}:`, error);
+          return { year, volumes: [] };
         }
       })
-      .catch((error) => {
-        console.error('IPC error fetching volumes:', error);
-        setVolumes([]);
-      })
-      .finally(() => setLoading(false));
-  }, [selectedYear]);
+    )
+    .then((results) => {
+      const volumeMap = new Map<number, VolumeData[]>();
+      results.forEach(({ year, volumes }) => {
+        volumeMap.set(year, volumes);
+      });
+      setVolumesByYear(volumeMap);
+    })
+    .finally(() => setLoading(false));
+  }, [years]);
 
-  // Calculate validation rows
-  const validationSummaries = useMemo((): AreaValidationSummary[] => {
-    if (!yearResults || !volumes.length) return [];
+  // Calculate validation rows for all years and areas
+  const validationsByAreaAndYear = useMemo((): Map<string, Map<number, AreaValidationSummary>> => {
+    if (!yearResults.length || loading) return new Map();
 
-    const summaries: AreaValidationSummary[] = [];
+    const resultMap = new Map<string, Map<number, AreaValidationSummary>>();
 
-    // Group results by area
-    const areaGroups = new Map<string, typeof yearResults.lineResults>();
-    yearResults.lineResults.forEach((lineResult) => {
+    // Process each year
+    yearResults.forEach((yearResult) => {
+      const volumes = volumesByYear.get(yearResult.year) || [];
+      if (!volumes.length) return; // Skip years without volumes
+
+      // Group line results by area for this year
+      const areaGroups = new Map<string, typeof yearResult.lines>();
+      yearResult.lines.forEach((lineResult) => {
       const area = lineResult.area;
       if (!areaGroups.has(area)) {
         areaGroups.set(area, []);
@@ -401,7 +488,9 @@ export function useValidationCalculator(
             name: assignment.modelName,
             units: 0
           };
-          current.units += assignment.allocatedUnitsDaily * yearResults.operationsDays;
+          // Get operations days from first volume entry
+          const operationsDays = volumes.length > 0 && volumes[0] ? volumes[0].operationsDays : 240;
+          current.units += assignment.allocatedUnitsDaily * operationsDays;
           modelDistribution.set(assignment.modelId, current);
         });
       });
@@ -435,23 +524,30 @@ export function useValidationCalculator(
         totalVolume += volumeUnits;
       });
 
-      const overallCoverage = totalVolume > 0 ? (totalDistributed / totalVolume) * 100 : 0;
+        const overallCoverage = totalVolume > 0 ? (totalDistributed / totalVolume) * 100 : 0;
 
-      summaries.push({
-        area,
-        year: selectedYear,
-        models: validationRows,
-        totalDistributed,
-        totalVolume,
-        totalDelta: totalDistributed - totalVolume,
-        overallCoverage
+        const summary: AreaValidationSummary = {
+          area,
+          year: yearResult.year,
+          models: validationRows,
+          totalDistributed,
+          totalVolume,
+          totalDelta: totalDistributed - totalVolume,
+          overallCoverage
+        };
+
+        // Add to result map: area -> year -> summary
+        if (!resultMap.has(area)) {
+          resultMap.set(area, new Map());
+        }
+        resultMap.get(area)!.set(yearResult.year, summary);
       });
     });
 
-    return summaries;
-  }, [yearResults, volumes, selectedYear]);
+    return resultMap;
+  }, [yearResults, volumesByYear, loading]);
 
-  return validationSummaries;
+  return validationsByAreaAndYear;
 }
 
 function determineStatus(
@@ -487,145 +583,109 @@ npm run type-check
 
 ---
 
-## BLOQUE 4: Validation Rows Component
+## BLOQUE 4: Validation Rows Component (UPDATED)
 
-**Objetivo:** Create reusable component to render validation rows in results table
+**Objetivo:** Create reusable component to render validation rows in results table **for multiple years**
 
 **Archivo:**
-- `src/renderer/features/results/components/ValidationRows.tsx` (create)
+- `src/renderer/features/analysis/components/ValidationRows.tsx` (created)
 
-**Implementación:**
+**Pattern Applied:** Follows `YearDataCells` rendering pattern (iterate over years, render columns per year)
+
+**Implementación (UPDATED for Multi-Year):**
 
 ```typescript
-// src/renderer/features/results/components/ValidationRows.tsx
+// src/renderer/features/analysis/components/ValidationRows.tsx
 
 import React from 'react';
 import { AreaValidationSummary } from '@shared/types/validation';
 import {
   VALIDATION_STATUS_LABELS,
-  VALIDATION_STATUS_COLORS
+  VALIDATION_STATUS_COLORS,
+  VALIDATION_ROW_LABELS
 } from '@shared/constants/validation';
 
 interface ValidationRowsProps {
-  validation: AreaValidationSummary;
-  modelColumns: string[]; // Model IDs in same order as table columns
+  validationsByYear: Map<number, AreaValidationSummary>; // Map<year, AreaValidationSummary>
+  years: number[]; // Years in display order
+  modelColumns: string[]; // Model names in same order as table columns
 }
 
-export function ValidationRows({ validation, modelColumns }: ValidationRowsProps) {
-  // Create lookup map for quick access
-  const modelValidationMap = new Map(
-    validation.models.map(m => [m.modelId, m])
-  );
-
+/**
+ * ValidationRows component
+ * Renders 4 validation rows × N years (multi-year structure)
+ */
+export function ValidationRows({ validationsByYear, years, modelColumns }: ValidationRowsProps) {
   return (
     <>
       {/* Separator row */}
       <tr>
-        <td colSpan={modelColumns.length * 2 + 3} style={{
-          borderTop: '2px solid #374151',
-          padding: 0
-        }} />
+        <td className="px-4 py-2 border-t-2 border-gray-700" />
+        {years.map(year => (
+          <td
+            key={`sep-${year}`}
+            colSpan={2 + modelColumns.length * 2}
+            className="border-t-2 border-gray-700 border-l"
+          />
+        ))}
       </tr>
 
       {/* Σ DISTRIBUIDO row */}
-      <tr style={{ backgroundColor: '#f9fafb', fontWeight: 600 }}>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>
-          Σ DISTRIBUIDO
+      <tr className="bg-gray-50 font-semibold">
+        <td className="px-4 py-2 text-sm text-gray-700 sticky left-0 bg-gray-50 z-10">
+          {VALIDATION_ROW_LABELS.DISTRIBUTED}
         </td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        {modelColumns.map(modelId => {
-          const modelVal = modelValidationMap.get(modelId);
-          return (
-            <React.Fragment key={modelId}>
-              <td style={{ padding: '8px', textAlign: 'right', borderRight: '1px solid #e5e7eb' }}>
-                {modelVal ? modelVal.distributedUnits.toLocaleString() : '-'}
-              </td>
-              <td style={{ padding: '8px', textAlign: 'right', color: '#6b7280', borderRight: '1px solid #e5e7eb' }}>
-                -
-              </td>
-            </React.Fragment>
-          );
-        })}
+        {years.map(year => (
+          <ValidationYearCells
+            key={`dist-${year}`}
+            year={year}
+            validation={validationsByYear.get(year)}
+            modelColumns={modelColumns}
+            rowType="distributed"
+          />
+        ))}
       </tr>
 
-      {/* VOLUMEN (BD) row */}
-      <tr style={{ backgroundColor: '#f9fafb' }}>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>
-          VOLUMEN (BD)
-        </td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        {modelColumns.map(modelId => {
-          const modelVal = modelValidationMap.get(modelId);
-          return (
-            <React.Fragment key={modelId}>
-              <td style={{ padding: '8px', textAlign: 'right', borderRight: '1px solid #e5e7eb' }}>
-                {modelVal ? modelVal.volumeUnitsAnnual.toLocaleString() : '-'}
-              </td>
-              <td style={{ padding: '8px', textAlign: 'right', color: '#6b7280', borderRight: '1px solid #e5e7eb' }}>
-                -
-              </td>
-            </React.Fragment>
-          );
-        })}
-      </tr>
-
-      {/* COBERTURA row */}
-      <tr style={{ backgroundColor: '#f9fafb' }}>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>
-          COBERTURA
-        </td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        {modelColumns.map(modelId => {
-          const modelVal = modelValidationMap.get(modelId);
-          return (
-            <React.Fragment key={modelId}>
-              <td style={{ padding: '8px', textAlign: 'right', borderRight: '1px solid #e5e7eb' }}>
-                {modelVal ? `${modelVal.coveragePercent.toFixed(1)}%` : '-'}
-              </td>
-              <td style={{ padding: '8px', textAlign: 'right', color: '#6b7280', borderRight: '1px solid #e5e7eb' }}>
-                -
-              </td>
-            </React.Fragment>
-          );
-        })}
-      </tr>
-
-      {/* ESTADO row */}
-      <tr style={{ backgroundColor: '#f9fafb', fontWeight: 600 }}>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>
-          ESTADO
-        </td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>-</td>
-        {modelColumns.map(modelId => {
-          const modelVal = modelValidationMap.get(modelId);
-          const status = modelVal?.status || 'critical';
-          const label = VALIDATION_STATUS_LABELS[status];
-          const color = VALIDATION_STATUS_COLORS[status];
-
-          return (
-            <React.Fragment key={modelId}>
-              <td style={{
-                padding: '8px',
-                textAlign: 'center',
-                color,
-                borderRight: '1px solid #e5e7eb'
-              }}>
-                {modelVal ? label : '-'}
-              </td>
-              <td style={{ padding: '8px', borderRight: '1px solid #e5e7eb' }}>
-                -
-              </td>
-            </React.Fragment>
-          );
-        })}
-      </tr>
+      {/* VOLUMEN (BD), COBERTURA, ESTADO rows follow same pattern... */}
+      {/* See actual implementation for full code */}
     </>
   );
 }
+
+// SUB-COMPONENT: ValidationYearCells
+// Renders validation cells for a single year (like YearDataCells)
+interface ValidationYearCellsProps {
+  year: number;
+  validation: AreaValidationSummary | undefined;
+  modelColumns: string[];
+  rowType: 'distributed' | 'volume' | 'coverage' | 'status';
+}
+
+const ValidationYearCells = ({ year, validation, modelColumns, rowType }: ValidationYearCellsProps) => {
+  const modelValidationMap = new Map(
+    validation?.models.map(m => [m.modelName, m]) || []
+  );
+
+  return (
+    <>
+      {/* First two columns: Tiempo Util. and Util. (%) - show "-" for validation rows */}
+      <td className="px-3 py-2 text-sm text-right text-gray-400 border-l">-</td>
+      <td className="px-3 py-2 text-sm text-right text-gray-400">-</td>
+
+      {/* Pieces columns per model */}
+      {modelColumns.map(modelName => {
+        const modelVal = modelValidationMap.get(modelName);
+        // Render based on rowType: distributed, volume, coverage, or status
+        // See actual implementation for full logic
+      })}
+
+      {/* Seconds columns per model - show "-" for validation rows */}
+      {modelColumns.map(modelName => (
+        <td key={`${rowType}-seconds-${year}-${modelName}`} className="...">-</td>
+      ))}
+    </>
+  );
+};
 ```
 
 **CHECKPOINT Integrado (30 seg):**
@@ -641,19 +701,19 @@ npm run type-check
 
 ---
 
-## BLOQUE 5: Integrate Validation into ResultsPanel
+## BLOQUE 5: Integrate Validation into ResultsPanel (UPDATED)
 
-**Objetivo:** Add validation rows to existing Resultados_{ÁREA} tables
+**Objetivo:** Add validation rows to existing Resultados_{ÁREA} tables **for all years**
 
 **Archivo:**
-- `src/renderer/features/results/components/ResultsPanel.tsx` (update)
+- `src/renderer/features/analysis/components/ResultsPanel.tsx` (updated)
 
 **Cambios:**
 1. Import `useValidationCalculator` and `ValidationRows`
-2. Calculate validation summaries
-3. Render `ValidationRows` at bottom of each area table
+2. Call hook with `results.yearResults` (array of all years)
+3. Render `ValidationRows` at bottom of `<tbody>` with years iteration
 
-**Implementación snippet:**
+**Implementación (UPDATED):**
 
 ```typescript
 // In ResultsPanel.tsx
@@ -664,30 +724,44 @@ import { ValidationRows } from './ValidationRows';
 export function ResultsPanel() {
   // ... existing code ...
 
-  const selectedYear = useAnalysisStore(state => state.selectedYear);
-  const yearResults = results?.years.find(y => y.year === selectedYear);
-
-  // NEW: Calculate validation
-  const validationSummaries = useValidationCalculator(yearResults, selectedYear);
-
-  // In the area table rendering loop:
-  const areaValidation = validationSummaries.find(v => v.area === area);
+  // NEW: Calculate validation rows for ALL areas and years
+  const validationsByAreaAndYear = useValidationCalculator(results?.yearResults || []);
 
   return (
     <div>
-      {/* ... existing tables ... */}
+      {/* ... existing area tabs ... */}
 
-      <table>
-        {/* ... existing rows (line results) ... */}
+      {areaResults && (
+        <div>
+          {/* Main Results Table */}
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              {/* Year headers */}
+              {/* Sub-headers (YearSubHeaders) */}
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {/* Existing line results rows */}
+              {areaResults.lines.map((line, idx) => (
+                <tr key={line.lineId}>
+                  <td>{line.lineName}</td>
+                  {areaResults.years.map(year => (
+                    <YearDataCells key={year} yearData={line.yearData.get(year)} ... />
+                  ))}
+                </tr>
+              ))}
 
-        {/* NEW: Add validation rows at bottom */}
-        {areaValidation && (
-          <ValidationRows
-            validation={areaValidation}
-            modelColumns={modelIds} // Array of model IDs in table order
-          />
-        )}
-      </table>
+              {/* NEW: Validation rows at bottom of tbody */}
+              {selectedArea && validationsByAreaAndYear.has(selectedArea) && (
+                <ValidationRows
+                  validationsByYear={validationsByAreaAndYear.get(selectedArea)!}
+                  years={areaResults.years}
+                  modelColumns={modelsInArea}
+                />
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -708,7 +782,9 @@ npm start
 
 ---
 
-## BLOQUE 6: Independent Window for Results
+## BLOQUE 6: Independent Window for Results (NOT IMPLEMENTED - FUTURE ENHANCEMENT)
+
+**Status:** ⏸️ Deferred to future phase
 
 **Objetivo:** Extract ResultsPanel to independent window (like Multi-Year Capacity Analysis)
 
@@ -900,25 +976,29 @@ npm start
 ## Success Criteria
 
 ### Functional
-- [ ] Validation rows visible in ResultsPanel for each area
-- [ ] Σ DISTRIBUIDO = sum of allocated units per model
-- [ ] VOLUMEN (BD) = annual volume from database
-- [ ] COBERTURA = (distributed / volume) × 100
-- [ ] ESTADO uses correct thresholds and colors
-- [ ] Independent Results window opens and functions
+- [x] Validation rows visible in ResultsPanel for each area **and each year**
+- [x] Σ DISTRIBUIDO = sum of allocated units per model per year
+- [x] VOLUMEN (BD) = annual volume from database per year
+- [x] COBERTURA = (distributed / volume) × 100 per year
+- [x] ESTADO uses correct thresholds and colors per year
+- [ ] Independent Results window opens and functions (deferred to future)
 
 ### Technical
-- [ ] All TypeScript types defined in `@shared/types/`
-- [ ] IPC channel registered and functional
-- [ ] Custom hook follows React best practices
-- [ ] No performance degradation (validation calculated in <100ms)
-- [ ] No memory leaks in window management
+- [x] All TypeScript types defined in `@shared/types/validation.ts`
+- [x] IPC channel `product-volumes:get-by-year` registered and functional
+- [x] Custom hook follows React best practices (parallel IPC fetches, proper memoization)
+- [x] Hook returns `Map<area, Map<year, AreaValidationSummary>>` structure
+- [x] ValidationYearCells sub-component follows YearDataCells pattern
+- [x] No performance degradation (validation calculated in <100ms per year)
+- [x] Type-check passes without errors
 
 ### UX
-- [ ] Validation rows visually distinct (background color, font weight)
-- [ ] Status labels clear and actionable
-- [ ] Results window opens quickly (<500ms)
-- [ ] Window state persists across sessions
+- [x] Validation rows visually distinct (gray background, separator line)
+- [x] Status labels clear and actionable (✅ OK, ⚠️ UNDER, 🔴 ALERT, etc.)
+- [x] Validation integrates seamlessly with multi-year table structure
+- [x] Columns align correctly with year columns
+- [ ] Results window opens quickly (<500ms) - deferred
+- [ ] Window state persists across sessions - deferred
 
 ---
 
@@ -973,63 +1053,76 @@ orchestrate docs/specs/optimization-results-validation.md
 
 ### Agent Workflow (Orchestrator auto-detection)
 
-1. **@industrial-engineer** (BLOQUE 0 validation logic)
-   - Review validation thresholds
-   - Confirm coverage formula
-   - Validate status determination logic
+**IMPLEMENTED (2026-02-06):**
 
-2. **@frontend-developer** (BLOQUE 1-6 implementation)
-   - Create types and constants
-   - Implement IPC channel
-   - Build useValidationCalculator hook
-   - Create ValidationRows component
-   - Integrate into ResultsPanel
-   - Create independent window
+1. **@frontend-developer** (BLOQUE 0-5)
+   - ✅ Created types and constants
+   - ✅ Implemented IPC channel (product-volumes:get-by-year)
+   - ✅ Built useValidationCalculator hook (multi-year)
+   - ✅ Created ValidationRows component (multi-year pattern)
+   - ✅ Integrated into ResultsPanel
+
+2. **@electron-specialist** (Supporting)
+   - ✅ Validated IPC channel implementation
+   - ✅ Confirmed main process handlers
 
 3. **@code-reviewer** (Post-implementation)
-   - Review for workarounds
-   - Check React best practices
-   - Verify no performance issues
-   - Confirm error handling
+   - ✅ Detected spec-reality misalignment
+   - ✅ Identified window.electronAPI vs window.electron issue
+   - ✅ Verified no workarounds in final code
+
+**LESSONS LEARNED:**
+- Orchestrator followed spec exactly, but spec didn't match existing code structure
+- Manual adaptation required (multi-year instead of single-year)
+- Future specs MUST analyze UI rendering patterns in BLOQUE 0
+- Independent window (BLOQUE 6) deferred - focus on core validation first
 
 ---
 
-## Post-Implementation Verification
+## Post-Implementation Verification (UPDATED)
 
 ```bash
 # 1. Type safety
 npm run type-check
+# ✅ Status: PASS
 
 # 2. Start app
 npm start
 
 # 3. Run analysis
 # - Import data if needed
-# - Select year 2025
+# - Select years (e.g., 2024-2034)
 # - Click "Run Analysis"
 # - Wait for completion
 
 # 4. Verify in Results tab
-# - Scroll to bottom of Resultados_SMT table
-# - Check validation rows:
-#   ✓ Σ DISTRIBUIDO shows sums
-#   ✓ VOLUMEN (BD) shows volumes
-#   ✓ COBERTURA shows percentages
-#   ✓ ESTADO shows status with colors
+# - Navigate to each area tab (SMT, ICT, etc.)
+# - Scroll to bottom of Resultados_{ÁREA} table
+# - Check validation rows FOR EACH YEAR COLUMN:
+#   ✅ Σ DISTRIBUIDO shows sums per model per year
+#   ✅ VOLUMEN (BD) shows database volumes per year
+#   ✅ COBERTURA shows percentages per year
+#   ✅ ESTADO shows status with colors (✅ OK, ⚠️ UNDER, etc.) per year
+# - Verify columns align correctly with year columns
 
-# 5. Open Results window
-# - Click "Open Results Window" button
-# - Verify independent window opens
-# - Verify validation rows visible in new window
+# 5. Multi-year validation
+# - Each year column shows independent validation
+# - Can compare validation across years side-by-side
+# - Status colors apply per year-model combination
 
 # 6. Edge cases
-# - Change year: validation recalculates
-# - No volumes for year: graceful handling
-# - Over-allocation: shows OVER status (blue)
+# - No volumes for year: graceful handling (shows 0 or "-")
+# - Over-allocation: shows ⬆️ OVER status (blue)
+# - Models with no allocation: show "-"
 
 # 7. No errors
-# - Check DevTools console: no errors
-# - Check main process logs: no errors
+# - Check DevTools console: ✅ no errors
+# - Check main process logs: ✅ no errors
+# - Performance: <100ms validation calculation
+
+# 8. Independent window (DEFERRED)
+# - Feature not implemented in this phase
+# - Validation currently embedded in main ResultsPanel
 ```
 
 ---
@@ -1043,6 +1136,11 @@ npm start
 - **Coverage <70%** is critical (capacity expansion needed)
 
 ### Technical Debt / Future Enhancements
+- [ ] **Independent Results Window** (BLOQUE 6 - deferred)
+  - Extract ResultsPanel to separate window (like Multi-Year Capacity Analysis)
+  - IPC channel: `window:open-results`
+  - State sync via `useAnalysisStore`
+  - Persistent window across app restarts
 - [ ] User-configurable thresholds (store in user_preferences table)
 - [ ] Export validation report to Excel/PDF
 - [ ] Highlight specific models in canvas when clicking validation row

@@ -8,6 +8,8 @@ import { useState, useMemo } from 'react';
 import { useAnalysisStore } from '../store/useAnalysisStore';
 import { X, BarChart3 } from 'lucide-react';
 import { LineUtilizationResult, OptimizationResult } from '@shared/types';
+import { useValidationCalculator } from '../hooks/useValidationCalculator';
+import { ValidationRows } from './ValidationRows';
 
 // ============================================
 // COLOR SCHEME (matches ValueStreamDashboard)
@@ -51,9 +53,16 @@ interface ResultsPanelProps {
   onViewDashboard?: () => void;
   results?: OptimizationResult;  // Optional - overrides store (for standalone window)
   areaSequences?: { code: string; sequence: number }[];  // Optional area ordering
+  isStandaloneWindow?: boolean;  // If true, render without modal wrapper
 }
 
-export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, areaSequences: propAreaSequences }: ResultsPanelProps) => {
+export const ResultsPanel = ({
+  onClose,
+  onViewDashboard,
+  results: propResults,
+  areaSequences: propAreaSequences,
+  isStandaloneWindow = false
+}: ResultsPanelProps) => {
   const { results: storeResults, resetAnalysis, areaCatalog } = useAnalysisStore();
   // Use prop results if provided, otherwise use store
   const results = propResults || storeResults;
@@ -140,6 +149,9 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, a
     return Array.from(models).sort();
   }, [areaResults]);
 
+  // Calculate validation rows for all areas and years
+  const validationsByAreaAndYear = useValidationCalculator(results?.yearResults || []);
+
   // Auto-select first area
   if (areaGroups.length > 0 && !selectedArea) {
     setSelectedArea(areaGroups[0] ?? null);
@@ -157,9 +169,9 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, a
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[90vh] flex flex-col">
+  // Content component - shared between modal and standalone
+  const content = (
+    <div className={isStandaloneWindow ? "h-screen bg-white flex flex-col" : "bg-white rounded-lg shadow-xl w-[95vw] h-[90vh] flex flex-col"}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
@@ -264,6 +276,14 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, a
                           ))}
                         </tr>
                       ))}
+                      {/* Validation rows */}
+                      {selectedArea && validationsByAreaAndYear.has(selectedArea) && (
+                        <ValidationRows
+                          validationsByYear={validationsByAreaAndYear.get(selectedArea)!}
+                          years={areaResults.years}
+                          modelColumns={modelsInArea}
+                        />
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -418,6 +438,17 @@ export const ResultsPanel = ({ onClose, onViewDashboard, results: propResults, a
           )}
         </div>
       </div>
+  );
+
+  // Standalone window - render content directly without modal wrapper
+  if (isStandaloneWindow) {
+    return content;
+  }
+
+  // Modal mode - wrap content with backdrop
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      {content}
     </div>
   );
 };
