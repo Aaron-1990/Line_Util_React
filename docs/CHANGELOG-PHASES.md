@@ -789,6 +789,146 @@ All features have been recovered as of 2026-02-05. Future migrations should foll
 
 ---
 
+## Phase 7.6: Results Validation & Independent Results Window (2026-02-06)
+
+**Full specifications**:
+- `docs/specs/optimization-results-validation.md`
+- `docs/testing/results-window-manual-test.md`
+
+### Feature 1: Optimization Results Validation
+
+**Implementation Date**: 2026-02-06
+
+Added validation rows to Optimization Results table showing data quality verification:
+- **Σ DISTRIBUIDO**: Sum of allocated units per model per year
+- **VOLUMEN (BD)**: Annual volume from database
+- **COBERTURA**: Coverage percentage (distributed/volume × 100)
+- **ESTADO**: Status with thresholds (OK ≥95%, UNDER 80-95%, ALERT 50-80%, CRITICAL <50%)
+
+**Architecture**:
+```typescript
+// Multi-year validation structure
+Map<area, Map<year, AreaValidationSummary>>
+
+// Hook fetches volumes for ALL years in parallel
+useValidationCalculator(yearResults: YearOptimizationResult[])
+
+// Component renders validation rows following YearDataCells pattern
+<ValidationRows validationsByYear={Map<year, Summary>} />
+  └─> <ValidationYearCells year={year} /> // Sub-component per year
+```
+
+**Spec-Reality Adaptation**:
+- Original spec assumed single-year display with `selectedYear` state
+- Reality: ResultsPanel displays ALL years simultaneously in columns
+- **Solution**: Adapted validation to multi-year structure (Option B)
+- No workarounds, follows established `YearDataCells` pattern
+- Comprehensive POST-MORTEM added to spec explaining architectural decisions
+
+**Key Files**:
+| File | Type | Purpose |
+|------|------|---------|
+| `useValidationCalculator.ts` | Hook | Parallel IPC fetches, Map structure |
+| `ValidationRows.tsx` | Component | Renders validation rows for all years |
+| `validation.ts` | Types | AreaValidationSummary, StatusThreshold |
+| `validation.ts` | Constants | Status thresholds, color mapping |
+| `ResultsPanel.tsx` | Modified | Integration with validation rows |
+
+**BLOQUE 0 Lessons**:
+1. Must analyze existing UI rendering patterns before designing new features
+2. Check if component displays single item vs multiple items
+3. Spec "Alternate Flow" should include "What if existing code structure differs?"
+
+---
+
+### Feature 2: Independent Results Window
+
+**Implementation Date**: 2026-02-06
+
+Converted Optimization Results from CSS modal overlay to independent Electron BrowserWindow with native OS controls (minimize, maximize, close).
+
+**Motivation** (validated by @industrial-engineer + @ux-ui-designer):
+- Engineering workflows benefit from multi-monitor setups
+- Scenario comparison requires multiple windows visible simultaneously
+- Matches CAD/PLM software patterns (modal for parameters, windows for results)
+- Aligns with Toyota Production System: "Visual Management should be persistent and comparable"
+
+**Architecture**:
+```
+Main Window (runs optimization)
+       ↓
+Analysis Handler
+       ├─> Timeline Window (opens first)
+       └─> Results Window (opens +150ms later, cascade positioned)
+           Position: timelineX + 60px, timelineY + 60px
+```
+
+**Window Lifecycle**:
+```typescript
+openOrUpdateResultsWindow(data: ResultsWindowData)
+  ├─> If exists && !destroyed: Send DATA_UPDATED event + focus
+  └─> If not exists: Create new BrowserWindow
+      ├─> Size: 1400×900 (min: 1000×700)
+      ├─> Route: /results-window
+      ├─> Position: Cascade offset from Timeline (+60/+60)
+      └─> on('closed'): Broadcast WINDOW_CLOSED + cleanup
+```
+
+**IPC Channels Added**:
+- `window:open-results` - Open/update Results window
+- `window:get-results-data` - Fetch cached data
+- `window:is-results-open` - Check window state
+- `window:close-results` - Programmatic close
+
+**Events**:
+- `results:data-updated` - New analysis results available
+- `results:window-closed` - Window closed by user
+
+**Cascade Positioning**:
+```typescript
+// 150ms delay ensures Timeline positions first
+await new Promise(resolve => setTimeout(resolve, 150));
+
+// Calculate cascade offset
+if (timelineWindow && !timelineWindow.isDestroyed()) {
+  const [x, y] = timelineWindow.getPosition();
+  resultsWindow.setPosition(x + 60, y + 60); // Visual separation
+}
+```
+
+**Key Files**:
+| File | Changes |
+|------|---------|
+| `ResultsWindowPage.tsx` | New standalone page component |
+| `window.handler.ts` | `openOrUpdateResultsWindow()` + 4 IPC handlers |
+| `analysis.handler.ts` | Auto-open Results after Timeline + 150ms delay |
+| `TimelineWindowPage.tsx` | Remove modal rendering, use IPC for "View Details" |
+| `router/index.tsx` | Add `/results-window` route |
+| `constants/index.ts` | WINDOW_CHANNELS, RESULTS_EVENTS |
+| `ResultsPanel.tsx` | Add `isStandaloneWindow` prop, conditional wrapper |
+
+**Pattern Consistency**:
+- Follows `TimelineWindowPage` pattern exactly
+- Same window lifecycle management
+- Same IPC communication structure
+- Same cleanup mechanisms (null reference, clear cache, broadcast events)
+
+**UX Benefits**:
+- Multi-monitor support (drag to second display)
+- OS-level window management (Exposé, Spaces, Mission Control)
+- Independent positioning and sizing
+- Clear visual separation with cascade effect
+- Persistent results across iterations (future: save window state)
+
+**Testing**:
+Comprehensive manual test plan in `docs/testing/results-window-manual-test.md`:
+- 12 test scenarios covering happy path, updates, resizing, cleanup
+- Multi-monitor support verification
+- Concurrent window operations (Timeline + Results)
+- Error handling and graceful degradation
+
+---
+
 ## Future Enhancements (Schema Only, Not in UI)
 
 These fields are included in database schema for future use:
