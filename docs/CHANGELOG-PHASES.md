@@ -615,6 +615,180 @@ Production lines are now stored as canvas_objects with `object_type='process'`.
 
 ---
 
+## Post-Mortem: Phase 7.5 Canvas Object Unification (2026-02-05)
+
+### Executive Summary
+
+During Phase 7.5, a migration unified `production_lines` into `canvas_objects` and introduced `GenericShapeNode` to render all canvas object types. However, `GenericShapeNode` was created as a **new component from scratch** instead of being derived from the existing `ProductionLineNode`. This resulted in **complete loss of production line functionality** that had been developed over Phases 5-5.6.
+
+### Timeline of Events
+
+| Date | Event |
+|------|-------|
+| 2026-01-27 to 2026-01-30 | Phases 5-5.6: Changeover functionality developed in `ProductionLineNode` |
+| 2026-02-03 | Phase 7.5: Migration 017 created, unifying production_lines → canvas_objects |
+| 2026-02-03 | `GenericShapeNode.tsx` created as new component (not derived from ProductionLineNode) |
+| 2026-02-05 | User reports: "Changeover toggle is gone, stacked bar is gone, data is outside the object" |
+| 2026-02-05 | Root cause identified: GenericShapeNode missing all ProductionLineNode features |
+| 2026-02-05 | Recovery: All features ported from ProductionLineNode to GenericShapeNode |
+
+### Root Cause Analysis
+
+**Primary Cause**: Component replacement without feature parity validation.
+
+When creating `GenericShapeNode.tsx` to handle all object types (rectangle, diamond, circle, process, etc.), the developer:
+1. Started with a clean, minimal SVG-based implementation
+2. Added basic shape rendering and selection handling
+3. **Did NOT** reference `ProductionLineNode.tsx` as the baseline for process objects
+4. **Did NOT** verify feature parity before deprecating ProductionLineNode
+
+**Contributing Factors**:
+1. **No component deprecation checklist** - No process to ensure features are ported before removal
+2. **SVG vs Card layout assumption** - GenericShapeNode used SVG shapes for all types, but process objects needed card-like layouts
+3. **Testing gap** - Functional testing focused on "objects appear on canvas" not "changeover toggle works"
+
+### Features Lost During Migration
+
+| Feature | Phase Added | Recovered? |
+|---------|-------------|------------|
+| Changeover Toggle (Timer/TimerOff icons) | 5.6 | ✅ Yes |
+| Changeover Matrix Button (Settings2 icon) | 5.2 | ✅ Yes |
+| Stacked Utilization Bar (production + changeover + available) | 5.6 | ✅ Yes |
+| Critical Override Indicator (red border when global OFF but line ON) | 5.6.1 | ✅ Yes |
+| Dynamic Border Color (gray/blue/amber/red by utilization) | 5.6 | ✅ Yes |
+| Area Display | 4.x | ✅ Yes |
+| Time Available Display | 4.x | ✅ Yes |
+| Efficiency Display (blended from assignments) | 4.x | ✅ Yes |
+| Assigned Models Count | 4.x | ✅ Yes |
+| Utilization Bar Legend | 5.6 | ✅ Yes |
+| Allocated Pieces Display | NEW | ✅ Added |
+| Operation Days Display | NEW | ✅ Added |
+
+### Recovery Effort
+
+To recover the lost functionality, the following steps were taken:
+
+1. **Read `ProductionLineNode.tsx`** to catalog all features
+2. **Redesigned GenericShapeNode** for process objects:
+   - Added conditional rendering: SVG shapes for geometric objects, card layout for process objects
+   - Card layout with proper sizing (min-w-[200px], min-h-[80px])
+3. **Ported each feature** from ProductionLineNode:
+   - Changeover toggle with Timer/TimerOff icons
+   - Settings2 button for changeover matrix modal
+   - Stacked bar with production (blue) + changeover (amber) + available (gray)
+   - Legend below bar showing percentages
+   - Info section with Area, Time, Efficiency, Models, Pieces, Op Days
+4. **Updated supporting code**:
+   - Added `changeoverExplicit` to ProcessProperties type
+   - Updated IPC handler to persist changeoverExplicit
+   - Updated repository INSERT/UPDATE statements
+   - Updated store for optimistic UI updates with nested properties
+5. **Added new features** (not in original):
+   - Allocated pieces display (daily total)
+   - Operation days display (from optimizer output)
+   - Added `operationsDays` to Python optimizer output
+
+### Technical Details
+
+**GenericShapeNode Architecture After Recovery**:
+
+```tsx
+// Conditional rendering based on object type
+if (objectType === 'process') {
+  // Card-based layout (ported from ProductionLineNode)
+  return (
+    <div className="card-layout">
+      <Header with name, status dot, changeover controls />
+      <StackedUtilizationBar />
+      <Legend showing production% and changeover% />
+      <InfoSection with area, time, efficiency, models, pieces, days />
+    </div>
+  );
+} else {
+  // SVG-based shape rendering (original GenericShapeNode logic)
+  return <SVGShape />;
+}
+```
+
+**Key Files Modified**:
+| File | Changes |
+|------|---------|
+| `GenericShapeNode.tsx` | Complete overhaul for process objects |
+| `canvas-object.ts` | Added `changeoverExplicit` to ProcessProperties |
+| `canvas-objects.handler.ts` | Handle changeoverExplicit in SET_PROCESS_PROPS |
+| `SQLiteCanvasObjectRepository.ts` | Persist changeoverExplicit to database |
+| `useCanvasObjectStore.ts` | Deep merge for optimistic updates |
+| `optimizer.py` | Added `operationsDays` to output |
+| `index.ts` (types) | Added `operationsDays` to YearSummary |
+
+### Lessons Learned
+
+#### 1. Never Replace - Always Extend
+When unifying components, **start from the most feature-complete version** and add polymorphism for new types, rather than creating a new component from scratch.
+
+**Wrong approach**:
+```
+ProductionLineNode.tsx (100 features) → DELETE
+GenericShapeNode.tsx (new, 10 features) → CREATE
+```
+
+**Correct approach**:
+```
+ProductionLineNode.tsx → RENAME to GenericShapeNode.tsx
+GenericShapeNode.tsx → ADD conditional rendering for new object types
+```
+
+#### 2. Component Deprecation Checklist
+Before deprecating/replacing any component, create a checklist of ALL its features:
+- [ ] Visual elements (icons, bars, colors)
+- [ ] Interactive elements (buttons, toggles, click handlers)
+- [ ] Data display fields (info sections)
+- [ ] State connections (store subscriptions)
+- [ ] IPC integrations
+- [ ] Animation/transitions
+
+#### 3. Visual Feature Regression Testing
+After any migration, visually verify:
+- [ ] All UI elements from the old component appear
+- [ ] All interactions work (clicks, toggles, drag)
+- [ ] Data updates correctly after analysis
+- [ ] Multiple selection and bulk operations work
+
+#### 4. Test with Real Data
+The duplicate data issue (4× import causing low utilization) was discovered because:
+- Testing was done with imported data
+- Each import added records instead of replacing
+- 100 unique lines became 400 records
+- Each line got 1/4 of expected demand → artificially low utilization
+
+**Solution**: After migrations, always verify record counts match expected:
+```sql
+SELECT COUNT(*) FROM canvas_objects WHERE object_type='process';
+-- Should match expected line count from source Excel
+```
+
+#### 5. Read Existing Code Before Writing New Code
+The entire recovery effort could have been avoided by:
+1. Opening `ProductionLineNode.tsx` first
+2. Understanding all its features
+3. Using it as the base for `GenericShapeNode.tsx`
+
+This aligns with the CLAUDE.md principle: **"NEVER write new code without reading existing code first"**
+
+### Prevention Measures Added
+
+1. **Updated CLAUDE.md**: Added explicit instruction to read CHANGELOG-PHASES.md before modifying canvas nodes
+2. **Feature Catalog**: This post-mortem serves as a catalog of process object features
+3. **Recovery Documentation**: Detailed steps above allow future developers to understand the full feature set
+
+### Conclusion
+
+The Phase 7.5 migration was technically successful (data migrated correctly, new object types supported), but the **UI component migration failed** due to creating GenericShapeNode from scratch instead of extending ProductionLineNode.
+
+All features have been recovered as of 2026-02-05. Future migrations should follow the "extend, don't replace" principle and use the component deprecation checklist to ensure feature parity.
+
+---
+
 ## Future Enhancements (Schema Only, Not in UI)
 
 These fields are included in database schema for future use:
