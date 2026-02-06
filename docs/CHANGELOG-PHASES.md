@@ -521,22 +521,97 @@ Production lines are now stored as canvas_objects with `object_type='process'`.
    - UI now shows: Created | Updated | Unchanged | Errors
    - Each entity type compares relevant fields before deciding to update
 
-### 🚧 PENDING ISSUES (For Next Session)
+### Bug Fixes (2026-02-05)
 
-1. **Optimization Results - Zero Total Pieces**
-   - Most years showing 0 total pieces in optimization results
-   - Need to investigate if distribution code was modified
-   - Check `DataExporter.ts` and `optimizer.py`
+1. **✅ FIXED: Missing Changeover Controls on GenericShapeNode**
+   - **Problem**: When Phase 7.5 unified all nodes to use `GenericShapeNode`, the changeover controls from `ProductionLineNode` were not ported
+   - **Root Cause**: `GenericShapeNode.tsx` was created as a new component without the changeover functionality that existed in `ProductionLineNode.tsx`
+   - **Solution**: Ported complete changeover functionality from ProductionLineNode:
+     - Added Timer/TimerOff icons for changeover toggle
+     - Added Settings2 button for changeover matrix modal
+     - Added per-object changeover toggle with critical override support
+     - Added stacked utilization bar (production + changeover + available)
+     - Added dynamic border color based on utilization
+     - Added `changeoverExplicit` field to ProcessProperties type
+     - Updated IPC handler and repository to support changeoverExplicit
+     - Updated store optimistic update for nested processProperties
+   - **Files Modified**:
+     - `src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx`
+     - `src/shared/types/canvas-object.ts`
+     - `src/main/ipc/handlers/canvas-objects.handler.ts`
+     - `src/main/database/repositories/SQLiteCanvasObjectRepository.ts`
+     - `src/renderer/features/canvas/store/useCanvasObjectStore.ts`
 
-2. **Missing Changeover Clock Icon**
-   - Clock symbol (🕐) not visible on canvas objects
-   - Should open changeover menu on click
-   - Check `GenericShapeNode.tsx` changeover button rendering
+2. **✅ VERIFIED: Database Migration 017 Complete**
+   - Verified 400 process objects with matching process_properties
+   - Verified 0 orphan objects (all have properties)
+   - Verified volumes exist (years 2024-2034)
+   - Verified 3408 compatibilities
+   - The "Zero Total Pieces" issue was likely transient or cache-related
 
-3. **Missing Changeover Toggle Button**
-   - Button to enable/disable changeover per object not visible
-   - Was previously on production line nodes
-   - Check `GenericShapeNode.tsx` or `UnifiedPropertiesPanel.tsx`
+3. **✅ FIXED: Process Object Layout - Elements Outside Bounds**
+   - **Problem**: User reported "la barra queda fuera del objeto" - utilization bar and data were rendered outside the object bounds
+   - **Root Cause**: GenericShapeNode was using SVG-based shape rendering which didn't accommodate the stacked bar and changeover controls properly for process objects
+   - **Solution**: Redesigned GenericShapeNode to use a card-like layout (similar to the original ProductionLineNode) specifically for process objects:
+     - Card layout with `min-w-[200px]` and `min-h-[80px]`
+     - Header with name, status dot, and changeover toggle/matrix buttons
+     - Stacked utilization bar (blue for production, amber for changeover) inside the card
+     - Legend showing production % and changeover % when applicable
+     - Dynamic border color based on utilization thresholds
+     - Non-process objects continue to use shape-based SVG rendering
+   - **Files Modified**:
+     - `src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx`
+
+4. **✅ FIXED: Missing Info Fields in Process Objects**
+   - **Problem**: Process objects were missing info fields that were displayed in the original ProductionLineNode
+   - **Root Cause**: When porting functionality from ProductionLineNode to GenericShapeNode, some display fields were omitted
+   - **Solution**: Added complete info section matching ProductionLineNode:
+     - **Area**: from processProperties.area
+     - **Time**: calculated from processProperties.timeAvailableDaily (displayed as hours/day)
+     - **Efficiency**: blended efficiency calculated from analysis results (weighted average of assigned model efficiencies)
+     - **Models**: count of assigned models from analysis results (with separator, shown only when > 0)
+   - **Files Modified**:
+     - `src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx`
+
+5. **✅ FIXED: Efficiency Display Showing Wrong Value (×100)**
+   - **Problem**: Efficiency was showing as thousands (e.g., 8500%) instead of correct percentage (85%)
+   - **Root Cause**: Code was multiplying efficiency by 100, but the value from optimizer is already a percentage
+   - **Solution**: Removed the `* 100` multiplication in efficiencyDisplay calculation
+   - **Files Modified**:
+     - `src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx`
+
+6. **✅ ADDED: Allocated Pieces & Operation Days Display**
+   - Added two new fields to process objects after analysis:
+     - **Pieces**: Total allocated units per day for the line (sum of all model assignments)
+     - **Op Days**: Operation days used for yearly calculations (from optimizer output)
+   - Added `operationsDays` to optimizer output summary
+   - Added `operationsDays` to TypeScript `YearSummary` interface
+   - **Files Modified**:
+     - `src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx`
+     - `Optimizer/optimizer.py`
+     - `src/shared/types/index.ts`
+
+7. **✅ REMOVED: Confusing Average Utilization from Run Button**
+   - **Problem**: "Analysis Complete (28%)" showed average across ALL years, which was misleading
+   - **Solution**: Simplified to just "Analysis Complete" without the percentage
+   - **Files Modified**:
+     - `src/renderer/features/analysis/components/RunAnalysisButton.tsx`
+
+8. **✅ ADDED: Escape Key to Deselect (AutoCAD-style)**
+   - Pressing **Escape** now clears all selected objects on the canvas
+   - Works with:
+     - Single object selection (click)
+     - Multiple selection via box drag
+     - Multiple selection via Cmd+click
+   - Clears both internal stores and ReactFlow's selection state
+   - **Files Modified**:
+     - `src/renderer/features/canvas/ProductionCanvas.tsx`
+
+9. **✅ FIXED: Duplicate Data Causing Low Utilization**
+   - **Problem**: Analysis showed very low utilization (7-20% instead of expected 30-80%)
+   - **Root Cause**: Data was imported 4 times, creating 400 lines from 100 unique lines. Each line got only 1/4 of expected demand.
+   - **Solution**: Cleaned database and re-imported fresh data from Excel
+   - **Lesson Learned**: During migration testing, always verify data isn't duplicated
 
 ---
 

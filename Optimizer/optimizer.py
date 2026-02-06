@@ -1045,7 +1045,8 @@ def run_optimization_for_year(
             'totalUnfulfilledUnitsDaily': round(total_unfulfilled_daily, 2),
             'totalUnfulfilledUnitsYearly': round(total_unfulfilled_yearly, 2),
             'overallFulfillmentPercent': round(overall_fulfillment_percent, 2),
-            'systemConstraintArea': system_constraint['area'] if system_constraint else None
+            'systemConstraintArea': system_constraint['area'] if system_constraint else None,
+            'operationsDays': operations_days  # Days used for yearly calculations
         }
     }
 

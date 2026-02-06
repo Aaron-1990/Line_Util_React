@@ -807,6 +807,7 @@ export interface YearSummary {
   totalUnfulfilledUnitsYearly: number;
   overallFulfillmentPercent: number;
   systemConstraintArea: string | null;
+  operationsDays?: number;  // Days used for yearly calculations
 }
 
 /**

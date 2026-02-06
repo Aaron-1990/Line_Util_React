@@ -13,7 +13,6 @@ export const RunAnalysisButton = () => {
     progress,
     selectedYearsCount,
     analysisError,
-    results,
     runOptimization,
     resetAnalysis,
   } = useAnalysisStore();
@@ -71,13 +70,9 @@ export const RunAnalysisButton = () => {
         <button
           onClick={handleClick}
           className="flex items-center gap-2 px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-lg hover:bg-green-700 dark:hover:bg-green-600 transition-colors shadow-sm"
-          title={results ? `Avg. utilization: ${results.overallSummary.averageUtilizationAllYears}%` : ''}
         >
           <CheckCircle2 className="w-4 h-4" />
-          <span>
-            Analysis Complete
-            {results && ` (${results.overallSummary.averageUtilizationAllYears}%)`}
-          </span>
+          <span>Analysis Complete</span>
           <RotateCcw className="w-3 h-3 ml-1 opacity-70" />
         </button>
       );

@@ -488,6 +488,7 @@ export function registerCanvasObjectHandlers(): void {
         timeAvailableDaily?: number;
         lineType?: 'shared' | 'dedicated';
         changeoverEnabled?: boolean;
+        changeoverExplicit?: boolean;  // Phase 5.6.1: True if user explicitly set toggle
       }
     ): Promise<ApiResponse<ProcessProperties>> => {
       try {

@@ -74,7 +74,7 @@ export class SQLiteCanvasObjectRepository {
     };
   }
 
-  private mapProcessPropertiesRowToEntity(row: ProcessPropertiesRow): ProcessProperties {
+  private mapProcessPropertiesRowToEntity(row: ProcessPropertiesRow & { changeover_explicit?: number }): ProcessProperties {
     return {
       id: row.id,
       canvasObjectId: row.canvas_object_id,
@@ -82,6 +82,7 @@ export class SQLiteCanvasObjectRepository {
       timeAvailableDaily: row.time_available_daily,
       lineType: row.line_type as 'shared' | 'dedicated',
       changeoverEnabled: Boolean(row.changeover_enabled),
+      changeoverExplicit: Boolean(row.changeover_explicit),  // Phase 5.6.1
     };
   }
 
@@ -760,8 +761,8 @@ export class SQLiteCanvasObjectRepository {
         .prepare(`
           INSERT INTO process_properties (
             id, canvas_object_id, area, time_available_daily,
-            line_type, changeover_enabled, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            line_type, changeover_enabled, changeover_explicit, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `)
         .run(
           id,
@@ -770,6 +771,7 @@ export class SQLiteCanvasObjectRepository {
           props.timeAvailableDaily ?? 72000,  // 20 hours default
           props.lineType ?? 'shared',
           props.changeoverEnabled !== false ? 1 : 0,
+          props.changeoverExplicit ? 1 : 0,  // Phase 5.6.1
           now,
           now
         );
@@ -802,6 +804,10 @@ export class SQLiteCanvasObjectRepository {
       if (props.changeoverEnabled !== undefined) {
         updates.push('changeover_enabled = ?');
         params.push(props.changeoverEnabled ? 1 : 0);
+      }
+      if (props.changeoverExplicit !== undefined) {
+        updates.push('changeover_explicit = ?');
+        params.push(props.changeoverExplicit ? 1 : 0);
       }
 
       if (updates.length > 0) {

@@ -87,6 +87,7 @@ export interface ProcessProperties {
   timeAvailableDaily: number;      // Seconds (same as production_lines)
   lineType: 'shared' | 'dedicated';
   changeoverEnabled: boolean;
+  changeoverExplicit?: boolean;    // Phase 5.6.1: True if user explicitly set toggle
 }
 
 /**
@@ -97,6 +98,7 @@ export interface UpdateProcessPropertiesInput {
   timeAvailableDaily?: number;
   lineType?: 'shared' | 'dedicated';
   changeoverEnabled?: boolean;
+  changeoverExplicit?: boolean;    // Phase 5.6.1: True if user explicitly set toggle
 }
 
 /**
@@ -157,6 +159,8 @@ export interface UpdateCanvasObjectInput {
   locked?: boolean;
   zIndex?: number;
   objectType?: CanvasObjectType;
+  // Phase 7.5+: Process properties for optimistic updates
+  processProperties?: Partial<ProcessProperties>;
 }
 
 /**

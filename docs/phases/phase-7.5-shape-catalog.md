@@ -668,6 +668,8 @@ async function importImage(imagePath: string): Promise<ShapeDefinition> {
 | **MiniMap dynamic positioning** | 2026-02-03 | Shifts left when properties panel is open |
 | **Grid layout for AnalysisControlBar** | 2026-02-03 | Panel no longer overlaps control bar |
 | **Tailwind slide-in animation** | 2026-02-03 | Smooth panel entrance animation |
+| **GenericShapeNode Changeover Controls** | 2026-02-05 | Ported from ProductionLineNode: toggle, matrix button, stacked bar |
+| **changeoverExplicit in ProcessProperties** | 2026-02-05 | Added to type, handler, repository for critical override support |
 
 ### Próximos Pasos 🚧
 
@@ -686,6 +688,7 @@ async function importImage(imagePath: string): Promise<ShapeDefinition> {
 | VIEW v_process_objects_with_lines | Fixed | Migración 014 arregló referencia a columna incorrecta |
 | ProductionLineNode vs GenericShapeNode IDs | Info | ProductionLineNode usa IDs de `production_lines`, GenericShapeNode usa IDs de `canvas_objects`. Migración 014 quitó FK constraint para permitir conexiones mixtas. |
 | LinePropertiesPanel / ObjectPropertiesPanel | Deprecated | Replaced by UnifiedPropertiesPanel, old files kept for reference |
+| **Missing Changeover Controls** | **Fixed** | 2026-02-05: Ported changeover toggle, matrix button, and stacked bar from ProductionLineNode to GenericShapeNode |
 
 ---
 

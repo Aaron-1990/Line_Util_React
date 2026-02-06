@@ -309,17 +309,34 @@ const CanvasInner = () => {
     };
   }, [isPanMode]);
 
-  // Delete key handler for selected objects
+  // Keyboard handler for selected objects (Delete, Escape)
   // Note: We get current state directly from stores to avoid stale closure issues
   useEffect(() => {
     const handleKeyDown = async (event: KeyboardEvent) => {
+      // Don't handle if user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Escape key - clear selection (AutoCAD-style)
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        // Clear our stores
+        useToolStore.getState().clearSelection();
+        useCanvasStore.getState().setSelectedNode(null);
+        // Also clear ReactFlow's internal selection by updating all nodes
+        const currentNodes = useCanvasStore.getState().nodes;
+        const deselectedNodes = currentNodes.map(node => ({
+          ...node,
+          selected: false,
+        }));
+        useCanvasStore.getState().setNodes(deselectedNodes);
+        return;
+      }
+
       // Check for Delete or Backspace key (Mac uses Backspace for Delete)
       if (event.key === 'Delete' || event.key === 'Backspace') {
-        // Don't delete if user is typing in an input field
-        const target = event.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
-          return;
-        }
 
         // Get CURRENT state directly from stores to avoid stale closure
         const currentSelectedNode = useCanvasStore.getState().selectedNode;

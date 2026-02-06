@@ -173,11 +173,27 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
     const existingObject = objects.find((obj) => obj.id === objectId);
     if (!existingObject) return;
 
-    // Optimistic update
+    // Optimistic update - handle nested processProperties merge
     set({
-      objects: objects.map((obj) =>
-        obj.id === objectId ? { ...obj, ...input } : obj
-      ),
+      objects: objects.map((obj) => {
+        if (obj.id !== objectId) return obj;
+
+        // Extract processProperties from input to handle separately
+        const { processProperties: inputProps, ...restInput } = input;
+
+        // Start with base object and simple fields
+        const updatedObj = { ...obj, ...restInput };
+
+        // Deep merge for processProperties (keep all required fields from original)
+        if (inputProps && obj.processProperties) {
+          updatedObj.processProperties = {
+            ...obj.processProperties,
+            ...inputProps,
+          } as typeof obj.processProperties;
+        }
+
+        return updatedObj;
+      }),
     });
 
     try {
