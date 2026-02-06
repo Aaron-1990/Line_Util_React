@@ -62,6 +62,24 @@ This project follows the global development framework. Key principles:
 
 ---
 
+## Documentation Structure
+
+Understanding where to find project documentation:
+
+| Purpose | Location | Description |
+|---------|----------|-------------|
+| **Phase Index** | `docs/CHANGELOG-PHASES.md` | Brief summary of completed phases + references |
+| **Phase Details** | `docs/phases/phase-X.md` | Full implementation docs for completed phases |
+| **Feature Specs** | `docs/specs/` | Specifications for features TO BE implemented |
+| **Testing Guides** | `docs/testing/` | Manual test procedures and validation |
+
+**Navigation Pattern**:
+1. Need context on existing feature? → Read `CHANGELOG-PHASES.md` (index) → Follow reference to `docs/phases/phase-X.md` (details)
+2. Implementing new feature? → Read spec from `docs/specs/feature-name.md`
+3. Testing feature? → Read guide from `docs/testing/feature-test.md`
+
+---
+
 ## Tech Stack
 
 ```
