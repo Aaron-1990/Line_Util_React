@@ -408,3 +408,30 @@ export const CANVAS_OBJECT_COMPATIBILITY_CHANNELS = {
   UPDATE: 'canvas-object-compatibility:update',
   DELETE: 'canvas-object-compatibility:delete',
 } as const;
+
+// Project Files (Phase 8.0: Project Files Foundation)
+export const PROJECT_CHANNELS = {
+  // Project lifecycle
+  NEW: 'project:new',
+  OPEN: 'project:open',
+  SAVE: 'project:save',
+  SAVE_AS: 'project:save-as',
+  CLOSE: 'project:close',
+
+  // Project state queries
+  GET_INFO: 'project:get-info',
+  GET_RECENT: 'project:get-recent',
+  HAS_UNSAVED_CHANGES: 'project:has-unsaved-changes',
+
+  // Metadata operations
+  UPDATE_METADATA: 'project:update-metadata',
+} as const;
+
+// Project Events (Phase 8.0: Project Files Foundation)
+// These are events sent from main to renderer (not invoke channels)
+export const PROJECT_EVENTS = {
+  PROJECT_OPENED: 'project:opened',
+  PROJECT_SAVED: 'project:saved',
+  PROJECT_CLOSED: 'project:closed',
+  PROJECT_MODIFIED: 'project:modified', // User made changes
+} as const;

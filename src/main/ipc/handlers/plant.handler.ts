@@ -10,9 +10,6 @@ import DatabaseConnection from '../../database/connection';
 import { SQLitePlantRepository } from '../../database/repositories/SQLitePlantRepository';
 
 export function registerPlantHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const plantRepository = new SQLitePlantRepository(db);
-
   // ============================================
   // GET ALL PLANTS
   // ============================================
@@ -22,6 +19,7 @@ export function registerPlantHandlers(): void {
     async (): Promise<ApiResponse<Plant[]>> => {
       try {
         console.log('[Plant Handler] Getting all plants');
+        const plantRepository = new SQLitePlantRepository(DatabaseConnection.getInstance());
         const plants = await plantRepository.findAll();
         return { success: true, data: plants };
       } catch (error) {
@@ -48,6 +46,7 @@ export function registerPlantHandlers(): void {
           return { success: false, error: 'Missing plant ID' };
         }
 
+        const plantRepository = new SQLitePlantRepository(DatabaseConnection.getInstance());
         const plant = await plantRepository.findById(id);
         return { success: true, data: plant };
       } catch (error) {
@@ -69,6 +68,7 @@ export function registerPlantHandlers(): void {
     async (): Promise<ApiResponse<Plant | null>> => {
       try {
         console.log('[Plant Handler] Getting default plant');
+        const plantRepository = new SQLitePlantRepository(DatabaseConnection.getInstance());
         const plant = await plantRepository.getDefault();
         return { success: true, data: plant };
       } catch (error) {
@@ -103,6 +103,7 @@ export function registerPlantHandlers(): void {
           };
         }
 
+        const plantRepository = new SQLitePlantRepository(DatabaseConnection.getInstance());
         const plant = await plantRepository.create({
           ...input,
           code: input.code.toUpperCase(), // Normalize to uppercase
@@ -147,6 +148,7 @@ export function registerPlantHandlers(): void {
           ? { ...input, code: input.code.toUpperCase() }
           : input;
 
+        const plantRepository = new SQLitePlantRepository(DatabaseConnection.getInstance());
         const plant = await plantRepository.update(id, normalizedInput);
         return { success: true, data: plant };
       } catch (error) {
@@ -174,6 +176,7 @@ export function registerPlantHandlers(): void {
           return { success: false, error: 'Missing plant ID' };
         }
 
+        const plantRepository = new SQLitePlantRepository(DatabaseConnection.getInstance());
         await plantRepository.delete(id);
         return { success: true, data: undefined };
       } catch (error) {
@@ -201,6 +204,7 @@ export function registerPlantHandlers(): void {
           return { success: false, error: 'Missing plant ID' };
         }
 
+        const plantRepository = new SQLitePlantRepository(DatabaseConnection.getInstance());
         const plant = await plantRepository.setDefault(id);
         return { success: true, data: plant };
       } catch (error) {

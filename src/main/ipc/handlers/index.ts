@@ -21,8 +21,10 @@ import { registerPlantHandlers } from './plant.handler';
 import { registerShapeCatalogHandlers } from './shape-catalog.handler';
 import { registerCanvasObjectHandlers } from './canvas-objects.handler';
 import { registerCanvasObjectCompatibilityHandlers } from './canvas-object-compatibility.handler';
+import { registerProjectHandlers } from './project.handler';
+import { BrowserWindow } from 'electron';
 
-export function registerAllHandlers(): void {
+export function registerAllHandlers(mainWindow?: BrowserWindow): void {
   console.log('Registering IPC handlers...');
 
   registerProductionLinesHandlers();
@@ -43,6 +45,11 @@ export function registerAllHandlers(): void {
   registerShapeCatalogHandlers();
   registerCanvasObjectHandlers();
   registerCanvasObjectCompatibilityHandlers();
+
+  // Project handlers require main window for dialogs
+  if (mainWindow) {
+    registerProjectHandlers(mainWindow);
+  }
 
   console.log('IPC handlers registered successfully');
 }

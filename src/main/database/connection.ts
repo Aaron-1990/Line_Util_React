@@ -64,6 +64,34 @@ class DatabaseConnection {
   static getPath(): string | null {
     return DatabaseConnection.dbPath;
   }
+
+  /**
+   * Configure pragmas for a database instance.
+   * Should be called on any newly opened database.
+   */
+  static configurePragmas(db: Database.Database): void {
+    db.pragma('foreign_keys = ON');
+    db.pragma('journal_mode = WAL');
+  }
+
+  /**
+   * Replace the current database instance with a new one.
+   * Used when opening a project file (.lop).
+   * @param newDb New database instance
+   */
+  static replaceInstance(newDb: Database.Database): void {
+    // Close old instance if exists
+    if (DatabaseConnection.instance) {
+      DatabaseConnection.instance.close();
+    }
+
+    // Configure pragmas for the new instance
+    DatabaseConnection.configurePragmas(newDb);
+
+    // Set new instance
+    DatabaseConnection.instance = newDb;
+    console.log('Database instance replaced');
+  }
 }
 
 export default DatabaseConnection;

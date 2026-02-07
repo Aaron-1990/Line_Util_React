@@ -886,3 +886,6 @@ export * from './canvas-tool';
 
 // Re-export all validation types from dedicated module (Optimization Results Validation)
 export * from './validation';
+
+// Re-export all project types from dedicated module (Phase 8.0: Project Files Foundation)
+export * from './project';

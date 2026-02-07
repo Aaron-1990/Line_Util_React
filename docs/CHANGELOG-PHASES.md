@@ -5,6 +5,92 @@
 
 ---
 
+## Phase 8.0: Project Files Foundation (2026-02-07)
+
+**Status:** ✅ Completed with critical bug fixes
+**Specification:** `docs/specs/phase-8.0-project-files.md`
+**Troubleshooting Doc:** `docs/troubleshooting/phase-8-database-instance-references.md`
+
+### What Was Implemented
+
+- [x] Project file format (.lop) using SQLite backup API
+- [x] File menu (New, Open, Save, Save As)
+- [x] Keyboard shortcuts (Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S)
+- [x] Project metadata (version, name, timestamps)
+- [x] Version checking and migration on file open
+- [x] Unsaved changes detection
+- [x] Project state management (Zustand store)
+
+### Critical Bugs Fixed (3 hours debugging)
+
+**Root Cause:** Database instance references were captured at handler registration time instead of obtained dynamically, causing handlers to use closed/stale DB instances after `replaceInstance()` calls.
+
+1. **Save failed** - SQL error "no such column: now" in metadata update
+2. **New Project failed** - FK constraint errors when clearing tables
+3. **Open showed wrong name** - Handlers used stale DB reference
+4. **Save As didn't update name** - DB instance not replaced after save
+5. **Missing pragmas** - New DB instances lacked FK/WAL configuration
+6. **Repository errors** - Plant handlers used closed DB connections
+7. **New destroyed saved file** - Cleared .lop file instead of line-optimizer.db
+8. **Object destroyed errors** - Events sent to destroyed windows
+9. **No visual feedback** - No loading states or success confirmations
+10. **TypeScript errors** - Missing imports, null checks, type assertions
+
+### Solution Pattern
+
+**BEFORE (❌ BROKEN):**
+```typescript
+export function registerHandlers(): void {
+  const db = DatabaseConnection.getInstance(); // Captured once
+  ipcMain.handle('operation', () => repo.method()); // Uses stale db
+}
+```
+
+**AFTER (✅ FIXED):**
+```typescript
+export function registerHandlers(): void {
+  ipcMain.handle('operation', () => {
+    const repo = new Repo(DatabaseConnection.getInstance()); // Dynamic
+    return repo.method();
+  });
+}
+```
+
+### Files Modified
+
+**Backend:**
+- `src/main/database/connection.ts` - Added `configurePragmas()`
+- `src/main/database/helpers/ProjectMetadataHelper.ts` - Fixed SQL
+- `src/main/services/project/ProjectFileService.ts` - Multiple fixes
+- `src/main/services/project/VersionChecker.ts` - Type safety
+- `src/main/ipc/handlers/project.handler.ts` - Dynamic getInstance()
+- `src/main/ipc/handlers/plant.handler.ts` - Dynamic getInstance()
+
+**Frontend:**
+- `src/renderer/store/useProjectStore.ts` - Added isProcessing + feedback
+
+### ⚠️ Known Issues
+
+**CRITICAL:** All other handlers (models, volumes, compatibility, changeover, routing, canvas, shapes) likely have the same bug and need the same fix applied. They have NOT been audited yet.
+
+### Lessons Learned
+
+1. **Never capture references to mutable resources** - Always get fresh instance
+2. **Configure pragmas on all new DB instances** - FK + WAL required
+3. **Protect against destroyed windows** - Check `isDestroyed()` before events
+4. **Prevent concurrent operations** - Use `isProcessing` flags
+5. **Always provide visual feedback** - Loading states + success messages
+
+### Next Steps
+
+- [ ] Audit and fix all remaining handlers (high priority)
+- [ ] Add automated tests for Save/Open/New cycle
+- [ ] Replace alert() with proper toast notifications
+- [ ] Implement "Close Project" menu item
+- [ ] Add "Recent Projects" list
+
+---
+
 ## Phase 4.2: Multi-Window Results
 
 - [x] Dedicated line bottleneck detection (constraintType, constrainedLines)

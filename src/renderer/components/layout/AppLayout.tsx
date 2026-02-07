@@ -6,9 +6,12 @@
 
 import { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
+import { FileMenu } from './FileMenu';
 import { useNavigationStore } from '../../store/useNavigationStore';
 import { useApplyTheme } from '../../hooks/useApplyTheme';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { usePlantStore } from '../../features/plants';
+import { useProjectStore } from '../../store/useProjectStore';
 import { ProductionCanvas } from '../../features/canvas';
 import { ModelsPage } from '../../pages/ModelsPage';
 import { RoutingsPage } from '../../pages/RoutingsPage';
@@ -26,9 +29,13 @@ import { GlobalAnalysisPage } from '../../pages/GlobalAnalysisPage';
 export const AppLayout = () => {
   const { currentView } = useNavigationStore();
   const { initialize: initializePlants, isInitialized: plantsInitialized } = usePlantStore();
+  const { refreshProjectInfo } = useProjectStore();
 
   // Apply theme to document
   useApplyTheme();
+
+  // Enable keyboard shortcuts
+  useKeyboardShortcuts();
 
   // Initialize plant store on app startup
   useEffect(() => {
@@ -36,6 +43,11 @@ export const AppLayout = () => {
       initializePlants();
     }
   }, [initializePlants, plantsInitialized]);
+
+  // Initialize project info on app startup
+  useEffect(() => {
+    refreshProjectInfo();
+  }, [refreshProjectInfo]);
 
   // Render view based on current selection with exhaustive type checking
   const renderView = () => {
@@ -64,14 +76,19 @@ export const AppLayout = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-gray-50 dark:bg-gray-950 transition-colors duration-150">
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 transition-colors duration-150">
+      {/* File Menu Bar */}
+      <FileMenu />
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden" role="main">
-        {renderView()}
-      </main>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar />
+
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col overflow-hidden" role="main">
+          {renderView()}
+        </main>
+      </div>
     </div>
   );
 };
