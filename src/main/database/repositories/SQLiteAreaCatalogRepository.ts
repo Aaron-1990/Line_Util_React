@@ -121,7 +121,7 @@ export class SQLiteAreaCatalogRepository implements IAreaCatalogRepository {
   }
 
   async existsByCode(code: string, excludeId?: string): Promise<boolean> {
-    let query = 'SELECT 1 FROM area_catalog WHERE LOWER(code) = LOWER(?)';
+    let query = 'SELECT 1 FROM area_catalog WHERE LOWER(code) = LOWER(?) AND active = 1';
     const params: unknown[] = [code];
 
     if (excludeId) {

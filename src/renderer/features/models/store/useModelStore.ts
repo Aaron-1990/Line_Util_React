@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { IProductModelV2, IProductVolume } from '@domain/entities';
 import { MODELS_V2_CHANNELS, PRODUCT_VOLUME_CHANNELS } from '@shared/constants';
+import { useProjectStore } from '../../../store/useProjectStore';
 
 // ===== Types =====
 
@@ -77,6 +78,12 @@ interface ModelState {
   getUniqueFamilies: () => string[];
   getVolumesForModel: (modelId: string) => IProductVolume[];
 }
+
+// ===== Helper: Mark Unsaved Changes =====
+
+const markProjectUnsaved = () => {
+  useProjectStore.getState().markUnsavedChanges();
+};
 
 // ===== Store =====
 
@@ -174,6 +181,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
         // Reload models to get the new one
         await get().loadModels();
         set({ isModelFormOpen: false, editingModel: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to create model' });
       }
@@ -199,6 +207,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
         // Reload models to get the updated one
         await get().loadModels();
         set({ isModelFormOpen: false, editingModel: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to update model' });
       }
@@ -223,6 +232,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
       if (response.success) {
         // Reload models
         await get().loadModels();
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to delete model' });
       }
@@ -250,6 +260,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
         // Reload volumes for this model
         await get().loadVolumesForModel(data.modelId);
         set({ isVolumeFormOpen: false, editingVolume: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to create volume' });
       }
@@ -276,6 +287,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
         const modelId = response.data.modelId;
         await get().loadVolumesForModel(modelId);
         set({ isVolumeFormOpen: false, editingVolume: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to update volume' });
       }
@@ -311,6 +323,7 @@ export const useModelStore = create<ModelState>((set, get) => ({
       if (response.success && modelId) {
         // Reload volumes for this model
         await get().loadVolumesForModel(modelId);
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to delete volume' });
       }

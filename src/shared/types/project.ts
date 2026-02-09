@@ -3,6 +3,70 @@
 // Contracts for .lop file management and version control
 // ============================================
 
+// ============================================
+// UNTITLED PROJECT WORKFLOW TYPES
+// Added for Excel-like save prompt behavior
+// ============================================
+
+/**
+ * Project type distinguishes between temporary and saved projects.
+ *
+ * @description
+ * - 'untitled': New project, not saved to .lop file. Uses global DB as workspace.
+ *               On close, prompts "Save changes?" with Save As/Don't Save/Cancel.
+ *               "Don't Save" clears DB for fresh start next time.
+ *
+ * - 'saved': Project opened from or saved to .lop file.
+ *            Changes auto-save to DB silently (no prompt on close).
+ *            User can File > Save to export DB back to .lop at any time.
+ */
+export type ProjectType = 'untitled' | 'saved';
+
+/**
+ * Result of the native save prompt dialog.
+ *
+ * Shown when closing app with unsaved changes in Untitled Project.
+ * Dialog has 3 buttons: "Save As...", "Don't Save", "Cancel"
+ */
+export type SaveDialogResult = 'save' | 'dont-save' | 'cancel';
+
+/**
+ * Extended project state for Untitled Project workflow.
+ *
+ * Extends the existing ProjectState with project type tracking.
+ * Used by renderer to know whether to show save prompts.
+ */
+export interface UntitledProjectState {
+  /** Project type: 'untitled' (temporary) or 'saved' (persistent) */
+  projectType: ProjectType;
+
+  /** Path to .lop file (null for untitled, path for saved) */
+  projectFilePath: string | null;
+
+  /** True if changes made since last save/open */
+  hasUnsavedChanges: boolean;
+
+  /** Timestamp of last save (null if never saved) */
+  lastSavedAt: string | null;
+}
+
+/**
+ * Request to notify main process of data modification.
+ *
+ * Called by stores after successful CRUD operations.
+ * Main process uses this to track unsaved changes.
+ */
+export interface MarkModifiedRequest {
+  /** Source store that made the change (for debugging/logging) */
+  source: string;
+
+  /** Type of operation that caused the change */
+  operation: 'create' | 'update' | 'delete' | 'import';
+
+  /** Optional entity type affected */
+  entityType?: string;
+}
+
 /**
  * Project metadata stored in every .lop file.
  * This metadata is stored in the project_metadata table (key-value pairs).

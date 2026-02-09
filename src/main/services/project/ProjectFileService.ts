@@ -228,21 +228,59 @@ export class ProjectFileService {
     sourceDb: Database.Database,
     mainWindow: BrowserWindow
   ): Promise<boolean> {
+    // Pre-sanitize default filename to prevent common errors
+    const currentName = this.currentFilePath
+      ? path.basename(this.currentFilePath, '.lop')
+      : 'Untitled Project';
+
+    // Sanitize the current name (in case it has dots or invalid chars)
+    const tempPath = path.join(
+      app.getPath('documents'),
+      currentName + '.lop'
+    );
+    const sanitizedDefaultPath = this.sanitizeFilePath(tempPath);
+
     // Show save dialog
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Save Project As',
-      defaultPath: this.currentFilePath || 'Untitled Project.lop',
+      defaultPath: sanitizedDefaultPath,
       filters: [
         { name: 'Line Optimizer Project', extensions: ['lop'] },
         { name: 'All Files', extensions: ['*'] }
-      ]
+      ],
+      message: 'Avoid dots (.) and special characters in filenames.' // macOS only
     });
 
     if (result.canceled || !result.filePath) {
-      return false; // User cancelled
+      return false;
     }
 
-    const savePath = result.filePath;
+    // Post-validate: Sanitize user input
+    const requestedPath = result.filePath;
+    const sanitizedPath = this.sanitizeFilePath(requestedPath);
+
+    // If path changed, confirm with user
+    if (sanitizedPath !== requestedPath) {
+      const choice = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Invalid Filename',
+        message: 'The filename contains invalid characters.',
+        detail:
+          `Requested: ${path.basename(requestedPath)}\n` +
+          `Will save as: ${path.basename(sanitizedPath)}\n\n` +
+          `Tip: Avoid dots (.) and special characters (<>:"/\\|?*) in filenames.`,
+        buttons: ['Cancel', 'Save with Corrected Name'],
+        defaultId: 1,
+        cancelId: 0
+      });
+
+      if (choice.response === 0) {
+        console.log('[ProjectFileService] User cancelled save due to filename correction');
+        return false; // User cancelled
+      }
+    }
+
+    const savePath = sanitizedPath; // Use sanitized path for save
 
     try {
       // Backup to new path
@@ -428,5 +466,82 @@ export class ProjectFileService {
    */
   static hasChanges(): boolean {
     return this.hasUnsavedChanges;
+  }
+
+  /**
+   * Sanitize file path by removing invalid characters and handling edge cases.
+   *
+   * Handles:
+   * - Windows forbidden chars: < > : " / \ | ? *
+   * - Control chars: 0x00-0x1F (invisible characters)
+   * - Intermediate dots (extension parsing ambiguity)
+   * - Leading/trailing whitespace
+   * - Multiple consecutive spaces
+   * - Windows reserved names: CON, PRN, AUX, NUL, COM1-9, LPT1-9
+   * - Empty filenames
+   * - Excessive length (max 200 chars)
+   *
+   * @param filePath - Full path to sanitize
+   * @returns Sanitized file path with directory preserved
+   *
+   * @example
+   * sanitizeFilePath('/Users/me/test.1.lop')
+   * // => '/Users/me/test_1.lop'
+   *
+   * @example
+   * sanitizeFilePath('/Users/me/Project<new>.lop')
+   * // => '/Users/me/Project_new_.lop'
+   *
+   * @example
+   * sanitizeFilePath('/Users/me/CON.lop')
+   * // => '/Users/me/CON_file.lop'
+   */
+  private static sanitizeFilePath(filePath: string): string {
+    const dir = path.dirname(filePath);
+    const ext = path.extname(filePath); // e.g., ".lop"
+    let basename = path.basename(filePath, ext); // e.g., "test.1" from "test.1.lop"
+
+    // Step 1: Remove control characters (0x00-0x1F)
+    basename = basename.replace(/[\x00-\x1F]/g, '_');
+
+    // Step 2: Remove Windows forbidden characters
+    basename = basename.replace(/[<>:"/\\|?*]/g, '_');
+
+    // Step 3: Remove dots (intermediate dots, leading dots, multiple dots)
+    basename = basename.replace(/\./g, '_');
+
+    // Step 4: Collapse multiple spaces into single space
+    basename = basename.replace(/\s+/g, ' ');
+
+    // Step 5: Trim leading/trailing whitespace
+    basename = basename.trim();
+
+    // Step 6: Replace spaces with underscores for cleaner filenames
+    basename = basename.replace(/\s/g, '_');
+
+    // Step 7: Check for Windows reserved names
+    const reservedNames = [
+      'CON', 'PRN', 'AUX', 'NUL',
+      'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
+      'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'
+    ];
+
+    const upperBasename = basename.toUpperCase();
+    if (reservedNames.includes(upperBasename)) {
+      basename = `${basename}_file`; // "CON" → "CON_file"
+    }
+
+    // Step 8: Prevent empty filename
+    if (basename.length === 0) {
+      basename = 'Untitled_Project';
+    }
+
+    // Step 9: Limit length (Windows max = 255, but leave margin for full path)
+    const maxLength = 200;
+    if (basename.length > maxLength) {
+      basename = basename.substring(0, maxLength);
+    }
+
+    return path.join(dir, basename + ext);
   }
 }

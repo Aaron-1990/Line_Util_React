@@ -11,15 +11,13 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteLineModelCompatibilityRepository } from '../../database/repositories/SQLiteLineModelCompatibilityRepository';
 
 export function registerCompatibilityHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(db);
-
   // ===== GET ALL COMPATIBILITIES =====
   ipcMain.handle(
     COMPATIBILITY_CHANNELS.GET_ALL,
     async (): Promise<ApiResponse<ILineModelCompatibility[]>> => {
       try {
         console.log('[Compatibility Handler] Getting all compatibilities');
+        const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(DatabaseConnection.getInstance());
 
         const compatibilities = await compatibilityRepository.findAll();
 
@@ -51,6 +49,7 @@ export function registerCompatibilityHandlers(): void {
           };
         }
 
+        const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(DatabaseConnection.getInstance());
         const compatibilities = await compatibilityRepository.findByLine(lineId);
 
         return {
@@ -81,6 +80,7 @@ export function registerCompatibilityHandlers(): void {
           };
         }
 
+        const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(DatabaseConnection.getInstance());
         const compatibilities = await compatibilityRepository.findByModel(modelId);
 
         return {
@@ -109,6 +109,7 @@ export function registerCompatibilityHandlers(): void {
     }): Promise<ApiResponse<ILineModelCompatibility>> => {
       try {
         console.log('[Compatibility Handler] Creating compatibility:', params.lineId, '<->', params.modelId);
+        const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(DatabaseConnection.getInstance());
 
         // Validate required fields
         if (!params.lineId || typeof params.lineId !== 'string') {
@@ -204,6 +205,7 @@ export function registerCompatibilityHandlers(): void {
     }): Promise<ApiResponse<ILineModelCompatibility>> => {
       try {
         console.log('[Compatibility Handler] Updating compatibility:', params.id);
+        const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(DatabaseConnection.getInstance());
 
         // Validate ID
         if (!params.id || typeof params.id !== 'string') {
@@ -286,6 +288,7 @@ export function registerCompatibilityHandlers(): void {
     async (_event, id: string): Promise<ApiResponse<boolean>> => {
       try {
         console.log('[Compatibility Handler] Deleting compatibility:', id);
+        const compatibilityRepository = new SQLiteLineModelCompatibilityRepository(DatabaseConnection.getInstance());
 
         // Validate ID
         if (!id || typeof id !== 'string') {

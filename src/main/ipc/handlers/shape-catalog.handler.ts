@@ -11,9 +11,6 @@ import { SQLiteShapeCatalogRepository } from '../../database/repositories/SQLite
 import type { ShapeDefinition } from '@shared/types/shape-catalog';
 
 export function registerShapeCatalogHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const repo = new SQLiteShapeCatalogRepository(db);
-
   // ============================================
   // GET ALL SHAPES
   // ============================================
@@ -22,6 +19,7 @@ export function registerShapeCatalogHandlers(): void {
     SHAPE_CATALOG_CHANNELS.GET_ALL,
     async (): Promise<ApiResponse<ShapeDefinition[]>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         console.log('[Shape Catalog Handler] Getting all shapes');
         const shapes = await repo.findAll();
         return { success: true, data: shapes };
@@ -43,6 +41,7 @@ export function registerShapeCatalogHandlers(): void {
     SHAPE_CATALOG_CHANNELS.GET_BY_CATEGORY,
     async (_event, categoryId: string): Promise<ApiResponse<ShapeDefinition[]>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         console.log('[Shape Catalog Handler] Getting shapes by category:', categoryId);
 
         if (!categoryId) {
@@ -69,6 +68,7 @@ export function registerShapeCatalogHandlers(): void {
     SHAPE_CATALOG_CHANNELS.GET_BY_ID,
     async (_event, id: string): Promise<ApiResponse<ShapeDefinition | null>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         console.log('[Shape Catalog Handler] Getting shape by ID:', id);
 
         if (!id) {
@@ -95,6 +95,7 @@ export function registerShapeCatalogHandlers(): void {
     SHAPE_CATALOG_CHANNELS.GET_CATEGORIES,
     async (): Promise<ApiResponse<any[]>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         console.log('[Shape Catalog Handler] Getting all categories');
         const categories = await repo.findAllCategories();
         return { success: true, data: categories };
@@ -119,6 +120,7 @@ export function registerShapeCatalogHandlers(): void {
       payload: { name: string; categoryId: string; svgContent: string; sourceFile?: string }
     ): Promise<ApiResponse<ShapeDefinition>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         console.log('[Shape Catalog Handler] Importing SVG shape:', payload.name);
 
         if (!payload.name || !payload.categoryId || !payload.svgContent) {
@@ -205,6 +207,7 @@ export function registerShapeCatalogHandlers(): void {
       payload: { id: string; isFavorite: boolean }
     ): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         const { id, isFavorite } = payload;
         console.log('[Shape Catalog Handler] Updating favorite status:', id, isFavorite);
 
@@ -232,6 +235,7 @@ export function registerShapeCatalogHandlers(): void {
     SHAPE_CATALOG_CHANNELS.INCREMENT_USAGE,
     async (_event, id: string): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         console.log('[Shape Catalog Handler] Incrementing usage count:', id);
 
         if (!id) {
@@ -258,6 +262,7 @@ export function registerShapeCatalogHandlers(): void {
     SHAPE_CATALOG_CHANNELS.DELETE,
     async (_event, payload: { id: string }): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteShapeCatalogRepository(DatabaseConnection.getInstance());
         const { id } = payload;
         console.log('[Shape Catalog Handler] Deleting shape:', id);
 

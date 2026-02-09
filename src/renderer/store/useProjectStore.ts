@@ -2,9 +2,20 @@ import { create } from 'zustand';
 import { PROJECT_CHANNELS, PROJECT_EVENTS } from '@shared/constants';
 import { ProjectState } from '@shared/types';
 
+// ============================================
+// Project Type for Untitled/Saved distinction
+// ============================================
+export type ProjectType = 'untitled' | 'saved';
+
 interface ProjectStore {
   projectInfo: ProjectState | null;
   isProcessing: boolean;
+
+  // NEW: Project state tracking (Phase: Untitled Project Workflow)
+  projectType: ProjectType;
+  projectFilePath: string | null;
+  hasUnsavedChanges: boolean;
+  lastSavedAt: Date | null;
 
   // Actions
   newProject: () => Promise<void>;
@@ -12,11 +23,22 @@ interface ProjectStore {
   saveProject: () => Promise<void>;
   saveProjectAs: () => Promise<void>;
   refreshProjectInfo: () => Promise<void>;
+
+  // NEW: Actions for unsaved changes tracking
+  markUnsavedChanges: () => void;
+  clearUnsavedChanges: () => void;
+  setProjectType: (type: ProjectType, filePath?: string) => void;
 }
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   projectInfo: null,
   isProcessing: false,
+
+  // NEW: Default to Untitled Project with no unsaved changes
+  projectType: 'untitled',
+  projectFilePath: null,
+  hasUnsavedChanges: false,
+  lastSavedAt: null,
 
   newProject: async () => {
     const state = get();
@@ -134,6 +156,42 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     } else {
       console.error('[ProjectStore] Failed to get project info:', response.error);
     }
+  },
+
+  // ============================================
+  // NEW: Unsaved Changes Tracking Actions
+  // ============================================
+
+  /**
+   * Mark that the project has unsaved changes.
+   * Called by all data stores after mutations (create, update, delete).
+   */
+  markUnsavedChanges: () => {
+    set({ hasUnsavedChanges: true });
+  },
+
+  /**
+   * Clear the unsaved changes flag.
+   * Called after successful save operations.
+   */
+  clearUnsavedChanges: () => {
+    set({
+      hasUnsavedChanges: false,
+      lastSavedAt: new Date(),
+    });
+  },
+
+  /**
+   * Set the project type and optionally the file path.
+   * Called when opening a .lop file or creating a new project.
+   */
+  setProjectType: (type: ProjectType, filePath?: string) => {
+    set({
+      projectType: type,
+      projectFilePath: filePath || null,
+      hasUnsavedChanges: false,
+      lastSavedAt: type === 'saved' ? new Date() : null,
+    });
   },
 }));
 

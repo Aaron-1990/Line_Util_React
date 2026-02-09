@@ -15,9 +15,6 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteModelAreaRoutingRepository } from '../../database/repositories/SQLiteModelAreaRoutingRepository';
 
 export function registerRoutingHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const routingRepository = new SQLiteModelAreaRoutingRepository(db);
-
   // ============================================
   // GET ROUTING BY MODEL
   // ============================================
@@ -26,6 +23,7 @@ export function registerRoutingHandlers(): void {
     ROUTING_CHANNELS.GET_BY_MODEL,
     async (_event, modelId: string): Promise<ApiResponse<ModelRoutingConfig | null>> => {
       try {
+        const routingRepository = new SQLiteModelAreaRoutingRepository(DatabaseConnection.getInstance());
         console.log('[Routing Handler] Getting routing for model:', modelId);
 
         if (!modelId) {
@@ -56,6 +54,7 @@ export function registerRoutingHandlers(): void {
       steps: ModelAreaRoutingStepInput[]
     ): Promise<ApiResponse<void>> => {
       try {
+        const routingRepository = new SQLiteModelAreaRoutingRepository(DatabaseConnection.getInstance());
         console.log('[Routing Handler] Setting routing for model:', modelId, 'steps:', steps.length);
 
         if (!modelId) {
@@ -104,6 +103,7 @@ export function registerRoutingHandlers(): void {
       predecessors: string[]
     ): Promise<ApiResponse<void>> => {
       try {
+        const routingRepository = new SQLiteModelAreaRoutingRepository(DatabaseConnection.getInstance());
         console.log(
           '[Routing Handler] Setting predecessors for:',
           modelId,
@@ -139,6 +139,7 @@ export function registerRoutingHandlers(): void {
     ROUTING_CHANNELS.DELETE_ROUTING,
     async (_event, modelId: string): Promise<ApiResponse<void>> => {
       try {
+        const routingRepository = new SQLiteModelAreaRoutingRepository(DatabaseConnection.getInstance());
         console.log('[Routing Handler] Deleting routing for model:', modelId);
 
         if (!modelId) {
@@ -165,6 +166,7 @@ export function registerRoutingHandlers(): void {
     ROUTING_CHANNELS.VALIDATE_DAG,
     async (_event, modelId: string): Promise<ApiResponse<RoutingValidationResult>> => {
       try {
+        const routingRepository = new SQLiteModelAreaRoutingRepository(DatabaseConnection.getInstance());
         console.log('[Routing Handler] Validating routing for model:', modelId);
 
         if (!modelId) {
@@ -191,6 +193,7 @@ export function registerRoutingHandlers(): void {
     ROUTING_CHANNELS.GET_TOPOLOGICAL_ORDER,
     async (_event, modelId: string): Promise<ApiResponse<string[] | null>> => {
       try {
+        const routingRepository = new SQLiteModelAreaRoutingRepository(DatabaseConnection.getInstance());
         console.log('[Routing Handler] Getting topological order for model:', modelId);
 
         if (!modelId) {
@@ -217,6 +220,7 @@ export function registerRoutingHandlers(): void {
     ROUTING_CHANNELS.HAS_ROUTING,
     async (_event, modelId: string): Promise<ApiResponse<boolean>> => {
       try {
+        const routingRepository = new SQLiteModelAreaRoutingRepository(DatabaseConnection.getInstance());
         if (!modelId) {
           return { success: false, error: 'Missing model ID' };
         }

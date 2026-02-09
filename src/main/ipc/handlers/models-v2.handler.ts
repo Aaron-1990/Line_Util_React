@@ -11,15 +11,13 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLiteProductModelV2Repository';
 
 export function registerModelsV2Handlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const modelRepository = new SQLiteProductModelV2Repository(db);
-
   // ===== GET ALL MODELS =====
   ipcMain.handle(
     MODELS_V2_CHANNELS.GET_ALL,
     async (): Promise<ApiResponse<IProductModelV2[]>> => {
       try {
         console.log('[Models V2 Handler] Getting all models');
+        const modelRepository = new SQLiteProductModelV2Repository(DatabaseConnection.getInstance());
 
         const models = await modelRepository.findAll();
 
@@ -51,6 +49,7 @@ export function registerModelsV2Handlers(): void {
           };
         }
 
+        const modelRepository = new SQLiteProductModelV2Repository(DatabaseConnection.getInstance());
         const model = await modelRepository.findByName(name);
 
         return {
@@ -73,6 +72,7 @@ export function registerModelsV2Handlers(): void {
     async (): Promise<ApiResponse<string[]>> => {
       try {
         console.log('[Models V2 Handler] Getting all model names');
+        const modelRepository = new SQLiteProductModelV2Repository(DatabaseConnection.getInstance());
 
         const models = await modelRepository.findAll();
         const names = models.map(m => m.name);
@@ -104,6 +104,7 @@ export function registerModelsV2Handlers(): void {
     }): Promise<ApiResponse<IProductModelV2>> => {
       try {
         console.log('[Models V2 Handler] Creating model:', params.name);
+        const modelRepository = new SQLiteProductModelV2Repository(DatabaseConnection.getInstance());
 
         // Validate required fields
         if (!params.name || params.name.trim().length === 0) {
@@ -113,27 +114,41 @@ export function registerModelsV2Handlers(): void {
           };
         }
 
-        // Check if model already exists
-        const exists = await modelRepository.existsByName(params.name);
-        if (exists) {
-          return {
-            success: false,
-            error: `Model "${params.name}" already exists`,
-          };
+        // Check if model already exists (active or inactive)
+        const existingModel = await modelRepository.findByName(params.name);
+
+        if (existingModel) {
+          if (existingModel.active) {
+            // Model exists and is active - cannot create
+            return {
+              success: false,
+              error: `Model "${params.name}" already exists`,
+            };
+          } else {
+            // Model exists but is inactive - reactivate it with new data
+            await modelRepository.update(params.name, {
+              customer: params.customer?.trim() || '',
+              program: params.program?.trim() || '',
+              family: params.family?.trim() || '',
+              annualVolume: params.annualVolume ?? 0,
+              operationsDays: params.operationsDays ?? 250,
+              active: true, // Reactivate
+            });
+          }
+        } else {
+          // Model doesn't exist - create new one
+          const model = ProductModelV2.create({
+            name: params.name.trim(),
+            customer: params.customer?.trim() || '',
+            program: params.program?.trim() || '',
+            family: params.family?.trim() || '',
+            annualVolume: params.annualVolume ?? 0,
+            operationsDays: params.operationsDays ?? 250,
+          });
+
+          // Save to database
+          await modelRepository.create(model);
         }
-
-        // Create model entity with defaults for optional fields
-        const model = ProductModelV2.create({
-          name: params.name.trim(),
-          customer: params.customer?.trim() || '',
-          program: params.program?.trim() || '',
-          family: params.family?.trim() || '',
-          annualVolume: params.annualVolume ?? 0,
-          operationsDays: params.operationsDays ?? 250,
-        });
-
-        // Save to database
-        await modelRepository.create(model);
 
         // Fetch created model to confirm
         const createdModel = await modelRepository.findByName(params.name);
@@ -174,6 +189,7 @@ export function registerModelsV2Handlers(): void {
       try {
         const { name, updates } = params;
         console.log('[Models V2 Handler] Updating model:', name);
+        const modelRepository = new SQLiteProductModelV2Repository(DatabaseConnection.getInstance());
 
         if (!name || typeof name !== 'string') {
           return {
@@ -223,6 +239,7 @@ export function registerModelsV2Handlers(): void {
     async (_event, name: string): Promise<ApiResponse<boolean>> => {
       try {
         console.log('[Models V2 Handler] Deleting model:', name);
+        const modelRepository = new SQLiteProductModelV2Repository(DatabaseConnection.getInstance());
 
         if (!name || typeof name !== 'string') {
           return {

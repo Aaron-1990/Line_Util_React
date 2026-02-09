@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { AreaCatalogItem } from '@shared/types';
 import { IPC_CHANNELS } from '@shared/constants';
+import { useProjectStore } from '../../../store/useProjectStore';
 
 // ===== Types =====
 
@@ -50,6 +51,12 @@ interface AreaState {
   // Computed
   getSortedAreas: () => AreaCatalogItem[];
 }
+
+// ===== Helper: Mark Unsaved Changes =====
+
+const markProjectUnsaved = () => {
+  useProjectStore.getState().markUnsavedChanges();
+};
 
 // ===== Store =====
 
@@ -112,6 +119,7 @@ export const useAreaStore = create<AreaState>((set, get) => ({
         // Reload areas to get the new one
         await get().loadAreas();
         set({ isFormOpen: false, editingArea: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to create area' });
       }
@@ -137,6 +145,7 @@ export const useAreaStore = create<AreaState>((set, get) => ({
         // Reload areas to get the updated one
         await get().loadAreas();
         set({ isFormOpen: false, editingArea: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to update area' });
       }
@@ -164,6 +173,7 @@ export const useAreaStore = create<AreaState>((set, get) => ({
         set({
           deleteConfirm: { isOpen: false, area: null, linesInUse: 0 },
         });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to delete area' });
       }

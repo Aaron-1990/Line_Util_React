@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { ProductionLine, AreaCatalogItem, ModelRoutingConfig, ModelAreaRoutingStepInput, RoutingValidationResult } from '@shared/types';
 import { ILineModelCompatibility } from '@domain/entities';
 import { IPC_CHANNELS, COMPATIBILITY_CHANNELS, ROUTING_CHANNELS } from '@shared/constants';
+import { useProjectStore } from '../../../store/useProjectStore';
 
 // ===== Types =====
 
@@ -62,6 +63,12 @@ interface RoutingState {
   getAreaColor: (areaCode: string) => string;
   getAreaColors: () => Map<string, string>;
 }
+
+// ===== Helper: Mark Unsaved Changes =====
+
+const markProjectUnsaved = () => {
+  useProjectStore.getState().markUnsavedChanges();
+};
 
 // ===== Store =====
 
@@ -149,6 +156,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
         // Invalidate cache - reload to get updated data
         await get().loadRoutingConfig(modelId);
         set({ isSaving: false });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ isSaving: false, error: response.error || 'Failed to save routing' });
         throw new Error(response.error || 'Failed to save routing');
@@ -178,6 +186,7 @@ export const useRoutingStore = create<RoutingState>((set, get) => ({
           newConfigs.delete(modelId);
           return { routingConfigs: newConfigs, isSaving: false };
         });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ isSaving: false, error: response.error || 'Failed to clear routing' });
         throw new Error(response.error || 'Failed to clear routing');

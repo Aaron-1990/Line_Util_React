@@ -18,9 +18,6 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteChangeoverRepository } from '../../database/repositories/SQLiteChangeoverRepository';
 
 export function registerChangeoverHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const changeoverRepository = new SQLiteChangeoverRepository(db);
-
   // ============================================
   // GLOBAL SETTINGS
   // ============================================
@@ -29,6 +26,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_GLOBAL_DEFAULT,
     async (): Promise<ApiResponse<number>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting global default');
         const minutes = await changeoverRepository.getGlobalDefault();
         return { success: true, data: minutes };
@@ -46,6 +44,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.SET_GLOBAL_DEFAULT,
     async (_event, minutes: number): Promise<ApiResponse<void>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Setting global default:', minutes);
 
         if (typeof minutes !== 'number' || minutes < 0 || minutes > 480) {
@@ -68,6 +67,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_SMED_BENCHMARK,
     async (): Promise<ApiResponse<number>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting SMED benchmark');
         const minutes = await changeoverRepository.getSmedBenchmark();
         return { success: true, data: minutes };
@@ -85,6 +85,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.SET_SMED_BENCHMARK,
     async (_event, minutes: number): Promise<ApiResponse<void>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Setting SMED benchmark:', minutes);
 
         if (typeof minutes !== 'number' || minutes < 0 || minutes > 60) {
@@ -111,6 +112,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_GLOBAL_ENABLED,
     async (): Promise<ApiResponse<boolean>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting global enabled');
         const enabled = await changeoverRepository.getGlobalEnabled();
         return { success: true, data: enabled };
@@ -128,6 +130,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.SET_GLOBAL_ENABLED,
     async (_event, enabled: boolean): Promise<ApiResponse<void>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Setting global enabled:', enabled);
 
         if (typeof enabled !== 'boolean') {
@@ -154,6 +157,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_ALL_FAMILY_DEFAULTS,
     async (): Promise<ApiResponse<FamilyChangeoverDefault[]>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting all family defaults');
         const defaults = await changeoverRepository.getAllFamilyDefaults();
         return { success: true, data: defaults };
@@ -175,6 +179,7 @@ export function registerChangeoverHandlers(): void {
       toFamily: string
     ): Promise<ApiResponse<FamilyChangeoverDefault | null>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting family default:', fromFamily, '->', toFamily);
 
         if (!fromFamily || !toFamily) {
@@ -203,6 +208,7 @@ export function registerChangeoverHandlers(): void {
       notes?: string
     ): Promise<ApiResponse<FamilyChangeoverDefault>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log(
           '[Changeover Handler] Setting family default:',
           fromFamily,
@@ -241,6 +247,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.DELETE_FAMILY_DEFAULT,
     async (_event, fromFamily: string, toFamily: string): Promise<ApiResponse<boolean>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Deleting family default:', fromFamily, '->', toFamily);
 
         if (!fromFamily || !toFamily) {
@@ -271,6 +278,7 @@ export function registerChangeoverHandlers(): void {
       }>
     ): Promise<ApiResponse<number>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Bulk setting family defaults:', defaults.length);
 
         if (!Array.isArray(defaults) || defaults.length === 0) {
@@ -297,6 +305,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_LINE_OVERRIDES,
     async (_event, lineId: string): Promise<ApiResponse<LineChangeoverOverride[]>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting line overrides for:', lineId);
 
         if (!lineId) {
@@ -324,6 +333,7 @@ export function registerChangeoverHandlers(): void {
       toModelId: string
     ): Promise<ApiResponse<LineChangeoverOverride | null>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log(
           '[Changeover Handler] Getting line override:',
           lineId,
@@ -359,6 +369,7 @@ export function registerChangeoverHandlers(): void {
       notes?: string
     ): Promise<ApiResponse<LineChangeoverOverride>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log(
           '[Changeover Handler] Setting line override:',
           lineId,
@@ -408,6 +419,7 @@ export function registerChangeoverHandlers(): void {
       toModelId: string
     ): Promise<ApiResponse<boolean>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log(
           '[Changeover Handler] Deleting line override:',
           lineId,
@@ -436,6 +448,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.DELETE_ALL_LINE_OVERRIDES,
     async (_event, lineId: string): Promise<ApiResponse<number>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Deleting all line overrides for:', lineId);
 
         if (!lineId) {
@@ -467,6 +480,7 @@ export function registerChangeoverHandlers(): void {
       }>
     ): Promise<ApiResponse<number>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Bulk setting line overrides:', overrides.length);
 
         if (!Array.isArray(overrides) || overrides.length === 0) {
@@ -493,6 +507,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_RESOLVED_TIMES,
     async (_event, lineId: string): Promise<ApiResponse<ResolvedChangeoverTime[]>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting resolved times for:', lineId);
 
         if (!lineId) {
@@ -520,6 +535,7 @@ export function registerChangeoverHandlers(): void {
       toModelId: string
     ): Promise<ApiResponse<ResolvedChangeoverTime | null>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log(
           '[Changeover Handler] Getting resolved time:',
           lineId,
@@ -556,6 +572,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_MATRIX,
     async (_event, lineId: string): Promise<ApiResponse<ChangeoverMatrix | null>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting matrix for:', lineId);
 
         if (!lineId) {
@@ -582,6 +599,7 @@ export function registerChangeoverHandlers(): void {
       targetLineId: string
     ): Promise<ApiResponse<number>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Copying matrix:', sourceLineId, '->', targetLineId);
 
         if (!sourceLineId || !targetLineId) {
@@ -615,6 +633,7 @@ export function registerChangeoverHandlers(): void {
       context: 'global' | 'analysis' | 'simulation' = 'global'
     ): Promise<ApiResponse<{ methodId: ChangeoverMethodId; config: Record<string, unknown> }>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting calculation method for:', context);
         const method = await changeoverRepository.getCalculationMethod(context);
         return { success: true, data: method };
@@ -637,6 +656,7 @@ export function registerChangeoverHandlers(): void {
       config?: Record<string, unknown>
     ): Promise<ApiResponse<void>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Setting calculation method:', context, methodId);
 
         const validMethods = ['probability_weighted', 'tsp_optimal', 'worst_case', 'simple_average'];
@@ -664,6 +684,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_ALL_FAMILIES,
     async (): Promise<ApiResponse<string[]>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting all families');
         const families = await changeoverRepository.getAllFamilies();
         return { success: true, data: families };
@@ -681,6 +702,7 @@ export function registerChangeoverHandlers(): void {
     CHANGEOVER_CHANNELS.GET_LINES_WITH_DATA,
     async (): Promise<ApiResponse<string[]>> => {
       try {
+        const changeoverRepository = new SQLiteChangeoverRepository(DatabaseConnection.getInstance());
         console.log('[Changeover Handler] Getting lines with changeover data');
         const lineIds = await changeoverRepository.getLinesWithChangeoverData();
         return { success: true, data: lineIds };

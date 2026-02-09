@@ -425,6 +425,27 @@ export const PROJECT_CHANNELS = {
 
   // Metadata operations
   UPDATE_METADATA: 'project:update-metadata',
+
+  // Untitled Project Workflow (Phase 8.1)
+  // These channels support Excel-like save prompt behavior
+
+  /** Get extended project state (type, path, unsaved changes) */
+  GET_PROJECT_STATE: 'project:get-project-state',
+
+  /** Clear all data tables (keep schema) for "Don't Save" workflow */
+  CLEAR_TEMP_DATABASE: 'project:clear-temp-database',
+
+  /** Clear all data tables in a specific database file by path */
+  CLEAR_DATABASE_AT_PATH: 'project:clear-database-at-path',
+
+  /** Get the default global database path */
+  GET_DEFAULT_DB_PATH: 'project:get-default-db-path',
+
+  /** Mark project as modified (called by stores after data mutations) */
+  MARK_MODIFIED: 'project:mark-modified',
+
+  /** Quit app after successful save (called from renderer after Save As) */
+  QUIT_AFTER_SAVE: 'project:quit-after-save',
 } as const;
 
 // Project Events (Phase 8.0: Project Files Foundation)
@@ -434,4 +455,25 @@ export const PROJECT_EVENTS = {
   PROJECT_SAVED: 'project:saved',
   PROJECT_CLOSED: 'project:closed',
   PROJECT_MODIFIED: 'project:modified', // User made changes
+
+  // Untitled Project Workflow Events (Phase 8.1)
+  // Events for coordinating save prompts between main and renderer
+
+  /** Main requests renderer to perform Save As (during close with unsaved changes) */
+  TRIGGER_SAVE_AS: 'project:trigger-save-as',
+
+  /** Main requests renderer to Save As then open a file */
+  TRIGGER_SAVE_AS_THEN_OPEN: 'project:trigger-save-as-then-open',
+
+  /** Main requests renderer to Save As then create new project */
+  TRIGGER_SAVE_AS_THEN_NEW: 'project:trigger-save-as-then-new',
+
+  /** Main requests current project state from renderer */
+  GET_PROJECT_STATE_REQUEST: 'project:get-project-state-request',
+
+  /** Renderer responds with current project state */
+  PROJECT_STATE_RESPONSE: 'project:project-state-response',
+
+  /** Project was reset (File > New Project completed) */
+  PROJECT_RESET: 'project:reset',
 } as const;

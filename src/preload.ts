@@ -61,6 +61,22 @@ const electronAPI = {
     }
   },
 
+  /**
+   * Send a one-way message to main process (no response expected).
+   * Used for renderer-to-main event notifications like project state responses.
+   */
+  send: (channel: string, ...args: unknown[]): void => {
+    // Only allow sending on event channels (which main process listens for)
+    const isValidEventChannel = ALL_EVENT_CHANNELS.includes(channel as typeof ALL_EVENT_CHANNELS[number]);
+
+    if (!isValidEventChannel) {
+      console.error(`Invalid IPC channel for send: ${channel}`);
+      return;
+    }
+
+    ipcRenderer.send(channel, ...args);
+  },
+
   on: (channel: string, callback: (...args: unknown[]) => void) => {
     // Check if channel is valid for invoke channels or event channels
     const isValidInvokeChannel = ALL_VALID_CHANNELS.includes(channel as typeof ALL_VALID_CHANNELS[number]);

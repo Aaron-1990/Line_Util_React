@@ -57,18 +57,23 @@ END;
 -- ============================================
 -- PHASE 2: Insert default plant for existing data
 -- ============================================
-
-INSERT INTO plants (id, code, name, region, location_country, is_default, is_active, notes)
-VALUES (
-  'plant-default',
-  'DEFAULT',
-  'Default Plant',
-  'Default',
-  'US',
-  1,
-  1,
-  'Auto-created during multi-plant migration. Rename to your actual plant name.'
-);
+-- REMOVED: Default plant seed no longer created automatically
+-- Untitled Project should start empty (like Excel/Word blank document)
+-- Plants are created via:
+--   1. Excel import (creates plants from data)
+--   2. Manual creation (user creates from UI)
+--
+-- INSERT INTO plants (id, code, name, region, location_country, is_default, is_active, notes)
+-- VALUES (
+--   'plant-default',
+--   'DEFAULT',
+--   'Default Plant',
+--   'Default',
+--   'US',
+--   1,
+--   1,
+--   'Auto-created during multi-plant migration. Rename to your actual plant name.'
+-- );
 
 -- ============================================
 -- PHASE 3: Add plant_id to production_lines
@@ -77,7 +82,10 @@ VALUES (
 ALTER TABLE production_lines ADD COLUMN plant_id TEXT REFERENCES plants(id) ON DELETE RESTRICT;
 
 -- Backfill existing lines to default plant
-UPDATE production_lines SET plant_id = 'plant-default' WHERE plant_id IS NULL;
+-- REMOVED: No default plant to backfill to
+-- In Untitled Project, production_lines will be empty
+-- Lines are created via import or manual creation with plant_id already set
+-- UPDATE production_lines SET plant_id = 'plant-default' WHERE plant_id IS NULL;
 
 -- Create compound index for plant-scoped queries
 CREATE INDEX IF NOT EXISTS idx_production_lines_plant ON production_lines(plant_id);
@@ -169,18 +177,22 @@ BEGIN
 END;
 
 -- Migrate existing product_volumes to plant_product_volumes
-INSERT INTO plant_product_volumes (id, plant_id, model_id, year, volume, operations_days, source, created_at, updated_at)
-SELECT
-  'ppv-' || id,
-  'plant-default',
-  model_id,
-  year,
-  volume,
-  operations_days,
-  'migration',
-  created_at,
-  updated_at
-FROM product_volumes;
+-- REMOVED: No 'plant-default' to migrate to
+-- In Untitled Project, product_volumes table will be empty
+-- Volumes are created via import or manual creation with plant_id already set
+--
+-- INSERT INTO plant_product_volumes (id, plant_id, model_id, year, volume, operations_days, source, created_at, updated_at)
+-- SELECT
+--   'ppv-' || id,
+--   'plant-default',
+--   model_id,
+--   year,
+--   volume,
+--   operations_days,
+--   'migration',
+--   created_at,
+--   updated_at
+-- FROM product_volumes;
 
 -- ============================================
 -- PHASE 8: Create plant_model_routing table
@@ -215,19 +227,23 @@ BEGIN
 END;
 
 -- Migrate existing model_area_routing to plant_model_routing
-INSERT INTO plant_model_routing (id, plant_id, model_id, area_code, sequence, is_required, expected_yield, volume_fraction, created_at, updated_at)
-SELECT
-  'pmr-' || id,
-  'plant-default',
-  model_id,
-  area_code,
-  sequence,
-  is_required,
-  expected_yield,
-  volume_fraction,
-  created_at,
-  updated_at
-FROM model_area_routing;
+-- REMOVED: No 'plant-default' to migrate to
+-- In Untitled Project, model_area_routing table will be empty
+-- Routings are created via import or manual creation with plant_id already set
+--
+-- INSERT INTO plant_model_routing (id, plant_id, model_id, area_code, sequence, is_required, expected_yield, volume_fraction, created_at, updated_at)
+-- SELECT
+--   'pmr-' || id,
+--   'plant-default',
+--   model_id,
+--   area_code,
+--   sequence,
+--   is_required,
+--   expected_yield,
+--   volume_fraction,
+--   created_at,
+--   updated_at
+-- FROM model_area_routing;
 
 -- ============================================
 -- PHASE 9: Create plant_model_routing_predecessors table
@@ -256,16 +272,20 @@ CREATE INDEX IF NOT EXISTS idx_plant_routing_pred_model ON plant_model_routing_p
 CREATE INDEX IF NOT EXISTS idx_plant_routing_pred_area ON plant_model_routing_predecessors(plant_id, model_id, area_code);
 
 -- Migrate existing model_area_predecessors
-INSERT INTO plant_model_routing_predecessors (id, plant_id, model_id, area_code, predecessor_area_code, dependency_type, created_at)
-SELECT
-  'pmrp-' || id,
-  'plant-default',
-  model_id,
-  area_code,
-  predecessor_area_code,
-  dependency_type,
-  created_at
-FROM model_area_predecessors;
+-- REMOVED: No 'plant-default' to migrate to
+-- In Untitled Project, model_area_predecessors table will be empty
+-- Predecessors are created via import or manual creation with plant_id already set
+--
+-- INSERT INTO plant_model_routing_predecessors (id, plant_id, model_id, area_code, predecessor_area_code, dependency_type, created_at)
+-- SELECT
+--   'pmrp-' || id,
+--   'plant-default',
+--   model_id,
+--   area_code,
+--   predecessor_area_code,
+--   dependency_type,
+--   created_at
+-- FROM model_area_predecessors;
 
 -- ============================================
 -- PHASE 10: Update unique constraints

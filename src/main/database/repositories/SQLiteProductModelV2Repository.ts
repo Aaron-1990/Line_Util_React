@@ -131,7 +131,7 @@ export class SQLiteProductModelV2Repository implements IProductModelV2Repository
 
   async findAll(): Promise<ProductModelV2[]> {
     const rows = this.db
-      .prepare('SELECT * FROM product_models_v2 ORDER BY name')
+      .prepare('SELECT * FROM product_models_v2 WHERE active = 1 ORDER BY name')
       .all() as ModelRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -203,7 +203,7 @@ export class SQLiteProductModelV2Repository implements IProductModelV2Repository
 
   async existsByName(name: string): Promise<boolean> {
     const row = this.db
-      .prepare('SELECT 1 FROM product_models_v2 WHERE name = ?')
+      .prepare('SELECT 1 FROM product_models_v2 WHERE name = ? AND active = 1')
       .get(name);
     return row !== undefined;
   }

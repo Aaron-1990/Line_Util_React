@@ -8,6 +8,7 @@ import { create } from 'zustand';
 import { Plant, CreatePlantInput, UpdatePlantInput } from '@shared/types';
 import { PLANT_CHANNELS } from '@shared/constants';
 import { useNavigationStore } from '../../../store/useNavigationStore';
+import { useProjectStore } from '../../../store/useProjectStore';
 
 // ===== Types =====
 
@@ -57,6 +58,12 @@ interface PlantState {
   getActivePlants: () => Plant[];
   getCurrentPlant: () => Plant | undefined;
 }
+
+// ===== Helper: Mark Unsaved Changes =====
+
+const markProjectUnsaved = () => {
+  useProjectStore.getState().markUnsavedChanges();
+};
 
 // ===== Store =====
 
@@ -199,6 +206,7 @@ export const usePlantStore = create<PlantState>((set, get) => ({
       if (response.success && response.data) {
         await get().loadPlants();
         set({ isFormOpen: false, editingPlant: null });
+        markProjectUnsaved(); // Track unsaved changes
         return {
           ...response.data,
           createdAt: new Date(response.data.createdAt),
@@ -230,6 +238,7 @@ export const usePlantStore = create<PlantState>((set, get) => ({
       if (response.success) {
         await get().loadPlants();
         set({ isFormOpen: false, editingPlant: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to update plant' });
       }
@@ -264,6 +273,7 @@ export const usePlantStore = create<PlantState>((set, get) => ({
         set({
           deleteConfirm: { isOpen: false, plant: null, linesInPlant: 0 },
         });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to delete plant' });
       }
@@ -287,6 +297,7 @@ export const usePlantStore = create<PlantState>((set, get) => ({
 
       if (response.success) {
         await get().loadPlants();
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to set default plant' });
       }

@@ -17,6 +17,7 @@ import {
 } from '@shared/types/canvas-object';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 import { useCanvasStore } from './useCanvasStore';
+import { useProjectStore } from '../../../store/useProjectStore';
 
 // ============================================
 // TYPES
@@ -60,6 +61,14 @@ interface CanvasObjectStore {
   getObjectById: (id: string) => CanvasObjectWithDetails | undefined;
   getObjectsByType: (type: CanvasObjectType) => CanvasObjectWithDetails[];
 }
+
+// ============================================
+// Helper: Mark Unsaved Changes
+// ============================================
+
+const markProjectUnsaved = () => {
+  useProjectStore.getState().markUnsavedChanges();
+};
 
 // ============================================
 // STORE
@@ -154,6 +163,7 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
       );
 
       if (response.success && response.data) {
+        markProjectUnsaved(); // Track unsaved changes
         // Return just the ID (response.data is the full CanvasObject)
         return response.data.id;
       }
@@ -198,6 +208,7 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
 
     try {
       await window.electronAPI.invoke(CANVAS_OBJECT_CHANNELS.UPDATE, objectId, input);
+      markProjectUnsaved(); // Track unsaved changes
     } catch (error) {
       console.error('[CanvasObjectStore] Error updating object:', error);
       // Revert on error
@@ -232,6 +243,8 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         // Revert on error - add object back
         set({ objects: [...get().objects, objectToDelete] });
         alert(`Failed to delete object: ${response.error}`);
+      } else {
+        markProjectUnsaved(); // Track unsaved changes
       }
     } catch (error) {
       console.error('[CanvasObjectStore] Error deleting object:', error);

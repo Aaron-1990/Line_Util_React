@@ -11,9 +11,6 @@ import DatabaseConnection from '../../database/connection';
 import { nanoid } from 'nanoid';
 
 export function registerAreaCatalogHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const repository = new SQLiteAreaCatalogRepository(db);
-
   // ============================================
   // GET ALL AREAS
   // ============================================
@@ -21,6 +18,7 @@ export function registerAreaCatalogHandlers(): void {
     IPC_CHANNELS.CATALOG_AREAS_GET_ALL,
     async (): Promise<ApiResponse<AreaCatalogItem[]>> => {
       try {
+        const repository = new SQLiteAreaCatalogRepository(DatabaseConnection.getInstance());
         const areas = await repository.findActive();
         return {
           success: true,
@@ -46,6 +44,8 @@ export function registerAreaCatalogHandlers(): void {
       params: { code: string; name: string; color: string; sequence?: number }
     ): Promise<ApiResponse<AreaCatalogItem>> => {
       try {
+        const repository = new SQLiteAreaCatalogRepository(DatabaseConnection.getInstance());
+
         // Validation
         if (!params.code || params.code.trim().length === 0) {
           return {
@@ -106,16 +106,33 @@ export function registerAreaCatalogHandlers(): void {
           };
         }
 
-        // Check for duplicate code (case-insensitive)
-        const exists = await repository.existsByCode(params.code);
-        if (exists) {
+        // Check if area already exists (active or inactive)
+        const existingArea = await repository.findByCode(params.code);
+
+        if (existingArea) {
+          if (existingArea.active) {
+            // Area exists and is active - cannot create
+            return {
+              success: false,
+              error: `Area with code "${params.code}" already exists`,
+            };
+          }
+          // Area exists but is inactive - reactivate it with new data
+          existingArea.name = params.name.trim();
+          existingArea.color = params.color.trim();
+          existingArea.sequence = params.sequence ?? existingArea.sequence;
+          existingArea.active = true;
+          existingArea.updatedAt = new Date();
+
+          await repository.save(existingArea);
+
           return {
-            success: false,
-            error: `Area with code "${params.code}" already exists`,
+            success: true,
+            data: existingArea,
           };
         }
 
-        // Create area
+        // Area doesn't exist - create new one
         const now = new Date();
         const newArea: AreaCatalogItem = {
           id: nanoid(),
@@ -154,6 +171,8 @@ export function registerAreaCatalogHandlers(): void {
       params: { id: string; name?: string; color?: string; sequence?: number }
     ): Promise<ApiResponse<AreaCatalogItem>> => {
       try {
+        const repository = new SQLiteAreaCatalogRepository(DatabaseConnection.getInstance());
+
         // Validation
         if (!params.id) {
           return {
@@ -245,6 +264,8 @@ export function registerAreaCatalogHandlers(): void {
     IPC_CHANNELS.CATALOG_AREAS_DELETE,
     async (_event, params: { id: string }): Promise<ApiResponse<void>> => {
       try {
+        const repository = new SQLiteAreaCatalogRepository(DatabaseConnection.getInstance());
+
         // Validation
         if (!params.id) {
           return {
@@ -266,6 +287,7 @@ export function registerAreaCatalogHandlers(): void {
         const inUse = await repository.isInUse(params.id);
         if (inUse) {
           // Count how many lines are using this area
+          const db = DatabaseConnection.getInstance();
           const count = db
             .prepare(
               `

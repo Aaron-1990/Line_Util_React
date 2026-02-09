@@ -20,9 +20,6 @@ import type { CanvasObjectType } from '@shared/types/canvas-object';
 import type { ProductionLine } from '@shared/types';
 
 export function registerCanvasObjectHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const repo = new SQLiteCanvasObjectRepository(db);
-
   // ============================================
   // GET OBJECTS BY PLANT
   // ============================================
@@ -31,6 +28,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_BY_PLANT,
     async (_event, plantId: string): Promise<ApiResponse<CanvasObjectWithDetails[]>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting objects by plant:', plantId);
 
         if (!plantId) {
@@ -57,6 +55,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_BY_ID,
     async (_event, id: string): Promise<ApiResponse<CanvasObjectWithDetails | null>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting object by ID:', id);
 
         if (!id) {
@@ -95,6 +94,7 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Creating object:', payload.name);
 
         if (!payload.plantId || !payload.shapeId || !payload.name) {
@@ -140,6 +140,7 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Updating object:', objectId);
 
         if (!objectId) {
@@ -166,6 +167,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.DELETE,
     async (_event, objectId: string): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Deleting object:', objectId);
 
         if (!objectId) {
@@ -197,6 +199,7 @@ export function registerCanvasObjectHandlers(): void {
       y: number
     ): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Updating position:', objectId, x, y);
 
         if (!objectId || x === undefined || y === undefined) {
@@ -226,6 +229,7 @@ export function registerCanvasObjectHandlers(): void {
       positions: Array<{ id: string; xPosition: number; yPosition: number }>
     ): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Batch updating positions:', positions.length, 'objects');
 
         if (!positions || positions.length === 0) {
@@ -257,6 +261,7 @@ export function registerCanvasObjectHandlers(): void {
       id: string
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Duplicating object:', id);
 
         if (!id) {
@@ -287,6 +292,7 @@ export function registerCanvasObjectHandlers(): void {
       newType: CanvasObjectType
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Converting object type:', objectId, 'to', newType);
 
         if (!objectId || !newType) {
@@ -313,6 +319,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_BUFFER_PROPS,
     async (_event, objectId: string): Promise<ApiResponse<BufferProperties | null>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting buffer properties:', objectId);
 
         if (!objectId) {
@@ -348,6 +355,7 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<BufferProperties>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Setting buffer properties:', objectId);
 
         if (!objectId) {
@@ -378,6 +386,7 @@ export function registerCanvasObjectHandlers(): void {
       productionLineId: string
     ): Promise<ApiResponse<ProcessLineLink>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Linking to production line:', objectId, productionLineId);
 
         if (!objectId || !productionLineId) {
@@ -404,6 +413,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.UNLINK_FROM_LINE,
     async (_event, objectId: string): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Unlinking from production line:', objectId);
 
         if (!objectId) {
@@ -430,6 +440,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_LINKED_LINE,
     async (_event, objectId: string): Promise<ApiResponse<ProductionLine | null>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting linked production line:', objectId);
 
         if (!objectId) {
@@ -456,6 +467,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_PROCESS_PROPS,
     async (_event, objectId: string): Promise<ApiResponse<ProcessProperties | null>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting process properties:', objectId);
 
         if (!objectId) {
@@ -492,6 +504,7 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<ProcessProperties>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Setting process properties:', objectId);
 
         if (!objectId) {
@@ -518,6 +531,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_CONNECTIONS,
     async (_event, plantId: string): Promise<ApiResponse<CanvasConnection[]>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting connections for plant:', plantId);
 
         if (!plantId) {
@@ -555,6 +569,7 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasConnection>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Creating connection:', payload.sourceObjectId, '→', payload.targetObjectId);
 
         if (!payload.plantId || !payload.sourceObjectId || !payload.targetObjectId) {
@@ -590,6 +605,7 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.DELETE_CONNECTION,
     async (_event, payload: { id: string }): Promise<ApiResponse<void>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const { id } = payload;
         console.log('[Canvas Object Handler] Deleting connection:', id);
 
@@ -624,6 +640,7 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasConnection>> => {
       try {
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const { id, ...updates } = payload;
         console.log('[Canvas Object Handler] Updating connection:', id);
 
@@ -659,6 +676,8 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
+        const db = DatabaseConnection.getInstance();
+        const repo = new SQLiteCanvasObjectRepository(db);
         console.log('[Canvas Object Handler] Converting production line to canvas object:', payload.lineId, 'as', payload.newType);
 
         if (!payload.lineId || !payload.newType || !payload.shapeId) {

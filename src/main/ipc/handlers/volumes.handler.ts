@@ -11,15 +11,13 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
 
 export function registerVolumeHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const volumeRepository = new SQLiteProductVolumeRepository(db);
-
   // ===== GET VOLUMES BY YEAR =====
   ipcMain.handle(
     PRODUCT_VOLUME_CHANNELS.GET_BY_YEAR,
     async (_event, year: number): Promise<ApiResponse<IProductVolume[]>> => {
       try {
         console.log('[Volume Handler] Getting volumes for year:', year);
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         if (typeof year !== 'number' || year < 2000 || year > 2100) {
           return {
@@ -50,6 +48,7 @@ export function registerVolumeHandlers(): void {
     async (_event, modelId: string): Promise<ApiResponse<IProductVolume[]>> => {
       try {
         console.log('[Volume Handler] Getting volumes for model:', modelId);
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         if (!modelId || typeof modelId !== 'string') {
           return {
@@ -80,6 +79,7 @@ export function registerVolumeHandlers(): void {
     async (): Promise<ApiResponse<number[]>> => {
       try {
         console.log('[Volume Handler] Getting available years');
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         const years = await volumeRepository.getAvailableYears();
 
@@ -103,6 +103,7 @@ export function registerVolumeHandlers(): void {
     async (): Promise<ApiResponse<{ min: number; max: number } | null>> => {
       try {
         console.log('[Volume Handler] Getting year range');
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         const range = await volumeRepository.getYearRange();
 
@@ -131,6 +132,7 @@ export function registerVolumeHandlers(): void {
     }>>> => {
       try {
         console.log('[Volume Handler] Getting year summary');
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         const summary = await volumeRepository.getYearSummary();
 
@@ -154,6 +156,7 @@ export function registerVolumeHandlers(): void {
     async (): Promise<ApiResponse<IProductVolume[]>> => {
       try {
         console.log('[Volume Handler] Getting all volumes');
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         const volumes = await volumeRepository.findAll();
 
@@ -182,6 +185,7 @@ export function registerVolumeHandlers(): void {
     }): Promise<ApiResponse<IProductVolume>> => {
       try {
         console.log('[Volume Handler] Creating volume for model:', params.modelId, 'year:', params.year);
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         // Validate required fields
         if (!params.modelId || params.modelId.trim().length === 0) {
@@ -252,6 +256,7 @@ export function registerVolumeHandlers(): void {
       try {
         const { id, ...fields } = params;
         console.log('[Volume Handler] Updating volume:', id);
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         if (!id || typeof id !== 'string') {
           return {
@@ -301,6 +306,7 @@ export function registerVolumeHandlers(): void {
     async (_event, id: string): Promise<ApiResponse<boolean>> => {
       try {
         console.log('[Volume Handler] Deleting volume:', id);
+        const volumeRepository = new SQLiteProductVolumeRepository(DatabaseConnection.getInstance());
 
         if (!id || typeof id !== 'string') {
           return {

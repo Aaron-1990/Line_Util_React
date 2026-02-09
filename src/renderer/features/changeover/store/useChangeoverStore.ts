@@ -12,6 +12,7 @@ import type {
   LineChangeoverOverride,
   ChangeoverMethodId,
 } from '@shared/types/changeover';
+import { useProjectStore } from '../../../store/useProjectStore';
 
 // ============================================
 // TYPES
@@ -78,6 +79,14 @@ export interface ChangeoverState {
   // Actions - Calculation Method
   setCalculationMethod: (methodId: ChangeoverMethodId) => Promise<void>;
 }
+
+// ============================================
+// Helper: Mark Unsaved Changes
+// ============================================
+
+const markProjectUnsaved = () => {
+  useProjectStore.getState().markUnsavedChanges();
+};
 
 // ============================================
 // STORE
@@ -302,6 +311,7 @@ export const useChangeoverStore = create<ChangeoverState>((set, get) => ({
         if (selectedLineId) {
           await loadMatrix(selectedLineId);
         }
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         throw new Error(response.error || 'Failed to set family default');
       }
@@ -329,6 +339,7 @@ export const useChangeoverStore = create<ChangeoverState>((set, get) => ({
         if (selectedLineId) {
           await loadMatrix(selectedLineId);
         }
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         throw new Error(response.error || 'Failed to set global default');
       }
@@ -375,6 +386,7 @@ export const useChangeoverStore = create<ChangeoverState>((set, get) => ({
           hasUnsavedChanges: false,
           pendingChanges: new Map(),
         });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         throw new Error(response.error || 'Failed to save changes');
       }
@@ -420,6 +432,7 @@ export const useChangeoverStore = create<ChangeoverState>((set, get) => ({
       if (response.success) {
         await loadMatrix(selectedLineId);
         set({ hasUnsavedChanges: false, pendingChanges: new Map() });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         throw new Error(response.error || 'Failed to copy matrix');
       }
@@ -456,6 +469,7 @@ export const useChangeoverStore = create<ChangeoverState>((set, get) => ({
       if (response.success) {
         await loadMatrix(selectedLineId);
         set({ hasUnsavedChanges: false, pendingChanges: new Map() });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         throw new Error(response.error || 'Failed to reset');
       }
@@ -482,6 +496,7 @@ export const useChangeoverStore = create<ChangeoverState>((set, get) => ({
 
       if (response.success) {
         set({ calculationMethod: methodId });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         throw new Error(response.error || 'Failed to set calculation method');
       }

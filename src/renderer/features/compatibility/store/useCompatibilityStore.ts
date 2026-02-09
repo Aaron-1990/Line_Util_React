@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { ILineModelCompatibility } from '@domain/entities';
 import { COMPATIBILITY_CHANNELS } from '@shared/constants';
+import { useProjectStore } from '../../../store/useProjectStore';
 
 // ===== Types =====
 
@@ -40,6 +41,12 @@ interface CompatibilityState {
 
   getForLine: (lineId: string) => ILineModelCompatibility[];
 }
+
+// ===== Helper: Mark Unsaved Changes =====
+
+const markProjectUnsaved = () => {
+  useProjectStore.getState().markUnsavedChanges();
+};
 
 // ===== Store =====
 
@@ -99,6 +106,7 @@ export const useCompatibilityStore = create<CompatibilityState>((set, get) => ({
         // Reload compatibilities for this line
         await get().loadForLine(data.lineId);
         set({ isFormOpen: false, editingCompatibility: null, targetLineId: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to create compatibility' });
       }
@@ -138,6 +146,7 @@ export const useCompatibilityStore = create<CompatibilityState>((set, get) => ({
         }
 
         set({ isFormOpen: false, editingCompatibility: null, targetLineId: null });
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to update compatibility' });
       }
@@ -162,6 +171,7 @@ export const useCompatibilityStore = create<CompatibilityState>((set, get) => ({
       if (response.success) {
         // Reload compatibilities for this line
         await get().loadForLine(lineId);
+        markProjectUnsaved(); // Track unsaved changes
       } else {
         set({ error: response.error || 'Failed to delete compatibility' });
       }

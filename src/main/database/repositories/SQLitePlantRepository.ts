@@ -279,16 +279,11 @@ export class SQLitePlantRepository {
       throw new Error(`Plant with id "${id}" not found`);
     }
 
-    // Prevent deleting the default plant
-    if (existing.isDefault) {
-      throw new Error('Cannot delete the default plant. Set another plant as default first.');
-    }
-
-    // Check if this is the last active plant
-    const activePlants = await this.findAll();
-    if (activePlants.length <= 1) {
-      throw new Error('Cannot delete the last remaining plant');
-    }
+    // REMOVED: All delete validations for Untitled Project support
+    // - "Cannot delete the default plant" validation removed
+    // - "Cannot delete the last remaining plant" validation removed
+    // Untitled Project can have 0 plants (like blank Excel document)
+    // User creates plants via import or manual creation
 
     this.db.prepare('UPDATE plants SET is_active = 0 WHERE id = ?').run(id);
   }

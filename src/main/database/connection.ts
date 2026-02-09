@@ -66,6 +66,15 @@ class DatabaseConnection {
   }
 
   /**
+   * Get the default global database path (without opening it).
+   * Used to identify the global DB vs project files.
+   */
+  static getDefaultPath(): string {
+    const userDataPath = app.getPath('userData');
+    return path.join(userDataPath, DB_CONFIG.FILE_NAME);
+  }
+
+  /**
    * Configure pragmas for a database instance.
    * Should be called on any newly opened database.
    */
