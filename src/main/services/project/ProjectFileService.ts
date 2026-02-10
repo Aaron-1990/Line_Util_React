@@ -139,6 +139,14 @@ export class ProjectFileService {
           detail: `Backup saved as:\n${path.basename(backupPath)}`,
           buttons: ['OK']
         });
+
+        // NEW: Close and re-open the migrated database
+        db.close();
+        console.log(`[ProjectFileService] Closed database after migration`);
+
+        db = new Database(filePath as string, { readonly: false });
+        DatabaseConnection.configurePragmas(db); // Apply FK + WAL
+        console.log(`[ProjectFileService] Re-opened migrated database`);
       } catch (error) {
         db.close();
 
