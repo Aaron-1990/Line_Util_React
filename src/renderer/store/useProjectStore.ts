@@ -196,13 +196,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 }));
 
 // Listen for project events
+// NOTE: PROJECT_OPENED and PROJECT_RESET are handled in AppLayout.tsx via refreshAllStores()
+// to avoid duplicate event handling. Only listen to PROJECT_SAVED here.
 if (window.electronAPI) {
-  window.electronAPI.on(PROJECT_EVENTS.PROJECT_OPENED, () => {
-    useProjectStore.getState().refreshProjectInfo();
-  });
-
   window.electronAPI.on(PROJECT_EVENTS.PROJECT_SAVED, () => {
     useProjectStore.getState().refreshProjectInfo();
+    useProjectStore.getState().clearUnsavedChanges();
   });
 
   window.electronAPI.on(PROJECT_EVENTS.PROJECT_CLOSED, () => {

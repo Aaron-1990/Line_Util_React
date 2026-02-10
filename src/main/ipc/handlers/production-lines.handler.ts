@@ -11,13 +11,12 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteProductionLineRepository } from '../../database/repositories';
 
 export function registerProductionLinesHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const repository = new SQLiteProductionLineRepository(db);
-
   ipcMain.handle(
     IPC_CHANNELS.LINES_GET_ALL,
     async (): Promise<ApiResponse<IProductionLine[]>> => {
       try {
+        // Get fresh instance on each request (critical for replaceInstance() to work)
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         const lines = await repository.findActive();
         return {
           success: true,
@@ -37,6 +36,7 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_GET_BY_ID,
     async (_event, id: string): Promise<ApiResponse<IProductionLine | null>> => {
       try {
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         const line = await repository.findById(id);
         return {
           success: true,
@@ -57,6 +57,7 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_GET_BY_PLANT,
     async (_event, plantId: string): Promise<ApiResponse<IProductionLine[]>> => {
       try {
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         const lines = await repository.findActiveByPlant(plantId);
         return {
           success: true,
@@ -76,6 +77,8 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_CREATE,
     async (_event, data: Partial<IProductionLine>): Promise<ApiResponse<IProductionLine>> => {
       try {
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
+
         if (!data.name || !data.area || !data.timeAvailableDaily) {
           return {
             success: false,
@@ -136,6 +139,7 @@ export function registerProductionLinesHandlers(): void {
       updates: Partial<IProductionLine>
     ): Promise<ApiResponse<IProductionLine>> => {
       try {
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         const line = await repository.findById(id);
         if (!line) {
           return {
@@ -181,6 +185,7 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_DELETE,
     async (_event, id: string): Promise<ApiResponse<void>> => {
       try {
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         const line = await repository.findById(id);
         if (!line) {
           return {
@@ -209,6 +214,7 @@ export function registerProductionLinesHandlers(): void {
     IPC_CHANNELS.LINES_UPDATE_POSITION,
     async (_event, id: string, x: number, y: number): Promise<ApiResponse<void>> => {
       try {
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         await repository.updatePosition(id, x, y);
 
         return {
@@ -231,6 +237,7 @@ export function registerProductionLinesHandlers(): void {
     async (_event, id: string, enabled: boolean): Promise<ApiResponse<void>> => {
       try {
         console.log(`[Lines Handler] Updating changeover enabled for line ${id}: ${enabled}`);
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
 
         const line = await repository.findById(id);
         if (!line) {
@@ -262,6 +269,7 @@ export function registerProductionLinesHandlers(): void {
     async (_event, enabled: boolean = true): Promise<ApiResponse<number>> => {
       try {
         console.log(`[Lines Handler] Resetting all changeover toggles to: ${enabled ? 'ON' : 'OFF'}`);
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         const count = await repository.resetAllChangeoverToggles(enabled);
         return {
           success: true,
@@ -284,6 +292,7 @@ export function registerProductionLinesHandlers(): void {
     async (_event, enabled: boolean): Promise<ApiResponse<number>> => {
       try {
         console.log(`[Lines Handler] Setting all changeover toggles to: ${enabled}`);
+        const repository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
         const count = await repository.setAllChangeoverEnabled(enabled);
         return {
           success: true,

@@ -21,6 +21,47 @@ import { PreferencesPage } from '../../pages/PreferencesPage';
 import { PlantsPage } from '../../pages/PlantsPage';
 import { GlobalAnalysisPage } from '../../pages/GlobalAnalysisPage';
 import { PROJECT_CHANNELS, PROJECT_EVENTS } from '@shared/constants';
+import { useModelStore } from '../../features/models';
+import { useAreaStore } from '../../features/areas';
+import { useAnalysisStore } from '../../features/analysis';
+import { useChangeoverStore } from '../../features/changeover';
+import { useRoutingStore } from '../../features/routings';
+import { useCanvasStore } from '../../features/canvas';
+import { useShapeCatalogStore } from '../../features/canvas/store/useShapeCatalogStore';
+
+// ===== Helpers =====
+
+/**
+ * Refresh all stores after database instance change (e.g., opening a .lop file).
+ * This is the proper alternative to window.location.reload() which has issues in Electron.
+ */
+async function refreshAllStores(): Promise<void> {
+  console.log('[AppLayout] Refreshing all stores after database change...');
+
+  try {
+    // Refresh all stores in parallel for performance
+    await Promise.all([
+      useProjectStore.getState().refreshProjectInfo(),
+      usePlantStore.getState().loadPlants(),
+      useModelStore.getState().loadModels(),
+      useAreaStore.getState().loadAreas(),
+      useAnalysisStore.getState().refreshData(),
+      useChangeoverStore.getState().loadFamilyDefaults(),
+      useChangeoverStore.getState().loadGlobalSettings(),
+      useRoutingStore.getState().loadData(),
+      useCanvasStore.getState().refreshNodes(),
+      useShapeCatalogStore.getState().refreshCatalog(),
+    ]);
+
+    // Refresh navigation store (synchronous - uses localStorage, not DB)
+    useNavigationStore.getState().initializePlantFromStorage();
+
+    console.log('[AppLayout] All stores refreshed successfully');
+  } catch (error) {
+    console.error('[AppLayout] Error refreshing stores:', error);
+    throw error;
+  }
+}
 
 // ===== Component =====
 
@@ -200,42 +241,47 @@ export const AppLayout = () => {
 
   /**
    * Handle project opened event from main process.
-   * Updates project state to 'saved' and reloads data.
+   * Updates project state to 'saved' and reloads data from new database.
    */
-  const handleProjectOpened = useCallback((...args: unknown[]) => {
+  const handleProjectOpened = useCallback(async (...args: unknown[]) => {
     const data = args[0] as { projectType: 'saved'; filePath: string | null } | undefined;
     console.log('[AppLayout] Project opened:', data);
 
-    // Update project state
-    setProjectType('saved', data?.filePath || undefined);
-    clearUnsavedChanges();
+    try {
+      // Update project state
+      setProjectType('saved', data?.filePath || undefined);
+      clearUnsavedChanges();
 
-    // Refresh project info to get new metadata
-    refreshProjectInfo();
+      // Refresh all stores to load data from new database
+      await refreshAllStores();
 
-    // Full page reload to ensure all stores load fresh data from new database
-    // This is the simplest and most reliable approach
-    window.location.reload();
-  }, [setProjectType, clearUnsavedChanges, refreshProjectInfo]);
+      console.log('[AppLayout] Project opened successfully');
+    } catch (error) {
+      console.error('[AppLayout] Failed to refresh stores after project open:', error);
+    }
+  }, [setProjectType, clearUnsavedChanges]);
 
   /**
    * Handle project reset event from main process (File > New Project completed).
-   * Resets project state to 'untitled' and reloads data.
+   * Resets project state to 'untitled' and reloads data from empty database.
    */
-  const handleProjectReset = useCallback((..._args: unknown[]) => {
+  const handleProjectReset = useCallback(async (..._args: unknown[]) => {
     // _args[0] would be { projectType: 'untitled'; filePath: null }, but we don't need to read it
     console.log('[AppLayout] Project reset to Untitled');
 
-    // Update project state
-    setProjectType('untitled', undefined);
-    clearUnsavedChanges();
+    try {
+      // Update project state
+      setProjectType('untitled', undefined);
+      clearUnsavedChanges();
 
-    // Refresh project info to get new metadata
-    refreshProjectInfo();
+      // Refresh all stores to load data from empty database
+      await refreshAllStores();
 
-    // Full page reload to ensure all stores load fresh data (empty database)
-    window.location.reload();
-  }, [setProjectType, clearUnsavedChanges, refreshProjectInfo]);
+      console.log('[AppLayout] Project reset successfully');
+    } catch (error) {
+      console.error('[AppLayout] Failed to refresh stores after project reset:', error);
+    }
+  }, [setProjectType, clearUnsavedChanges]);
 
   /**
    * Respond to main process state query (during before-quit check).
