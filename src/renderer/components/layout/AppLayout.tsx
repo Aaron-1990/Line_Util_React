@@ -213,10 +213,9 @@ export const AppLayout = () => {
     // Refresh project info to get new metadata
     refreshProjectInfo();
 
-    // TEMPORARY FIX: Comment out reload to prevent DB connection issue
-    // TODO: Properly refresh all stores instead of reload
-    // window.location.reload();
-    console.log('[AppLayout] Project opened successfully - reload disabled temporarily');
+    // Full page reload to ensure all stores load fresh data from new database
+    // This is the simplest and most reliable approach
+    window.location.reload();
   }, [setProjectType, clearUnsavedChanges, refreshProjectInfo]);
 
   /**
@@ -234,10 +233,8 @@ export const AppLayout = () => {
     // Refresh project info to get new metadata
     refreshProjectInfo();
 
-    // TEMPORARY FIX: Comment out reload to prevent DB connection issue
-    // TODO: Properly refresh all stores instead of reload
-    // window.location.reload();
-    console.log('[AppLayout] Project reset - reload disabled temporarily');
+    // Full page reload to ensure all stores load fresh data (empty database)
+    window.location.reload();
   }, [setProjectType, clearUnsavedChanges, refreshProjectInfo]);
 
   /**
