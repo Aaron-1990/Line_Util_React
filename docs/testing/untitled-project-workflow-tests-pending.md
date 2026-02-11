@@ -1,8 +1,9 @@
-# Untitled Project Workflow - Tests Pending
+# Untitled Project Workflow - Tests Complete
 
 > **Phase:** 8.1 - Untitled Project Workflow
-> **Status:** Tests 1-3 ✅ PASSED | Tests 4-8 ⏳ PENDING
-> **Last Updated:** 2026-02-09
+> **Status:** ✅ ALL TESTS PASSED (8/8)
+> **Last Updated:** 2026-02-10
+> **Result:** READY FOR PRODUCTION
 
 ---
 
@@ -29,9 +30,11 @@
 
 ---
 
-## Tests Pending ⏳
+## Tests Completed ✅
 
 ### Test 4: "Don't Save" Before File > Open
+
+**Status:** ✅ PASSED (2026-02-10)
 
 **Scenario:** Untitled project with unsaved changes → File > Open → Don't Save
 
@@ -70,6 +73,8 @@ sqlite3 ~/Desktop/test-controlled.lop "SELECT code, name FROM plants;"
 
 ### Test 5: "Cancel" in Save Dialog Before File > Open
 
+**Status:** ✅ PASSED (2026-02-10)
+
 **Scenario:** Untitled project with unsaved changes → File > Open → Save → Cancel save dialog
 
 **Steps:**
@@ -96,6 +101,8 @@ sqlite3 ~/Desktop/test-controlled.lop "SELECT code, name FROM plants;"
 ---
 
 ### Test 6: Save As with Unsaved Changes Before File > New
+
+**Status:** ✅ PASSED (2026-02-10) + UX IMPROVEMENTS
 
 **Scenario:** Untitled project with unsaved changes → File > New → Save
 
@@ -132,6 +139,8 @@ sqlite3 ~/Library/Application\ Support/Line\ Optimizer/line-optimizer.db "SELECT
 
 ### Test 7: "Don't Save" Before File > New
 
+**Status:** ✅ PASSED (2026-02-10)
+
 **Scenario:** Untitled project with unsaved changes → File > New → Don't Save
 
 **Steps:**
@@ -160,6 +169,8 @@ sqlite3 ~/Library/Application\ Support/Line\ Optimizer/line-optimizer.db "SELECT
 ---
 
 ### Test 8: Save Successfully Before File > New (Saved Project)
+
+**Status:** ✅ PASSED (2026-02-10)
 
 **Scenario:** **Saved project** with unsaved changes → File > New → Save
 
@@ -205,11 +216,12 @@ sqlite3 ~/Library/Application\ Support/Line\ Optimizer/line-optimizer.db "SELECT
 | 2 | Create Data | Add plant | hasUnsavedChanges = true | ✅ PASSED |
 | 3 | Untitled → Save As | Save | Creates .lop file | ✅ PASSED |
 | 3-Ext | Open Saved File | File > Open | Loads data from .lop | ✅ PASSED |
-| 4 | Untitled → Open (Don't Save) | File > Open → Don't Save | Opens file, discards changes | ⏳ PENDING |
-| 5 | Untitled → Open (Cancel) | File > Open → Save → Cancel | Stays in current project | ⏳ PENDING |
-| 6 | Untitled → New (Save As) | File > New → Save | Prompts Save As, creates new | ⏳ PENDING |
-| 7 | Untitled → New (Don't Save) | File > New → Don't Save | Discards changes, creates new | ⏳ PENDING |
-| 8 | Saved → New (Save) | File > New → Save | Direct save, creates new | ⏳ PENDING |
+| 4 | Untitled → Open (Don't Save) | File > Open → Don't Save | Opens file, discards changes | ✅ PASSED |
+| 5 | Untitled → Open (Cancel) | File > Open → Save → Cancel | Stays in current project | ✅ PASSED |
+| 6 | Untitled → New (Save As) | File > New → Save As | Prompts Save As, creates new | ✅ PASSED |
+| 6+ | Saved → New (4 buttons) | File > New | [Save] [Save As] [Don't Save] [Cancel] | ✅ PASSED + UX |
+| 7 | Untitled → New (Don't Save) | File > New → Don't Save | Discards changes, creates new | ✅ PASSED |
+| 8 | Saved → New (Save) | File > New → Save | Direct save, creates new | ✅ PASSED |
 
 ---
 

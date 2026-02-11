@@ -1,11 +1,12 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron';
+import * as path from 'path';
 import { PROJECT_CHANNELS, PROJECT_EVENTS } from '@shared/constants';
 import { ApiResponse, ProjectState, UntitledProjectState } from '@shared/types';
 import { ProjectFileService } from '@main/services/project/ProjectFileService';
 import DatabaseConnection from '@main/database/connection';
 
 // ===== TYPE DEFINITIONS =====
-type SaveDialogResult = 'save' | 'dont-save' | 'cancel';
+type SaveDialogResult = 'save' | 'save-as' | 'dont-save' | 'cancel';
 
 interface ProjectStateFromRenderer {
   projectType: 'untitled' | 'saved';
@@ -69,35 +70,63 @@ async function getProjectStateFromRenderer(
 
 /**
  * Show native save prompt dialog for unsaved changes.
- * Returns user's choice: 'save', 'dont-save', or 'cancel'.
+ * Returns user's choice: 'save', 'save-as', 'dont-save', or 'cancel'.
  */
 async function showSavePromptForOperation(
   window: BrowserWindow,
-  operation: 'open' | 'new'
+  operation: 'open' | 'new',
+  projectType: 'untitled' | 'saved',
+  projectName?: string
 ): Promise<SaveDialogResult> {
+  // Use provided project name or default to "Untitled Project"
+  const name = projectName || 'Untitled Project';
+
   const message = operation === 'open'
-    ? 'Do you want to save changes to Untitled Project before opening another file?'
-    : 'Do you want to save changes to Untitled Project before creating a new project?';
+    ? `Do you want to save changes to ${name} before opening another file?`
+    : `Do you want to save changes to ${name} before creating a new project?`;
+
+  // Different buttons based on project type
+  const buttons = projectType === 'saved'
+    ? ['Save', 'Save As...', "Don't Save", 'Cancel']  // Saved project: 4 options
+    : ['Save As...', "Don't Save", 'Cancel'];          // Untitled: 3 options
+
+  const cancelId = projectType === 'saved' ? 3 : 2;
 
   const result = await dialog.showMessageBox(window, {
     type: 'warning',
-    buttons: ['Save As...', "Don't Save", 'Cancel'],
+    buttons,
     defaultId: 0,
-    cancelId: 2,
+    cancelId,
     title: 'Save Changes?',
     message,
     detail: 'Your changes will be lost if you don\'t save them.',
     noLink: true,
   });
 
-  switch (result.response) {
-    case 0:
-      return 'save';
-    case 1:
-      return 'dont-save';
-    case 2:
-    default:
-      return 'cancel';
+  // Map button index to result based on project type
+  if (projectType === 'saved') {
+    switch (result.response) {
+      case 0:
+        return 'save';        // Save to current file
+      case 1:
+        return 'save-as';     // Save As dialog
+      case 2:
+        return 'dont-save';
+      case 3:
+      default:
+        return 'cancel';
+    }
+  } else {
+    // Untitled project
+    switch (result.response) {
+      case 0:
+        return 'save-as';     // Save As dialog
+      case 1:
+        return 'dont-save';
+      case 2:
+      default:
+        return 'cancel';
+    }
   }
 }
 
@@ -142,7 +171,17 @@ export function registerProjectHandlers(window: BrowserWindow): void {
 
         // STEP 2: If unsaved changes exist, prompt to save first
         if (state?.hasUnsavedChanges) {
-          const result = await showSavePromptForOperation(mainWindow, 'new');
+          // Get project name for dialog message
+          const projectName = state.projectType === 'saved' && state.projectFilePath
+            ? path.basename(state.projectFilePath, '.lop')
+            : undefined; // undefined = "Untitled Project"
+
+          const result = await showSavePromptForOperation(
+            mainWindow,
+            'new',
+            state.projectType,
+            projectName
+          );
 
           if (result === 'cancel') {
             console.log('[Project Handler] User cancelled new project');
@@ -153,17 +192,36 @@ export function registerProjectHandlers(window: BrowserWindow): void {
           }
 
           if (result === 'save') {
+            // Direct save to current file (only for saved projects)
+            console.log('[Project Handler] User chose Save - saving to current file');
+            const saveResult = await ProjectFileService.saveProject(
+              DatabaseConnection.getInstance(),
+              mainWindow
+            );
+
+            if (!saveResult) {
+              console.log('[Project Handler] Save failed or cancelled');
+              return {
+                success: false,
+                error: 'Save failed or cancelled',
+              };
+            }
+
+            console.log('[Project Handler] Save completed, continuing with new project');
+            // Continue to create new project (fall through)
+          } else if (result === 'save-as') {
             // Trigger Save As, then create new project after save completes
             console.log('[Project Handler] User chose Save As before new project');
             mainWindow.webContents.send(PROJECT_EVENTS.TRIGGER_SAVE_AS_THEN_NEW);
             return {
-              success: true,
+              success: false,
+              error: 'SAVE_AS_TRIGGERED', // Special marker to indicate workflow started
             };
+          } else if (result === 'dont-save') {
+            // Clear data and continue with new project
+            console.log('[Project Handler] User chose Don\'t Save - clearing data');
+            await clearDataTables();
           }
-
-          // result === 'dont-save': Clear data and continue with new project
-          console.log('[Project Handler] User chose Don\'t Save - clearing data');
-          await clearDataTables();
         }
 
         // STEP 3: Create new project using ProjectFileService
@@ -213,7 +271,8 @@ export function registerProjectHandlers(window: BrowserWindow): void {
 
         // STEP 2: If Untitled + unsaved changes, prompt to save first
         if (state?.projectType === 'untitled' && state?.hasUnsavedChanges) {
-          const result = await showSavePromptForOperation(mainWindow, 'open');
+          // For OPEN, only Untitled projects trigger this, so always 'untitled'
+          const result = await showSavePromptForOperation(mainWindow, 'open', 'untitled', undefined);
 
           if (result === 'cancel') {
             console.log('[Project Handler] User cancelled open project');
@@ -223,13 +282,14 @@ export function registerProjectHandlers(window: BrowserWindow): void {
             };
           }
 
-          if (result === 'save') {
+          if (result === 'save-as') {
             // Trigger Save As, then open file after save completes
             // Pass filePath so renderer knows which file to open after saving
             console.log('[Project Handler] User chose Save As before opening');
             mainWindow.webContents.send(PROJECT_EVENTS.TRIGGER_SAVE_AS_THEN_OPEN, filePath || null);
             return {
-              success: true,
+              success: false,
+              error: 'SAVE_AS_TRIGGERED', // Special marker to indicate workflow started
             };
           }
 

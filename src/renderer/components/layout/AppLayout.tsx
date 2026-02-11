@@ -230,7 +230,12 @@ export const AppLayout = () => {
         await window.electronAPI.invoke(PROJECT_CHANNELS.CLEAR_DATABASE_AT_PATH, globalDbPath);
 
         // Create new project
-        await window.electronAPI.invoke(PROJECT_CHANNELS.NEW);
+        const newProjectResponse = await window.electronAPI.invoke(PROJECT_CHANNELS.NEW);
+
+        // Show success message if new project created successfully
+        if (newProjectResponse.success) {
+          alert('New project created successfully!\n\nProject name: Untitled Project');
+        }
       } else {
         console.log('[AppLayout] Save As was cancelled - staying with current project');
       }

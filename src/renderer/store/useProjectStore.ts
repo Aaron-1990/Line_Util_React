@@ -61,7 +61,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
         // Show success message
         alert('New project created successfully!\n\nProject name: Untitled Project');
+      } else if (response.error === 'SAVE_AS_TRIGGERED') {
+        // Save As workflow triggered - don't show error, wait for completion
+        console.log('[ProjectStore] Save As workflow started, waiting for completion...');
+      } else if (response.error === 'User cancelled') {
+        // User cancelled - silent, no error message
+        console.log('[ProjectStore] User cancelled new project');
       } else {
+        // Real error - show error message
         console.error('[ProjectStore] New project failed:', response.error);
         alert(`Failed to create new project:\n\n${response.error || 'Unknown error'}`);
       }
