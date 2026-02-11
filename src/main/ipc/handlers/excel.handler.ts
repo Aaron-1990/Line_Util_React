@@ -31,9 +31,6 @@ interface ImportResult {
 }
 
 export function registerExcelHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const lineRepository = new SQLiteProductionLineRepository(db);
-
   // ===== SELECT FILE =====
   ipcMain.handle(
     IPC_CHANNELS.EXCEL_SELECT_FILE,
@@ -190,6 +187,8 @@ export function registerExcelHandlers(): void {
     }>> => {
       try {
         console.log('[Excel Handler] Checking existing lines:', lineNames.length);
+        // Get fresh instance on each request (critical for replaceInstance() to work)
+        const lineRepository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
 
         const existing: string[] = [];
         const newLines: string[] = [];
@@ -235,6 +234,8 @@ export function registerExcelHandlers(): void {
         console.log('[Excel Handler] Starting import from:', filePath);
         console.log('[Excel Handler] Using mapping:', mapping);
         console.log('[Excel Handler] Import mode:', mode);
+        // Get fresh instance on each request (critical for replaceInstance() to work)
+        const lineRepository = new SQLiteProductionLineRepository(DatabaseConnection.getInstance());
 
         const parseResult = ExcelImporter.parseFile(filePath);
         const validationResult = ExcelValidator.validateBatch(parseResult.rows as ExcelRow[], mapping);

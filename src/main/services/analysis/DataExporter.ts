@@ -6,7 +6,6 @@
 // ============================================
 
 import Database from 'better-sqlite3';
-import DatabaseConnection from '../../database/connection';
 import { SQLiteProductModelV2Repository } from '../../database/repositories/SQLiteProductModelV2Repository';
 import { SQLiteProductVolumeRepository } from '../../database/repositories/SQLiteProductVolumeRepository';
 import { SQLiteChangeoverRepository } from '../../database/repositories/SQLiteChangeoverRepository';
@@ -40,8 +39,8 @@ export class DataExporter {
   private changeoverRepository: SQLiteChangeoverRepository;
   private plantRepository: SQLitePlantRepository;
 
-  constructor() {
-    this.db = DatabaseConnection.getInstance();
+  constructor(db: Database.Database) {
+    this.db = db;
     this.modelRepository = new SQLiteProductModelV2Repository(this.db);
     this.volumeRepository = new SQLiteProductVolumeRepository(this.db);
     this.changeoverRepository = new SQLiteChangeoverRepository(this.db);

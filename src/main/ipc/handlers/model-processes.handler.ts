@@ -11,13 +11,11 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteModelProcessRepository } from '../../database/repositories';
 
 export function registerModelProcessesHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const repository = new SQLiteModelProcessRepository(db);
-
   ipcMain.handle(
     IPC_CHANNELS.PROCESSES_GET_BY_MODEL,
     async (_event, modelId: string): Promise<ApiResponse<IModelProcess[]>> => {
       try {
+        const repository = new SQLiteModelProcessRepository(DatabaseConnection.getInstance());
         const processes = await repository.findByModelId(modelId);
         return {
           success: true,
@@ -37,6 +35,8 @@ export function registerModelProcessesHandlers(): void {
     IPC_CHANNELS.PROCESSES_CREATE,
     async (_event, data: Partial<IModelProcess>): Promise<ApiResponse<IModelProcess>> => {
       try {
+        const repository = new SQLiteModelProcessRepository(DatabaseConnection.getInstance());
+
         if (!data.modelId || !data.name || !data.cycleTime || !data.quantityPerProduct || data.sequence === undefined) {
           return {
             success: false,
@@ -77,6 +77,7 @@ export function registerModelProcessesHandlers(): void {
       updates: Partial<IModelProcess>
     ): Promise<ApiResponse<IModelProcess>> => {
       try {
+        const repository = new SQLiteModelProcessRepository(DatabaseConnection.getInstance());
         const process = await repository.findById(id);
         if (!process) {
           return {
@@ -113,6 +114,7 @@ export function registerModelProcessesHandlers(): void {
     IPC_CHANNELS.PROCESSES_DELETE,
     async (_event, id: string): Promise<ApiResponse<void>> => {
       try {
+        const repository = new SQLiteModelProcessRepository(DatabaseConnection.getInstance());
         await repository.delete(id);
 
         return {

@@ -108,15 +108,6 @@ function calculateLayoutPositions(
 }
 
 export function registerMultiSheetExcelHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  // Phase 7.5: Use unified canvas_objects instead of production_lines
-  const canvasObjectRepository = new SQLiteCanvasObjectRepository(db);
-  const canvasCompatibilityRepository = new SQLiteCanvasObjectCompatibilityRepository(db);
-  const modelRepository = new SQLiteProductModelV2Repository(db);
-  const volumeRepository = new SQLiteProductVolumeRepository(db);
-  const changeoverRepository = new SQLiteChangeoverRepository(db);
-  const plantRepository = new SQLitePlantRepository(db);
-
   // ===== DETECT SHEETS =====
   ipcMain.handle(
     EXCEL_CHANNELS.DETECT_SHEETS,
@@ -209,6 +200,12 @@ export function registerMultiSheetExcelHandlers(): void {
           };
         }
 
+        // Get fresh database connection and repositories
+        const db = DatabaseConnection.getInstance();
+        const canvasObjectRepository = new SQLiteCanvasObjectRepository(db);
+        const modelRepository = new SQLiteProductModelV2Repository(db);
+        const plantRepository = new SQLitePlantRepository(db);
+
         // Get existing process objects and models from database
         // Phase 7.5: Query canvas_objects instead of production_lines
         const existingObjects = await canvasObjectRepository.findByPlantAndType(
@@ -296,6 +293,15 @@ export function registerMultiSheetExcelHandlers(): void {
             error: `Cannot import: ${validationResult.crossSheetErrors.length} cross-sheet validation error(s)`,
           };
         }
+
+        // Get fresh database connection and repositories
+        const db = DatabaseConnection.getInstance();
+        const canvasObjectRepository = new SQLiteCanvasObjectRepository(db);
+        const canvasCompatibilityRepository = new SQLiteCanvasObjectCompatibilityRepository(db);
+        const modelRepository = new SQLiteProductModelV2Repository(db);
+        const volumeRepository = new SQLiteProductVolumeRepository(db);
+        const changeoverRepository = new SQLiteChangeoverRepository(db);
+        const plantRepository = new SQLitePlantRepository(db);
 
         const result: MultiSheetImportResult = {
           totalTime: 0,

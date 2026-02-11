@@ -17,9 +17,6 @@ import type {
 } from '@shared/types/canvas-object';
 
 export function registerCanvasObjectCompatibilityHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const repo = new SQLiteCanvasObjectCompatibilityRepository(db);
-
   // ============================================
   // GET COMPATIBILITIES BY CANVAS OBJECT
   // ============================================
@@ -34,6 +31,7 @@ export function registerCanvasObjectCompatibilityHandlers(): void {
           return { success: false, error: 'Invalid canvas object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectCompatibilityRepository(DatabaseConnection.getInstance());
         const compatibilities = await repo.findByCanvasObject(canvasObjectId);
         return { success: true, data: compatibilities };
       } catch (error) {
@@ -60,6 +58,7 @@ export function registerCanvasObjectCompatibilityHandlers(): void {
           return { success: false, error: 'Invalid model ID' };
         }
 
+        const repo = new SQLiteCanvasObjectCompatibilityRepository(DatabaseConnection.getInstance());
         const compatibilities = await repo.findByModel(modelId);
         return { success: true, data: compatibilities };
       } catch (error) {
@@ -90,6 +89,8 @@ export function registerCanvasObjectCompatibilityHandlers(): void {
         if (!params.modelId || typeof params.modelId !== 'string') {
           return { success: false, error: 'Model ID is required' };
         }
+
+        const repo = new SQLiteCanvasObjectCompatibilityRepository(DatabaseConnection.getInstance());
 
         // Check if compatibility already exists
         const exists = await repo.existsByCanvasObjectAndModel(params.canvasObjectId, params.modelId);
@@ -157,6 +158,7 @@ export function registerCanvasObjectCompatibilityHandlers(): void {
           }
         }
 
+        const repo = new SQLiteCanvasObjectCompatibilityRepository(DatabaseConnection.getInstance());
         const updated = await repo.update(params.id, {
           cycleTime: params.cycleTime,
           efficiency: params.efficiency,
@@ -188,6 +190,7 @@ export function registerCanvasObjectCompatibilityHandlers(): void {
           return { success: false, error: 'Compatibility ID is required' };
         }
 
+        const repo = new SQLiteCanvasObjectCompatibilityRepository(DatabaseConnection.getInstance());
         await repo.delete(id);
         return { success: true, data: true };
       } catch (error) {

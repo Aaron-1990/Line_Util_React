@@ -11,13 +11,11 @@ import DatabaseConnection from '../../database/connection';
 import { SQLiteProductModelRepository } from '../../database/repositories';
 
 export function registerProductModelsHandlers(): void {
-  const db = DatabaseConnection.getInstance();
-  const repository = new SQLiteProductModelRepository(db);
-
   ipcMain.handle(
     IPC_CHANNELS.MODELS_GET_ALL,
     async (): Promise<ApiResponse<IProductModel[]>> => {
       try {
+        const repository = new SQLiteProductModelRepository(DatabaseConnection.getInstance());
         const models = await repository.findAll();
         return {
           success: true,
@@ -37,6 +35,7 @@ export function registerProductModelsHandlers(): void {
     IPC_CHANNELS.MODELS_GET_BY_ID,
     async (_event, id: string): Promise<ApiResponse<IProductModel | null>> => {
       try {
+        const repository = new SQLiteProductModelRepository(DatabaseConnection.getInstance());
         const model = await repository.findById(id);
         return {
           success: true,
@@ -56,6 +55,8 @@ export function registerProductModelsHandlers(): void {
     IPC_CHANNELS.MODELS_CREATE,
     async (_event, data: Partial<IProductModel>): Promise<ApiResponse<IProductModel>> => {
       try {
+        const repository = new SQLiteProductModelRepository(DatabaseConnection.getInstance());
+
         if (!data.family || !data.name || !data.bu || !data.area || data.priority === undefined || !data.efficiency) {
           return {
             success: false,
@@ -106,6 +107,8 @@ export function registerProductModelsHandlers(): void {
       updates: Partial<IProductModel>
     ): Promise<ApiResponse<IProductModel>> => {
       try {
+        const repository = new SQLiteProductModelRepository(DatabaseConnection.getInstance());
+
         const model = await repository.findById(id);
         if (!model) {
           return {
@@ -158,6 +161,8 @@ export function registerProductModelsHandlers(): void {
     IPC_CHANNELS.MODELS_DELETE,
     async (_event, id: string): Promise<ApiResponse<void>> => {
       try {
+        const repository = new SQLiteProductModelRepository(DatabaseConnection.getInstance());
+
         const model = await repository.findById(id);
         if (!model) {
           return {

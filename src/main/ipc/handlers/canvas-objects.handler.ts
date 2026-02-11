@@ -28,13 +28,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_BY_PLANT,
     async (_event, plantId: string): Promise<ApiResponse<CanvasObjectWithDetails[]>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting objects by plant:', plantId);
 
         if (!plantId) {
           return { success: false, error: 'Missing plant ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const objects = await repo.findByPlant(plantId);
         return { success: true, data: objects };
       } catch (error) {
@@ -55,13 +55,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_BY_ID,
     async (_event, id: string): Promise<ApiResponse<CanvasObjectWithDetails | null>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting object by ID:', id);
 
         if (!id) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const object = await repo.findById(id);
         return { success: true, data: object };
       } catch (error) {
@@ -94,13 +94,13 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Creating object:', payload.name);
 
         if (!payload.plantId || !payload.shapeId || !payload.name) {
           return { success: false, error: 'Missing required fields: plantId, shapeId, or name' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const object = await repo.create({
           plantId: payload.plantId,
           shapeId: payload.shapeId,
@@ -140,13 +140,13 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Updating object:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const object = await repo.update(objectId, updates);
         return { success: true, data: object };
       } catch (error) {
@@ -167,13 +167,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.DELETE,
     async (_event, objectId: string): Promise<ApiResponse<void>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Deleting object:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         await repo.delete(objectId);
         return { success: true, data: undefined };
       } catch (error) {
@@ -199,13 +199,13 @@ export function registerCanvasObjectHandlers(): void {
       y: number
     ): Promise<ApiResponse<void>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Updating position:', objectId, x, y);
 
         if (!objectId || x === undefined || y === undefined) {
           return { success: false, error: 'Missing object ID or position coordinates' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         await repo.updatePosition(objectId, x, y);
         return { success: true, data: undefined };
       } catch (error) {
@@ -229,13 +229,13 @@ export function registerCanvasObjectHandlers(): void {
       positions: Array<{ id: string; xPosition: number; yPosition: number }>
     ): Promise<ApiResponse<void>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Batch updating positions:', positions.length, 'objects');
 
         if (!positions || positions.length === 0) {
           return { success: false, error: 'No positions provided' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         // Transform to repository format
         const repoPositions = positions.map(p => ({ id: p.id, x: p.xPosition, y: p.yPosition }));
         await repo.updatePositionsBatch(repoPositions);
@@ -261,13 +261,13 @@ export function registerCanvasObjectHandlers(): void {
       id: string
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Duplicating object:', id);
 
         if (!id) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const duplicate = await repo.duplicate(id);
         return { success: true, data: duplicate };
       } catch (error) {
@@ -292,13 +292,13 @@ export function registerCanvasObjectHandlers(): void {
       newType: CanvasObjectType
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Converting object type:', objectId, 'to', newType);
 
         if (!objectId || !newType) {
           return { success: false, error: 'Missing object ID or new type' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const object = await repo.convertType(objectId, newType);
         return { success: true, data: object };
       } catch (error) {
@@ -319,13 +319,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_BUFFER_PROPS,
     async (_event, objectId: string): Promise<ApiResponse<BufferProperties | null>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting buffer properties:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const props = await repo.getBufferProperties(objectId);
         return { success: true, data: props };
       } catch (error) {
@@ -355,13 +355,13 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<BufferProperties>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Setting buffer properties:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const bufferProps = await repo.setBufferProperties(objectId, props);
         return { success: true, data: bufferProps };
       } catch (error) {
@@ -386,13 +386,13 @@ export function registerCanvasObjectHandlers(): void {
       productionLineId: string
     ): Promise<ApiResponse<ProcessLineLink>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Linking to production line:', objectId, productionLineId);
 
         if (!objectId || !productionLineId) {
           return { success: false, error: 'Missing object ID or production line ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const link = await repo.linkToLine(objectId, productionLineId);
         return { success: true, data: link };
       } catch (error) {
@@ -413,13 +413,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.UNLINK_FROM_LINE,
     async (_event, objectId: string): Promise<ApiResponse<void>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Unlinking from production line:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         await repo.unlinkFromLine(objectId);
         return { success: true, data: undefined };
       } catch (error) {
@@ -440,13 +440,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_LINKED_LINE,
     async (_event, objectId: string): Promise<ApiResponse<ProductionLine | null>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting linked production line:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const link = await repo.getLinkedLine(objectId);
         return { success: true, data: link };
       } catch (error) {
@@ -467,13 +467,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_PROCESS_PROPS,
     async (_event, objectId: string): Promise<ApiResponse<ProcessProperties | null>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting process properties:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const props = await repo.getProcessProperties(objectId);
         return { success: true, data: props };
       } catch (error) {
@@ -504,13 +504,13 @@ export function registerCanvasObjectHandlers(): void {
       }
     ): Promise<ApiResponse<ProcessProperties>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Setting process properties:', objectId);
 
         if (!objectId) {
           return { success: false, error: 'Missing object ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const processProps = await repo.setProcessProperties(objectId, props);
         return { success: true, data: processProps };
       } catch (error) {
@@ -531,13 +531,13 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.GET_CONNECTIONS,
     async (_event, plantId: string): Promise<ApiResponse<CanvasConnection[]>> => {
       try {
-        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         console.log('[Canvas Object Handler] Getting connections for plant:', plantId);
 
         if (!plantId) {
           return { success: false, error: 'Missing plant ID' };
         }
 
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
         const connections = await repo.getConnections(plantId);
         return { success: true, data: connections };
       } catch (error) {

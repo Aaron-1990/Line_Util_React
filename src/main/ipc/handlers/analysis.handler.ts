@@ -20,7 +20,6 @@ import { openOrUpdateTimelineWindow, openOrUpdateResultsWindow } from './window.
 import DatabaseConnection from '../../database/connection';
 
 export function registerAnalysisHandlers(): void {
-  const dataExporter = new DataExporter();
   let pythonBridge: PythonBridge | null = null;
 
   // ===== EXPORT DATA FOR OPTIMIZATION =====
@@ -37,6 +36,9 @@ export function registerAnalysisHandlers(): void {
           };
         }
 
+        // Get fresh DB instance for this handler
+        const db = DatabaseConnection.getInstance();
+        const dataExporter = new DataExporter(db);
         const data = await dataExporter.exportForOptimization(selectedYears);
 
         console.log('[Analysis Handler] Export complete:', {
@@ -75,6 +77,9 @@ export function registerAnalysisHandlers(): void {
         }
 
         // 1. Export data (Phase 7: pass plantId for multi-plant support)
+        // Get fresh DB instance for this handler
+        const db = DatabaseConnection.getInstance();
+        const dataExporter = new DataExporter(db);
         const inputData = await dataExporter.exportForOptimization(request.selectedYears, request.plantId);
 
         // 2. Write data to temp file
@@ -93,8 +98,7 @@ export function registerAnalysisHandlers(): void {
 
         // 4. Auto-open Timeline window with results
         try {
-          // Get area catalog for sequence ordering
-          const db = DatabaseConnection.getInstance();
+          // Get area catalog for sequence ordering (reuse same db instance)
           const areas = db.prepare('SELECT code, sequence FROM area_catalog WHERE active = 1 ORDER BY sequence').all() as { code: string; sequence: number }[];
 
           const areaSequences = areas.map(area => ({
@@ -117,8 +121,7 @@ export function registerAnalysisHandlers(): void {
           // Wait for Timeline window to position before opening Results
           await new Promise(resolve => setTimeout(resolve, 150));
 
-          // Get area catalog for sequence ordering (reuse from above)
-          const db = DatabaseConnection.getInstance();
+          // Get area catalog for sequence ordering (reuse same db instance)
           const areas = db.prepare('SELECT code, sequence FROM area_catalog WHERE active = 1 ORDER BY sequence').all() as { code: string; sequence: number }[];
 
           const areaSequences = areas.map(area => ({
