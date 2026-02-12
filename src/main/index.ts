@@ -9,6 +9,7 @@ import DatabaseConnection from './database/connection';
 import { registerAllHandlers } from './ipc/handlers';
 import { PROJECT_EVENTS, PROJECT_CHANNELS } from '@shared/constants';
 import { ApiResponse } from '@shared/types';
+import { SQLitePlantRepository } from './database/repositories/SQLitePlantRepository';
 
 // Type for save dialog result
 type SaveDialogResult = 'save' | 'dont-save' | 'cancel';
@@ -70,18 +71,40 @@ function createMainWindow(): void {
   });
 }
 
-function initializeApp(): void {
+async function initializeApp(): Promise<void> {
   try {
-    DatabaseConnection.getInstance();
+    const db = DatabaseConnection.getInstance();
     console.log('Database initialized successfully');
+
+    // Auto-create default plant on first run (Hybrid UX approach)
+    const plantRepo = new SQLitePlantRepository(db);
+    const existingPlants = await plantRepo.findAll();
+
+    if (existingPlants.length === 0) {
+      console.log('No plants found - creating default plant "My Plant"');
+
+      // Auto-detect timezone
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
+
+      const newPlant = await plantRepo.create({
+        code: 'PLANT-001',
+        name: 'My Plant',
+        timezone,
+      });
+
+      // Set as default plant (first plant should be default)
+      await plantRepo.setDefault(newPlant.id);
+
+      console.log('✓ Default plant "My Plant" created successfully');
+    }
   } catch (error) {
     console.error('Failed to initialize app:', error);
     app.quit();
   }
 }
 
-app.on('ready', () => {
-  initializeApp();
+app.on('ready', async () => {
+  await initializeApp();
   createMainWindow();
 
   // Register IPC handlers after window is created (project handlers need window for dialogs)
