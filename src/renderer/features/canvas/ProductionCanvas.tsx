@@ -109,7 +109,7 @@ const CanvasInner = () => {
   const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string; connectionType: string } | null>(null);
 
   // Tool store for placement and connect modes (Phase 7.5)
-  const { activeTool, setGhostPosition, setSelectTool, connectionSource, clearConnectionSource, clearSelection } = useToolStore();
+  const { activeTool, setGhostPosition, connectionSource, clearConnectionSource, clearSelection } = useToolStore();
   const { loadCatalog, getShapeById } = useShapeCatalogStore();
   const { createObject, addObject, connections, loadConnectionsForPlant } = useCanvasObjectStore();
 
@@ -474,6 +474,8 @@ const CanvasInner = () => {
   );
 
   const onPaneClick = useCallback(async (event: React.MouseEvent) => {
+    console.log('[onPaneClick] Fired - activeTool:', activeTool);
+
     setSelectedNode(null);
     clearSelection();
     setContextMenu(null);
@@ -487,8 +489,18 @@ const CanvasInner = () => {
 
     // Handle placement mode (Phase 7.5)
     if (isPlaceTool(activeTool) && currentPlantId) {
+      console.log('[Placement] Conditions met - shapeId:', activeTool.shapeId, 'plantId:', currentPlantId);
+
       const shape = getShapeById(activeTool.shapeId);
-      if (shape) {
+
+      if (!shape) {
+        console.error('[Placement] Shape not found in catalog:', activeTool.shapeId);
+        return;
+      }
+
+      console.log('[Placement] Shape found:', shape.name);
+
+      try {
         // Convert screen coordinates to flow (canvas) coordinates
         const position = screenToFlowPosition({
           x: event.clientX,
@@ -497,6 +509,8 @@ const CanvasInner = () => {
 
         const xPos = position.x - shape.defaultWidth / 2;
         const yPos = position.y - shape.defaultHeight / 2;
+
+        console.log('[Placement] Attempting to create object at position:', { xPos, yPos });
 
         // Create new object at click position
         const newObjectId = await createObject({
@@ -507,44 +521,58 @@ const CanvasInner = () => {
           yPosition: yPos,
         });
 
-        if (newObjectId) {
-          // Build the object data
-          const objectData = {
-            id: newObjectId,
-            plantId: currentPlantId,
-            shapeId: activeTool.shapeId,
-            objectType: 'generic' as const,
-            name: `New ${shape.name}`,
-            xPosition: xPos,
-            yPosition: yPos,
-            rotation: 0,
-            active: true,
-            locked: false,
-            zIndex: 0,
-            shape: shape,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          // Add the new node directly to the canvas
-          addNode({
-            id: newObjectId,
-            type: 'genericShape',
-            position: { x: xPos, y: yPos },
-            data: objectData,
-          });
-
-          // Also add to useCanvasObjectStore so ContextMenu can find it
-          addObject(objectData);
-
-          console.log('[ProductionCanvas] Created object:', newObjectId);
-
-          // Switch back to select tool after placing
-          setSelectTool();
+        if (!newObjectId) {
+          console.error('[Placement] createObject returned null/undefined');
+          return;
         }
+
+        console.log('[Placement] Object created in DB with ID:', newObjectId);
+
+        // Build the object data
+        const objectData = {
+          id: newObjectId,
+          plantId: currentPlantId,
+          shapeId: activeTool.shapeId,
+          objectType: 'generic' as const,
+          name: `New ${shape.name}`,
+          xPosition: xPos,
+          yPosition: yPos,
+          rotation: 0,
+          active: true,
+          locked: false,
+          zIndex: 0,
+          shape: shape,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        // Add the new node directly to the canvas
+        addNode({
+          id: newObjectId,
+          type: 'genericShape',
+          position: { x: xPos, y: yPos },
+          data: objectData,
+        });
+
+        // Also add to useCanvasObjectStore so ContextMenu can find it
+        addObject(objectData);
+
+        console.log('[Placement] ✓ Object successfully added to canvas');
+
+        // KEEP tool in place mode - user can press ESC or click Select to exit
+        // This allows placing multiple objects of the same type quickly
+      } catch (error) {
+        console.error('[Placement] Error creating object:', error);
+      }
+    } else {
+      // Debug why placement didn't trigger
+      if (!isPlaceTool(activeTool)) {
+        console.log('[Placement] Skipped - not in place mode. activeTool:', activeTool);
+      } else if (!currentPlantId) {
+        console.error('[Placement] Skipped - no currentPlantId!');
       }
     }
-  }, [setSelectedNode, clearSelection, activeTool, getShapeById, createObject, currentPlantId, screenToFlowPosition, addNode, setSelectTool, addObject, isConnectMode, connectionSource, clearConnectionSource]);
+  }, [setSelectedNode, clearSelection, activeTool, getShapeById, createObject, currentPlantId, screenToFlowPosition, addNode, addObject, isConnectMode, connectionSource, clearConnectionSource]);
 
   // Handle mouse move for ghost preview
   const onMouseMove = useCallback((event: React.MouseEvent) => {
