@@ -24,13 +24,13 @@ export const MultiSheetProgressTracker = ({
     return (
       <div className="flex flex-col items-center justify-center py-12 space-y-6">
         <div className="relative">
-          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center">
-            <Loader2 className="w-10 h-10 text-primary-600 animate-spin" />
+          <div className="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center">
+            <Loader2 className="w-10 h-10 text-primary-600 dark:text-primary-400 animate-spin" />
           </div>
         </div>
         <div className="text-center">
-          <h3 className="text-xl font-semibold text-gray-900">Importing Data...</h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Importing Data...</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Please wait while we import your data
           </p>
         </div>
@@ -79,26 +79,26 @@ export const MultiSheetProgressTracker = ({
         {/* Success/Error Header */}
         <div
           className={`rounded-lg p-6 text-center ${
-            isSuccess ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'
+            isSuccess ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800'
           }`}
         >
           {isSuccess ? (
             <>
-              <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
-              <h2 className="text-2xl font-bold text-green-800 mt-4">
+              <CheckCircle2 className="w-16 h-16 text-green-500 dark:text-green-400 mx-auto" />
+              <h2 className="text-2xl font-bold text-green-800 dark:text-green-300 mt-4">
                 Import Successful!
               </h2>
-              <p className="text-sm text-green-700 mt-1">
+              <p className="text-sm text-green-700 dark:text-green-400 mt-1">
                 Your data has been imported successfully
               </p>
             </>
           ) : (
             <>
-              <CheckCircle2 className="w-16 h-16 text-yellow-500 mx-auto" />
-              <h2 className="text-2xl font-bold text-yellow-800 mt-4">
+              <CheckCircle2 className="w-16 h-16 text-yellow-500 dark:text-yellow-400 mx-auto" />
+              <h2 className="text-2xl font-bold text-yellow-800 dark:text-yellow-300 mt-4">
                 Import Completed with Warnings
               </h2>
-              <p className="text-sm text-yellow-700 mt-1">
+              <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
                 Some records could not be imported
               </p>
             </>
@@ -107,23 +107,23 @@ export const MultiSheetProgressTracker = ({
 
         {/* Summary Stats */}
         <div className="grid grid-cols-4 gap-3">
-          <div className="bg-green-50 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-green-600">{totalCreated}</div>
-            <div className="text-xs text-green-700">Created</div>
+          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{totalCreated}</div>
+            <div className="text-xs text-green-700 dark:text-green-500">Created</div>
           </div>
-          <div className="bg-blue-50 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-blue-600">{totalUpdated}</div>
-            <div className="text-xs text-blue-700">Updated</div>
+          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalUpdated}</div>
+            <div className="text-xs text-blue-700 dark:text-blue-500">Updated</div>
           </div>
-          <div className="bg-gray-50 rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-gray-500">{totalUnchanged}</div>
-            <div className="text-xs text-gray-600">Unchanged</div>
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold text-gray-500 dark:text-gray-400">{totalUnchanged}</div>
+            <div className="text-xs text-gray-600 dark:text-gray-500">Unchanged</div>
           </div>
-          <div className={`rounded-lg p-3 text-center ${totalErrors > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
-            <div className={`text-2xl font-bold ${totalErrors > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+          <div className={`rounded-lg p-3 text-center ${totalErrors > 0 ? 'bg-red-50 dark:bg-red-900/20' : 'bg-gray-50 dark:bg-gray-800'}`}>
+            <div className={`text-2xl font-bold ${totalErrors > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
               {totalErrors}
             </div>
-            <div className={`text-xs ${totalErrors > 0 ? 'text-red-700' : 'text-gray-500'}`}>
+            <div className={`text-xs ${totalErrors > 0 ? 'text-red-700 dark:text-red-500' : 'text-gray-500 dark:text-gray-600'}`}>
               Errors
             </div>
           </div>
@@ -195,17 +195,17 @@ export const MultiSheetProgressTracker = ({
         </div>
 
         {/* Timing */}
-        <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
           <Clock className="w-4 h-4" />
           <span>Completed in {importResult.totalTime}ms</span>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between pt-4 border-t border-gray-200">
+        <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
           {onImportMore && (
             <button
               onClick={onImportMore}
-              className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
             >
               Import Another File
             </button>
@@ -247,41 +247,41 @@ const SheetResultRow = ({
   return (
     <div
       className={`flex items-center justify-between p-3 rounded-lg border ${
-        hasErrors ? 'border-red-200 bg-red-50' : hasChanges ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+        hasErrors ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20' : hasChanges ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800'
       }`}
     >
       <div className="flex items-center gap-3">
         <span className="text-xl">{icon}</span>
-        <span className="font-medium text-gray-900">{title}</span>
+        <span className="font-medium text-gray-900 dark:text-gray-100">{title}</span>
       </div>
       <div className="flex items-center gap-3 text-sm">
         {created > 0 && (
-          <span className="text-green-700">
+          <span className="text-green-700 dark:text-green-400">
             <strong>{created}</strong> created
           </span>
         )}
         {updated > 0 && (
-          <span className="text-blue-700">
+          <span className="text-blue-700 dark:text-blue-400">
             <strong>{updated}</strong> updated
           </span>
         )}
         {unchanged > 0 && (
-          <span className="text-gray-500">
+          <span className="text-gray-500 dark:text-gray-400">
             <strong>{unchanged}</strong> unchanged
           </span>
         )}
         {errors > 0 && (
-          <span className="text-red-700">
+          <span className="text-red-700 dark:text-red-400">
             <strong>{errors}</strong> errors
           </span>
         )}
         {created === 0 && updated === 0 && unchanged === 0 && errors === 0 && (
-          <span className="text-gray-500">No data</span>
+          <span className="text-gray-500 dark:text-gray-400">No data</span>
         )}
         {hasErrors ? (
-          <XCircle className="w-5 h-5 text-red-500" />
+          <XCircle className="w-5 h-5 text-red-500 dark:text-red-400" />
         ) : (
-          <CheckCircle2 className="w-5 h-5 text-green-500" />
+          <CheckCircle2 className="w-5 h-5 text-green-500 dark:text-green-400" />
         )}
       </div>
     </div>

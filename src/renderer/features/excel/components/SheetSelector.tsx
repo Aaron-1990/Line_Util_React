@@ -106,21 +106,21 @@ export const SheetSelector = ({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Select Sheets to Import</h2>
-        <p className="text-sm text-gray-600 mt-1">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Select Sheets to Import</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
           Choose which data sheets you want to import from this Excel file
         </p>
       </div>
 
       {/* Areas Auto-Import Notice */}
       {detectedSheets.areas && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-start gap-3">
           <span className="text-xl">🏷️</span>
           <div>
-            <p className="text-sm font-medium text-blue-800">
+            <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
               Areas sheet detected ({detectedSheets.areas.rowCount} areas)
             </p>
-            <p className="text-xs text-blue-700 mt-0.5">
+            <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
               Process flow order from the Areas sheet will be imported automatically
             </p>
           </div>
@@ -142,8 +142,8 @@ export const SheetSelector = ({
                 relative border rounded-lg p-4 transition-all cursor-pointer
                 ${isAvailable
                   ? isSelected
-                    ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500'
-                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-primary-500 dark:border-primary-400 bg-primary-50 dark:bg-primary-900/20 ring-2 ring-primary-500'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                   : 'border-gray-200 bg-gray-100 cursor-not-allowed opacity-60'
                 }
               `}
@@ -168,17 +168,17 @@ export const SheetSelector = ({
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-gray-900">{info.label}</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{info.label}</h3>
                     {!isAvailable && (
-                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                      <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
                         Not Found
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-600 mt-0.5">{info.description}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{info.description}</p>
 
                   {details && (
-                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
                       <span className="flex items-center gap-1">
                         <FileSpreadsheet className="w-3 h-3" />
                         Sheet: <strong>{details.sheetName}</strong>
@@ -197,16 +197,16 @@ export const SheetSelector = ({
 
       {/* Warning Message */}
       {warning && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-yellow-800">{warning}</div>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-yellow-800 dark:text-yellow-300">{warning}</div>
         </div>
       )}
 
       {/* Summary */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Import Summary</h3>
-        <div className="text-sm text-gray-600">
+      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Import Summary</h3>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
           {selectedSheets.size === 0 ? (
             <p>No sheets selected</p>
           ) : (
@@ -232,10 +232,10 @@ export const SheetSelector = ({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-between pt-4 border-t border-gray-200">
+      <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
           onClick={onBack}
-          className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           Back
         </button>

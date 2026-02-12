@@ -228,7 +228,7 @@ export const MultiSheetImportWizard = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900/50 p-8">
       <div className="max-w-4xl mx-auto">
         {/* Progress Indicator */}
         <div className="mb-8">
@@ -244,17 +244,19 @@ export const MultiSheetImportWizard = ({
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${
                         isComplete
-                          ? 'bg-primary-600 text-white'
+                          ? 'bg-primary-600 text-white dark:bg-primary-500'
                           : isActive
-                          ? 'bg-primary-100 text-primary-600 ring-2 ring-primary-600'
-                          : 'bg-gray-200 text-gray-500'
+                          ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 ring-2 ring-primary-600 dark:ring-primary-500'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {idx + 1}
                     </div>
                     <span
                       className={`mt-2 text-sm font-medium ${
-                        isActive ? 'text-primary-600' : 'text-gray-600'
+                        isComplete || isActive
+                          ? 'text-gray-900 dark:text-gray-100'
+                          : 'text-gray-500 dark:text-gray-400'
                       }`}
                     >
                       {step.label}
@@ -263,7 +265,7 @@ export const MultiSheetImportWizard = ({
                   {idx < steps.length - 1 && (
                     <div
                       className={`flex-1 h-1 mx-4 transition-colors ${
-                        isComplete ? 'bg-primary-600' : 'bg-gray-200'
+                        isComplete ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-700'
                       }`}
                     />
                   )}
@@ -275,8 +277,8 @@ export const MultiSheetImportWizard = ({
 
         {/* Error Banner */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-red-800">{error}</p>
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+            <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
           </div>
         )}
 
@@ -289,7 +291,7 @@ export const MultiSheetImportWizard = ({
         )}
 
         {/* Content */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           {currentStep === 'select' && (
             <FileSelector onFileSelected={handleFileSelected} onCancel={onCancel} />
           )}

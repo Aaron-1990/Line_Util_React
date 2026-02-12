@@ -69,17 +69,17 @@ export const MultiSheetValidationDisplay = ({
     const hasSheetErrors = stats.invalid > 0;
 
     return (
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <button
           onClick={() => toggleSection(sectionKey)}
           className={`w-full px-4 py-3 flex items-center justify-between text-left ${
-            hasSheetErrors ? 'bg-red-50' : 'bg-green-50'
+            hasSheetErrors ? 'bg-red-50 dark:bg-red-900/30' : 'bg-green-50 dark:bg-green-900/30'
           }`}
         >
           <div className="flex items-center gap-3">
             <span className="text-xl">{icon}</span>
             <div>
-              <h3 className="font-semibold text-gray-900">{title}</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
               <div className="flex items-center gap-4 text-xs text-gray-600 mt-0.5">
                 <span className="text-green-600 font-medium">
                   {stats.valid} valid
@@ -112,25 +112,25 @@ export const MultiSheetValidationDisplay = ({
         </button>
 
         {isExpanded && (errors?.length || duplicates?.length) && (
-          <div className="px-4 py-3 border-t border-gray-200 bg-white">
+          <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             {/* Errors */}
             {errors && errors.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-red-700 uppercase">
+                <h4 className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase">
                   Validation Errors
                 </h4>
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {errors.map((error, idx) => (
                     <div
                       key={idx}
-                      className="text-xs p-2 bg-red-50 border border-red-100 rounded"
+                      className="text-xs p-2 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded"
                     >
-                      <span className="font-medium text-red-800">
+                      <span className="font-medium text-red-800 dark:text-red-300">
                         Row {error.row}:
                       </span>{' '}
-                      <span className="text-red-700">{error.message}</span>
+                      <span className="text-red-700 dark:text-red-400">{error.message}</span>
                       {error.field && (
-                        <span className="text-red-500 ml-1">({error.field})</span>
+                        <span className="text-red-500 dark:text-red-400 ml-1">({error.field})</span>
                       )}
                     </div>
                   ))}
@@ -141,10 +141,10 @@ export const MultiSheetValidationDisplay = ({
             {/* Duplicates */}
             {duplicates && duplicates.length > 0 && (
               <div className="mt-3 space-y-2">
-                <h4 className="text-xs font-semibold text-yellow-700 uppercase">
+                <h4 className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 uppercase">
                   Duplicates in Sheet
                 </h4>
-                <div className="text-xs text-yellow-700">
+                <div className="text-xs text-yellow-700 dark:text-yellow-400">
                   {duplicates.join(', ')}
                 </div>
               </div>
@@ -164,15 +164,15 @@ export const MultiSheetValidationDisplay = ({
     const isExpanded = expandedSections.has('plants');
 
     return (
-      <div className="border border-blue-200 rounded-lg overflow-hidden">
+      <div className="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
         <button
           onClick={() => toggleSection('plants')}
-          className="w-full px-4 py-3 flex items-center justify-between text-left bg-blue-50"
+          className="w-full px-4 py-3 flex items-center justify-between text-left bg-blue-50 dark:bg-blue-900/30"
         >
           <div className="flex items-center gap-3">
             <Factory className="w-5 h-5 text-blue-600" />
             <div>
-              <h3 className="font-semibold text-gray-900">Plants Detected</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Plants Detected</h3>
               <div className="flex items-center gap-4 text-xs text-gray-600 mt-0.5">
                 {existingCount > 0 && (
                   <span className="text-green-600 font-medium">
@@ -199,21 +199,21 @@ export const MultiSheetValidationDisplay = ({
         </button>
 
         {isExpanded && (
-          <div className="px-4 py-3 border-t border-blue-100 bg-white">
+          <div className="px-4 py-3 border-t border-blue-100 dark:border-blue-800 bg-white dark:bg-gray-800">
             <div className="space-y-2">
               {plantValidation.map((plant, idx) => (
                 <div
                   key={idx}
                   className={`text-sm p-2 rounded flex items-center justify-between ${
                     plant.exists
-                      ? 'bg-green-50 border border-green-100'
-                      : 'bg-blue-50 border border-blue-100'
+                      ? 'bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-800'
+                      : 'bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-semibold">{plant.code}</span>
+                    <span className="font-mono font-semibold text-gray-900 dark:text-gray-100">{plant.code}</span>
                     {plant.existingName && plant.existingName !== plant.code && (
-                      <span className="text-gray-500">({plant.existingName})</span>
+                      <span className="text-gray-500 dark:text-gray-400">({plant.existingName})</span>
                     )}
                   </div>
                   {plant.exists ? (
@@ -240,7 +240,7 @@ export const MultiSheetValidationDisplay = ({
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Validation Results</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Validation Results</h2>
         <p className="text-sm text-gray-600 mt-1">
           Review the validation results before importing
         </p>
@@ -249,17 +249,17 @@ export const MultiSheetValidationDisplay = ({
       {/* Overall Status */}
       <div
         className={`rounded-lg p-4 flex items-center gap-4 ${
-          hasErrors ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
+          hasErrors ? 'bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800' : 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800'
         }`}
       >
         {hasErrors ? (
           <>
             <XCircle className="w-8 h-8 text-red-500 flex-shrink-0" />
             <div>
-              <h3 className="font-semibold text-red-800">
+              <h3 className="font-semibold text-red-800 dark:text-red-300">
                 Validation Issues Found
               </h3>
-              <p className="text-sm text-red-700">
+              <p className="text-sm text-red-700 dark:text-red-400">
                 Please review the errors below. Valid data can still be imported.
               </p>
             </div>
@@ -268,10 +268,10 @@ export const MultiSheetValidationDisplay = ({
           <>
             <CheckCircle2 className="w-8 h-8 text-green-500 flex-shrink-0" />
             <div>
-              <h3 className="font-semibold text-green-800">
+              <h3 className="font-semibold text-green-800 dark:text-green-300">
                 All Data Valid
               </h3>
-              <p className="text-sm text-green-700">
+              <p className="text-sm text-green-700 dark:text-green-400">
                 Your data is ready to be imported.
               </p>
             </div>
@@ -281,15 +281,15 @@ export const MultiSheetValidationDisplay = ({
 
       {/* Cross-Sheet Errors (Critical) */}
       {validationResult.crossSheetErrors.length > 0 && (
-        <div className="border-2 border-red-500 rounded-lg overflow-hidden">
+        <div className="border-2 border-red-500 dark:border-red-700 rounded-lg overflow-hidden">
           <button
             onClick={() => toggleSection('cross-sheet')}
-            className="w-full px-4 py-3 flex items-center justify-between text-left bg-red-100"
+            className="w-full px-4 py-3 flex items-center justify-between text-left bg-red-100 dark:bg-red-900/50"
           >
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-6 h-6 text-red-600" />
               <div>
-                <h3 className="font-semibold text-red-800">
+                <h3 className="font-semibold text-red-800 dark:text-red-300">
                   Cross-Sheet Validation Errors
                 </h3>
                 <p className="text-xs text-red-700">
@@ -305,12 +305,12 @@ export const MultiSheetValidationDisplay = ({
           </button>
 
           {expandedSections.has('cross-sheet') && (
-            <div className="px-4 py-3 bg-red-50 border-t border-red-200">
+            <div className="px-4 py-3 bg-red-50 dark:bg-red-900/30 border-t border-red-200 dark:border-red-800">
               <div className="space-y-2">
                 {validationResult.crossSheetErrors.map((error, idx) => (
                   <div
                     key={idx}
-                    className="text-sm p-2 bg-white border border-red-200 rounded text-red-700"
+                    className="text-sm p-2 bg-white dark:bg-gray-800 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400"
                   >
                     {error}
                   </div>
@@ -368,9 +368,9 @@ export const MultiSheetValidationDisplay = ({
       </div>
 
       {/* Import Mode Reminder */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Import Mode</h3>
-        <div className="text-sm text-gray-600">
+      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Import Mode</h3>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
           <strong className="capitalize">{importMode}</strong>
           {importMode === 'merge' && ' - Updates existing + Creates new'}
           {importMode === 'create' && ' - Creates new only (skips existing)'}
@@ -379,7 +379,7 @@ export const MultiSheetValidationDisplay = ({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-between pt-4 border-t border-gray-200">
+      <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
           onClick={onBack}
           className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
