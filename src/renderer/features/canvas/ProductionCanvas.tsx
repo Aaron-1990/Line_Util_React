@@ -58,7 +58,6 @@ import { ObjectPalette } from './components/toolbar/ObjectPalette';
 import { UnifiedPropertiesPanel } from './components/panels/UnifiedPropertiesPanel';
 import { YearNavigator } from './components/YearNavigator';
 import { CanvasEmptyState } from './components/CanvasEmptyState';
-import { AddLineModal } from './components/modals/AddLineModal';
 import { ContextMenu } from './components/ContextMenu';
 import { ConnectionContextMenu } from './components/ConnectionContextMenu';
 import { GhostPreview } from './components/GhostPreview';
@@ -99,9 +98,6 @@ const CanvasInner = () => {
 
   // Get current plant ID for creating objects
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
-
-  // State for Add Line modal (used by both toolbar and empty state)
-  const [isAddLineModalOpen, setIsAddLineModalOpen] = useState(false);
 
   // State for context menu (Phase 7.5)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
@@ -190,10 +186,6 @@ const CanvasInner = () => {
   const handleImportClick = useCallback(() => {
     navigate('/excel/import');
   }, [navigate]);
-
-  const handleAddLineClick = useCallback(() => {
-    setIsAddLineModalOpen(true);
-  }, []);
 
   // Calculate dynamic minZoom based on node positions
   // This ensures we can always zoom out enough to see all nodes
@@ -627,11 +619,6 @@ const CanvasInner = () => {
       >
         <CanvasEmptyState
           onImportClick={handleImportClick}
-          onAddLineClick={handleAddLineClick}
-        />
-        <AddLineModal
-          isOpen={isAddLineModalOpen}
-          onClose={() => setIsAddLineModalOpen(false)}
         />
       </div>
     );

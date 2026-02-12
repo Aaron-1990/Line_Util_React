@@ -24,9 +24,10 @@ import { useCanvasStore } from '../store/useCanvasStore';
 import { useToolStore } from '../store/useToolStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
 import { CanvasObjectType } from '@shared/types';
+import { PRODUCTION_LINE_SHAPE_ID } from '../constants/shapes';
 
 // Default shape for converting production lines to canvas objects
-const DEFAULT_SHAPE_ID = 'rect-basic';
+const DEFAULT_SHAPE_ID = PRODUCTION_LINE_SHAPE_ID;
 
 interface ContextMenuProps {
   x: number;

@@ -4,21 +4,24 @@
 // ============================================
 
 import { Plus, ZoomIn, ZoomOut, Maximize2, Trash2, Upload } from 'lucide-react';
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useReactFlow } from 'reactflow';
 import { useCanvasStore } from '../../store/useCanvasStore';
-import { AddLineModal } from '../modals/AddLineModal';
+import { useToolStore } from '../../store/useToolStore';
+import { PRODUCTION_LINE_SHAPE_ID } from '../../constants/shapes';
+import { isPlaceTool } from '@shared/types/canvas-tool';
 
 export const CanvasToolbar = () => {
   const reset = useCanvasStore((state) => state.reset);
   const navigate = useNavigate();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const { zoomIn, zoomOut, fitView } = useReactFlow();
 
-  const handleAddLine = () => {
-    setIsAddModalOpen(true);
-  };
+  // Tool store for place tool activation
+  const setPlaceTool = useToolStore((state) => state.setPlaceTool);
+  const activeTool = useToolStore((state) => state.activeTool);
+
+  // Check if currently placing a production line
+  const isPlacing = isPlaceTool(activeTool) && activeTool.shapeId === PRODUCTION_LINE_SHAPE_ID;
 
   const handleImport = () => {
     navigate('/excel/import');
@@ -52,11 +55,15 @@ export const CanvasToolbar = () => {
     <>
       <div className="absolute top-4 left-4 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-2 flex items-center gap-2">
         <button
-          onClick={handleAddLine}
-          className="p-2 hover:bg-primary-50 dark:hover:bg-primary-900/30 rounded transition-colors"
-          title="Agregar linea de produccion"
+          onClick={() => setPlaceTool(PRODUCTION_LINE_SHAPE_ID)}
+          className={`p-2 rounded transition-colors ${
+            isPlacing
+              ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-primary-50 dark:hover:bg-primary-900/30'
+          }`}
+          title="Add Line Manually - Click canvas to place"
         >
-          <Plus className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+          <Plus className="w-5 h-5" />
         </button>
 
         <button
@@ -103,8 +110,6 @@ export const CanvasToolbar = () => {
           <Trash2 className="w-5 h-5 text-red-600 dark:text-red-500" />
         </button>
       </div>
-
-      <AddLineModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
     </>
   );
 };
