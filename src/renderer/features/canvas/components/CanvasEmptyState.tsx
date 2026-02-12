@@ -7,18 +7,16 @@
 import { Factory, FileSpreadsheet, Plus } from 'lucide-react';
 import { usePlantStore } from '../../plants/store/usePlantStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
-import { useToolStore } from '@renderer/features/canvas/store/useToolStore';
-import { PRODUCTION_LINE_SHAPE_ID } from '@renderer/features/canvas/constants/shapes';
 
 interface CanvasEmptyStateProps {
   onImportClick?: () => void;
+  onAddLineManually?: () => void;
 }
 
-export const CanvasEmptyState = ({ onImportClick }: CanvasEmptyStateProps) => {
+export const CanvasEmptyState = ({ onImportClick, onAddLineManually }: CanvasEmptyStateProps) => {
   const plants = usePlantStore((state) => state.plants);
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
   const setView = useNavigationStore((state) => state.setView);
-  const setPlaceTool = useToolStore((state) => state.setPlaceTool);
 
   // Find current plant from the plants array
   const currentPlant = currentPlantId ? plants.find(p => p.id === currentPlantId) : undefined;
@@ -62,7 +60,11 @@ export const CanvasEmptyState = ({ onImportClick }: CanvasEmptyStateProps) => {
 
           {/* Secondary: Add Line Manually */}
           <button
-            onClick={() => setPlaceTool(PRODUCTION_LINE_SHAPE_ID)}
+            onClick={() => {
+              if (onAddLineManually) {
+                onAddLineManually();
+              }
+            }}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium border border-gray-300 dark:border-gray-600"
           >
             <Plus className="w-5 h-5" />

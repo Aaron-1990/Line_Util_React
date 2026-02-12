@@ -4,6 +4,7 @@
 // ============================================
 
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
@@ -56,7 +57,7 @@ import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { ObjectPalette } from './components/toolbar/ObjectPalette';
 import { UnifiedPropertiesPanel } from './components/panels/UnifiedPropertiesPanel';
 import { YearNavigator } from './components/YearNavigator';
-// CanvasEmptyState removed - canvas now always visible with tools
+import { CanvasEmptyState } from './components/CanvasEmptyState';
 import { ContextMenu } from './components/ContextMenu';
 import { ConnectionContextMenu } from './components/ConnectionContextMenu';
 import { GhostPreview } from './components/GhostPreview';
@@ -89,6 +90,10 @@ const CanvasInner = () => {
   const { fitView, screenToFlowPosition } = useReactFlow();
   const lastMiddleClickTime = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Track if user wants to bypass empty state and show canvas
+  const [showCanvas, setShowCanvas] = useState(false);
 
   // Detect if properties panel is open (for MiniMap positioning)
   const selection = useSelectionState();
@@ -178,7 +183,16 @@ const CanvasInner = () => {
   }, [edges, connectionEdges]);
 
   // Load lines for current plant
-  useLoadLines();
+  const { isLoading, isEmpty } = useLoadLines();
+
+  // Handlers for empty state actions
+  const handleImportClick = useCallback(() => {
+    navigate('/excel/import');
+  }, [navigate]);
+
+  const handleAddLineManually = useCallback(() => {
+    setShowCanvas(true); // Show canvas with tools
+  }, []);
 
   // Calculate dynamic minZoom based on node positions
   // This ensures we can always zoom out enough to see all nodes
@@ -603,8 +617,20 @@ const CanvasInner = () => {
     }
   }, [currentPlantId, loadConnectionsForPlant]);
 
-  // Note: Removed empty state - always show canvas with tools
-  // Users can use ObjectPalette and tools even when canvas is empty
+  // Show empty state when plant has no lines AND user hasn't chosen to show canvas
+  if (isEmpty && !isLoading && !showCanvas) {
+    return (
+      <div
+        ref={containerRef}
+        className="relative w-full h-full bg-gray-50 dark:bg-gray-900 transition-colors duration-150"
+      >
+        <CanvasEmptyState
+          onImportClick={handleImportClick}
+          onAddLineManually={handleAddLineManually}
+        />
+      </div>
+    );
+  }
 
   // Get current tool type for cursor styling
   const currentToolType = isPlaceTool(activeTool) ? 'place' : activeTool;
