@@ -258,12 +258,9 @@ GROUP BY pl.id;
 -- SEED DATA - Default area catalog
 -- ============================================
 
-INSERT OR IGNORE INTO area_catalog (id, code, name, color, active) VALUES
-  ('area-ict', 'ICT', 'ICT', '#60a5fa', 1),
-  ('area-smt', 'SMT', 'SMT', '#34d399', 1),
-  ('area-wave', 'WAVE', 'Wave Solder', '#fbbf24', 1),
-  ('area-assembly', 'ASSEMBLY', 'Manual Assembly', '#f472b6', 1),
-  ('area-test', 'TEST', 'Testing', '#a78bfa', 1);
+-- No default areas - app is industry-agnostic
+-- Users define their own areas based on their specific manufacturing processes
+-- (Removed default electronics manufacturing areas: SMT, ICT, WAVE, TEST, ASSEMBLY)
 
 -- ============================================
 -- PRAGMA SETTINGS

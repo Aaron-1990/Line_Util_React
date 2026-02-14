@@ -302,8 +302,8 @@ async function showSavePrompt(window: BrowserWindow): Promise<SaveDialogResult> 
  * - shape_categories, shape_catalog, shape_anchors (built-in shapes)
  * - _archived_*, _migration_*, _production_line_id_mapping (migration artifacts)
  *
- * Note: area_catalog is cleared (includes user-created areas) but default areas
- * are automatically re-seeded on next app open via migration 001 (INSERT OR IGNORE)
+ * Note: area_catalog is cleared and starts empty (no default areas).
+ * App is industry-agnostic - users define their own areas based on their processes.
  *
  * Uses a transaction for atomicity - all or nothing.
  */

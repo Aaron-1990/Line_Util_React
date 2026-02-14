@@ -34,10 +34,6 @@ CREATE INDEX IF NOT EXISTS idx_area_catalog_sequence ON area_catalog(sequence);
 -- Users can modify via Excel import or UI
 -- ============================================
 
--- Set typical manufacturing process order
--- These are defaults that can be overridden
-UPDATE area_catalog SET sequence = 1 WHERE code = 'SMT';
-UPDATE area_catalog SET sequence = 2 WHERE code = 'WAVE';
-UPDATE area_catalog SET sequence = 3 WHERE code = 'ICT';
-UPDATE area_catalog SET sequence = 4 WHERE code = 'TEST';
-UPDATE area_catalog SET sequence = 5 WHERE code = 'ASSEMBLY';
+-- No default area sequence - app is industry-agnostic
+-- Users define their own areas and sequences based on their manufacturing process flow
+-- (Removed default electronics manufacturing sequence)
