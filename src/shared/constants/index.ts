@@ -372,6 +372,8 @@ export const CANVAS_OBJECT_CHANNELS = {
   DELETE: 'canvas-objects:delete',
   UPDATE_POSITION: 'canvas-objects:update-position',
   UPDATE_POSITIONS_BATCH: 'canvas-objects:update-positions-batch',
+
+  // Copy/Paste/Duplicate workflow
   DUPLICATE: 'canvas-objects:duplicate',
 
   // Type conversion

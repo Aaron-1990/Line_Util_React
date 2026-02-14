@@ -6,7 +6,7 @@
 /**
  * Base canvas tool types
  */
-export type CanvasToolType = 'select' | 'pan' | 'connect' | 'place';
+export type CanvasToolType = 'select' | 'pan' | 'connect' | 'place' | 'paste';
 
 /**
  * Place tool configuration
@@ -18,9 +18,18 @@ export interface PlaceTool {
 }
 
 /**
+ * Paste tool configuration
+ * Active when user is pasting a copied object with ghost preview
+ */
+export interface PasteTool {
+  type: 'paste';
+  sourceObjectId: string;  // Object being pasted
+}
+
+/**
  * Union type for all canvas tools
  */
-export type CanvasTool = 'select' | 'pan' | 'connect' | PlaceTool;
+export type CanvasTool = 'select' | 'pan' | 'connect' | PlaceTool | PasteTool;
 
 /**
  * Complete canvas tool state
@@ -37,6 +46,13 @@ export interface ToolState {
  */
 export function isPlaceTool(tool: CanvasTool): tool is PlaceTool {
   return typeof tool === 'object' && tool.type === 'place';
+}
+
+/**
+ * Helper type guard for PasteTool
+ */
+export function isPasteTool(tool: CanvasTool): tool is PasteTool {
+  return typeof tool === 'object' && tool.type === 'paste';
 }
 
 /**
@@ -94,5 +110,11 @@ export const TOOL_CONFIGS: Record<CanvasToolType, Omit<ToolConfig, 'type'>> = {
     label: 'Place',
     hotkey: 'P',
     description: 'Place new object on canvas',
+  },
+  paste: {
+    icon: 'clipboard',
+    label: 'Paste',
+    hotkey: 'Ctrl+V',
+    description: 'Paste copied object with preview',
   },
 };

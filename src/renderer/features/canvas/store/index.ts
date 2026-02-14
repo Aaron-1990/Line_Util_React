@@ -6,6 +6,7 @@
 export { useToolStore } from './useToolStore';
 export { useShapeCatalogStore } from './useShapeCatalogStore';
 export { useCanvasObjectStore } from './useCanvasObjectStore';
+export { useClipboardStore } from './useClipboardStore';
 
 // Re-export types for convenience
 export type {
@@ -13,6 +14,7 @@ export type {
   ToolState,
   CanvasToolType,
   PlaceTool,
+  PasteTool,
 } from '@shared/types/canvas-tool';
 
 export type {

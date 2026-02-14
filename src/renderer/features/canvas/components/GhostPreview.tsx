@@ -7,6 +7,8 @@
 import { memo } from 'react';
 import { useToolStore } from '../store/useToolStore';
 import { useShapeCatalogStore } from '../store/useShapeCatalogStore';
+import { useClipboardStore } from '../store/useClipboardStore';
+import { isPlaceTool, isPasteTool } from '@shared/types';
 
 /**
  * Render a primitive shape as SVG
@@ -87,32 +89,37 @@ function renderPrimitive(
 /**
  * GhostPreview
  *
- * Shows a semi-transparent preview of the shape being placed.
- * Follows the mouse cursor when in 'place' mode.
+ * Shows a semi-transparent preview of the shape being placed or pasted.
+ * Follows the mouse cursor when in 'place' or 'paste' mode.
  */
 export const GhostPreview = memo(() => {
-  const isPlacing = useToolStore((state) => state.isPlacing());
-  const ghostPosition = useToolStore((state) => state.ghostPosition);
-  const getPlacingShapeId = useToolStore((state) => state.getPlacingShapeId);
-  const getShapeById = useShapeCatalogStore((state) => state.getShapeById);
+  const { activeTool, ghostPosition } = useToolStore();
+  const { copiedObject } = useClipboardStore();
+  const { getShapeById } = useShapeCatalogStore();
 
-  // Don't render if not in placing mode or no position
-  if (!isPlacing || !ghostPosition) {
+  // Don't render if no ghost position
+  if (!ghostPosition) {
     return null;
   }
 
-  const shapeId = getPlacingShapeId();
-  if (!shapeId) {
+  let ghostShape;
+  let ghostLabel;
+
+  if (isPlaceTool(activeTool)) {
+    ghostShape = getShapeById(activeTool.shapeId);
+    ghostLabel = ghostShape?.name;
+  } else if (isPasteTool(activeTool) && copiedObject) {
+    ghostShape = getShapeById(copiedObject.shapeId);
+    ghostLabel = copiedObject.name + ' (paste)';
+  }
+
+  // No shape to render
+  if (!ghostShape) {
     return null;
   }
 
-  const shape = getShapeById(shapeId);
-  if (!shape) {
-    return null;
-  }
-
-  const width = shape.defaultWidth;
-  const height = shape.defaultHeight;
+  const width = ghostShape.defaultWidth;
+  const height = ghostShape.defaultHeight;
 
   return (
     <div
@@ -130,12 +137,12 @@ export const GhostPreview = memo(() => {
         viewBox={`0 0 ${width} ${height}`}
         className="overflow-visible"
       >
-        {shape.renderType === 'primitive' && renderPrimitive(shape.primitiveType, width, height)}
+        {ghostShape.renderType === 'primitive' && renderPrimitive(ghostShape.primitiveType, width, height)}
 
-        {shape.renderType === 'svg' && shape.svgContent && (
+        {ghostShape.renderType === 'svg' && ghostShape.svgContent && (
           <g
             opacity={0.5}
-            dangerouslySetInnerHTML={{ __html: shape.svgContent }}
+            dangerouslySetInnerHTML={{ __html: ghostShape.svgContent }}
           />
         )}
       </svg>
@@ -143,7 +150,7 @@ export const GhostPreview = memo(() => {
       {/* Shape name tooltip */}
       <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap">
         <span className="text-xs bg-gray-800 text-white px-2 py-1 rounded shadow-lg">
-          {shape.name}
+          {ghostLabel}
         </span>
       </div>
     </div>

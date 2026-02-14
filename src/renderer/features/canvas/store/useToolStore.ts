@@ -5,7 +5,7 @@
 // ============================================
 
 import { create } from 'zustand';
-import { CanvasTool, ToolState, isPlaceTool } from '@shared/types/canvas-tool';
+import { CanvasTool, ToolState, isPlaceTool, isPasteTool } from '@shared/types/canvas-tool';
 
 // ============================================
 // TYPES
@@ -18,6 +18,7 @@ interface ToolStore extends ToolState {
   setPanTool: () => void;
   setConnectTool: () => void;
   setPlaceTool: (shapeId: string) => void;
+  setPasteTool: (sourceObjectId: string) => void;
 
   // Ghost Position (for place preview)
   setGhostPosition: (position: { x: number; y: number } | null) => void;
@@ -35,10 +36,12 @@ interface ToolStore extends ToolState {
 
   // Derived/Helper Methods
   isPlacing: () => boolean;
+  isPasting: () => boolean;
   getPlacingShapeId: () => string | null;
+  getPastingSourceId: () => string | null;
   isSelected: (id: string) => boolean;
   hasSelection: () => boolean;
-  getToolType: () => 'select' | 'pan' | 'connect' | 'place';
+  getToolType: () => 'select' | 'pan' | 'connect' | 'place' | 'paste';
 }
 
 // ============================================
@@ -113,6 +116,17 @@ export const useToolStore = create<ToolStore>((set, get) => ({
   setPlaceTool: (shapeId: string) => {
     set({
       activeTool: { type: 'place', shapeId },
+      connectionSource: null,
+    });
+  },
+
+  /**
+   * Switch to Paste tool for a copied object
+   * Hotkey: Ctrl+V
+   */
+  setPasteTool: (sourceObjectId: string) => {
+    set({
+      activeTool: { type: 'paste', sourceObjectId },
       connectionSource: null,
     });
   },
@@ -216,11 +230,27 @@ export const useToolStore = create<ToolStore>((set, get) => ({
   },
 
   /**
+   * Check if currently in Paste mode
+   */
+  isPasting: () => {
+    const { activeTool } = get();
+    return isPasteTool(activeTool);
+  },
+
+  /**
    * Get the shape ID being placed (or null if not placing)
    */
   getPlacingShapeId: () => {
     const { activeTool } = get();
     return isPlaceTool(activeTool) ? activeTool.shapeId : null;
+  },
+
+  /**
+   * Get the source object ID being pasted (or null if not pasting)
+   */
+  getPastingSourceId: () => {
+    const { activeTool } = get();
+    return isPasteTool(activeTool) ? activeTool.sourceObjectId : null;
   },
 
   /**
@@ -245,6 +275,8 @@ export const useToolStore = create<ToolStore>((set, get) => ({
    */
   getToolType: () => {
     const { activeTool } = get();
-    return isPlaceTool(activeTool) ? 'place' : activeTool;
+    if (isPlaceTool(activeTool)) return 'place';
+    if (isPasteTool(activeTool)) return 'paste';
+    return activeTool;
   },
 }));

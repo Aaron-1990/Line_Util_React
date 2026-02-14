@@ -464,40 +464,69 @@ export class SQLiteCanvasObjectRepository {
   /**
    * Duplicate a canvas object
    */
-  async duplicate(id: string): Promise<CanvasObject> {
-    const original = await this.findByIdSimple(id);
-    if (!original) {
-      throw new Error(`Canvas object with id "${id}" not found`);
+  async duplicate(
+    sourceObjectId: string,
+    offset: { x: number; y: number }
+  ): Promise<CanvasObject> {
+    // 1. Get source object
+    const source = await this.findByIdSimple(sourceObjectId);
+    if (!source) {
+      throw new Error(`Source object not found: ${sourceObjectId}`);
     }
 
+    // 2. Get all existing objects in same plant (for name collision check)
+    const existingObjects = await this.findAllByPlant(source.plantId);
+    const existingNames = existingObjects.map(obj => obj.name);
+
+    // 3. Generate new name
+    const newName = this.generateCopyName(source.name, existingNames);
+
+    // 4. Generate new ID
     const newId = nanoid();
     const now = new Date().toISOString();
 
-    // Offset position slightly
-    const offsetX = original.xPosition + 20;
-    const offsetY = original.yPosition + 20;
+    // 5. Apply offset to position
+    const newX = source.xPosition + offset.x;
+    const newY = source.yPosition + offset.y;
 
-    this.db
-      .prepare(`
-        INSERT INTO canvas_objects (
-          id, plant_id, shape_id, object_type, name, description,
-          x_position, y_position, width, height, rotation,
-          color_override, active, locked, z_index,
-          created_at, updated_at
-        )
-        SELECT ?, plant_id, shape_id, object_type, ? || ' (Copy)', description,
-          ?, ?, width, height, rotation,
-          color_override, active, locked, z_index,
-          ?, ?
-        FROM canvas_objects WHERE id = ?
-      `)
-      .run(newId, original.name, offsetX, offsetY, now, now, id);
+    // 6. Insert new object
+    this.db.prepare(`
+      INSERT INTO canvas_objects (
+        id, plant_id, shape_id, object_type, name, description,
+        x_position, y_position, width, height, rotation,
+        color_override, active, locked, z_index,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      newId,
+      source.plantId,
+      source.shapeId,
+      source.objectType,
+      newName,
+      source.description ?? null,
+      newX,
+      newY,
+      source.width ?? null,
+      source.height ?? null,
+      source.rotation,
+      source.colorOverride ?? null,
+      1, // active
+      0, // locked
+      source.zIndex,
+      now,
+      now
+    );
+
+    // 7. If object is process, copy compatibilities
+    if (source.objectType === 'process') {
+      await this.copyCompatibilities(sourceObjectId, newId);
+    }
 
     // If it's a buffer, duplicate buffer properties
-    if (original.objectType === 'buffer') {
+    if (source.objectType === 'buffer') {
       const bufferRow = this.db
         .prepare('SELECT * FROM buffer_properties WHERE canvas_object_id = ?')
-        .get(id) as BufferPropertiesRow | undefined;
+        .get(sourceObjectId) as BufferPropertiesRow | undefined;
 
       if (bufferRow) {
         this.db
@@ -522,11 +551,11 @@ export class SQLiteCanvasObjectRepository {
     }
 
     // If it's a process, duplicate process properties and create unlinked link
-    if (original.objectType === 'process') {
+    if (source.objectType === 'process') {
       // Duplicate process properties if they exist
       const propsRow = this.db
         .prepare('SELECT * FROM process_properties WHERE canvas_object_id = ?')
-        .get(id) as ProcessPropertiesRow | undefined;
+        .get(sourceObjectId) as ProcessPropertiesRow | undefined;
 
       if (propsRow) {
         this.db
@@ -557,11 +586,63 @@ export class SQLiteCanvasObjectRepository {
         .run(nanoid(), newId, now);
     }
 
-    const duplicated = await this.findByIdSimple(newId);
-    if (!duplicated) {
-      throw new Error('Failed to duplicate canvas object');
+    // 8. Return new object
+    const newObject = await this.findByIdSimple(newId);
+    if (!newObject) {
+      throw new Error('Failed to create duplicate object');
     }
-    return duplicated;
+
+    return newObject;
+  }
+
+  private generateCopyName(originalName: string, existingNames: string[]): string {
+    let baseName = `${originalName}_copy`;
+    let counter = 1;
+    let newName = baseName;
+
+    while (existingNames.includes(newName)) {
+      counter++;
+      newName = `${originalName}_copy${counter}`;
+    }
+
+    return newName;
+  }
+
+  private async copyCompatibilities(sourceObjectId: string, newObjectId: string): Promise<void> {
+    // Get all compatibilities from source object
+    const compatibilities = this.db.prepare(`
+      SELECT
+        model_id, cycle_time, efficiency, priority
+      FROM canvas_object_compatibilities
+      WHERE canvas_object_id = ?
+    `).all(sourceObjectId) as Array<{
+      model_id: string;
+      cycle_time: number;
+      efficiency: number;
+      priority: number;
+    }>;
+
+    // Insert into new object
+    const stmt = this.db.prepare(`
+      INSERT INTO canvas_object_compatibilities (
+        id, canvas_object_id, model_id, cycle_time, efficiency, priority, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const now = new Date().toISOString();
+
+    for (const comp of compatibilities) {
+      stmt.run(
+        nanoid(),
+        newObjectId,
+        comp.model_id,
+        comp.cycle_time,
+        comp.efficiency,
+        comp.priority,
+        now,
+        now
+      );
+    }
   }
 
   /**

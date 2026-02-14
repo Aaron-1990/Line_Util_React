@@ -23,8 +23,9 @@ import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useToolStore } from '../store/useToolStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
-import { CanvasObjectType } from '@shared/types';
+import { CanvasObjectType, CanvasObject } from '@shared/types';
 import { PRODUCTION_LINE_SHAPE_ID } from '../constants/shapes';
+import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 
 // Default shape for converting production lines to canvas objects
 const DEFAULT_SHAPE_ID = PRODUCTION_LINE_SHAPE_ID;
@@ -74,9 +75,9 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     getObjectById,
     convertType,
     convertFromLine,
-    duplicateObject,
     deleteObject,
-    updateObject
+    updateObject,
+    loadObjectsForPlant
   } = useCanvasObjectStore();
 
   const { nodes, setSelectedNode, deleteNode, addNode, updateNode } = useCanvasStore();
@@ -304,18 +305,60 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     onClose();
   };
 
-  const handleDuplicate = async () => {
+  const handleDuplicate = useCallback(async () => {
     if (isProductionLine) {
       // TODO: Duplicate production line
       console.log('[ContextMenu] Duplicate production line:', objectId);
       // For now, we don't have duplicate functionality for production lines
       // This would require duplicating the line in the database with a new ID
     } else {
-      // Duplicate canvas object
-      await duplicateObject(objectId);
+      try {
+        // Use IPC channel to duplicate object
+        const response = await window.electronAPI.invoke<CanvasObject>(
+          CANVAS_OBJECT_CHANNELS.DUPLICATE,
+          {
+            sourceObjectId: objectId,
+            offset: { x: 20, y: 20 },
+          }
+        );
+
+        if (response.success && response.data) {
+          const newObject = response.data;
+
+          // Get the original object to find position
+          const originalObject = getObjectById(objectId);
+          if (originalObject) {
+            // Reload all objects to get the duplicated one with full details
+            await loadObjectsForPlant(originalObject.plantId);
+
+            // Get the updated object from the store
+            const duplicatedObject = getObjectById(newObject.id);
+            if (duplicatedObject) {
+              // Find the original node to get its position
+              const originalNode = nodes.find((n) => n.id === objectId);
+              const originalPosition = originalNode?.position ?? { x: 0, y: 0 };
+
+              // Add the duplicated object to canvas with offset position
+              addNode({
+                id: duplicatedObject.id,
+                type: 'genericShape',
+                position: {
+                  x: originalPosition.x + 20,
+                  y: originalPosition.y + 20,
+                },
+                data: duplicatedObject,
+              });
+
+              console.log('[ContextMenu] Duplicated:', newObject.name);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[ContextMenu] Duplicate error:', error);
+      }
     }
     onClose();
-  };
+  }, [objectId, isProductionLine, getObjectById, loadObjectsForPlant, nodes, addNode, onClose]);
 
   const handleDelete = async () => {
     if (isProductionLine) {

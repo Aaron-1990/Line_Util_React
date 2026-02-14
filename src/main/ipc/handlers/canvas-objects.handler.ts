@@ -258,20 +258,17 @@ export function registerCanvasObjectHandlers(): void {
     CANVAS_OBJECT_CHANNELS.DUPLICATE,
     async (
       _event,
-      id: string
+      input: { sourceObjectId: string; offset: { x: number; y: number } }
     ): Promise<ApiResponse<CanvasObject>> => {
       try {
-        console.log('[Canvas Object Handler] Duplicating object:', id);
-
-        if (!id) {
-          return { success: false, error: 'Missing object ID' };
-        }
-
         const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
-        const duplicate = await repo.duplicate(id);
-        return { success: true, data: duplicate };
+        const newObject = await repo.duplicate(input.sourceObjectId, input.offset);
+
+        console.log('[Duplicate] Created:', newObject.id, newObject.name);
+
+        return { success: true, data: newObject };
       } catch (error) {
-        console.error('[Canvas Object Handler] Duplicate error:', error);
+        console.error('[Duplicate] Error:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',

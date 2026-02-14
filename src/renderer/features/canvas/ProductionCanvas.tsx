@@ -50,6 +50,7 @@ import { useCanvasStore } from './store/useCanvasStore';
 import { useToolStore } from './store/useToolStore';
 import { useShapeCatalogStore } from './store/useShapeCatalogStore';
 import { useCanvasObjectStore } from './store/useCanvasObjectStore';
+import { useClipboardStore } from './store/useClipboardStore';
 import { useLoadLines } from './hooks/useLoadLines';
 import { useSelectionState } from './hooks/useSelectionState';
 import { GenericShapeNode } from './components/nodes/GenericShapeNode';
@@ -65,7 +66,7 @@ import { AnalysisControlBar, useAnalysisStore } from '../analysis';
 import { ChangeoverMatrixModal } from '../changeover';
 import { TIMELINE_EVENTS, WINDOW_CHANNELS, CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 import { ExternalLink, CheckCircle } from 'lucide-react';
-import { isPlaceTool, CanvasConnection, ConnectionType } from '@shared/types';
+import { isPlaceTool, isPasteTool, CanvasConnection, ConnectionType, CanvasObject } from '@shared/types';
 import { useNavigationStore } from '../../store/useNavigationStore';
 
 // Phase 7.5: All nodes now use GenericShapeNode (unified)
@@ -109,9 +110,10 @@ const CanvasInner = () => {
   const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string; connectionType: string } | null>(null);
 
   // Tool store for placement and connect modes (Phase 7.5)
-  const { activeTool, setGhostPosition, connectionSource, clearConnectionSource, clearSelection } = useToolStore();
+  const { activeTool, setGhostPosition, connectionSource, clearConnectionSource, clearSelection, setSelectTool, setPasteTool } = useToolStore();
   const { loadCatalog, getShapeById } = useShapeCatalogStore();
   const { createObject, addObject, connections, loadConnectionsForPlant } = useCanvasObjectStore();
+  const { copyObject, copiedObject } = useClipboardStore();
 
   // Check if we're in connect mode
   const isConnectMode = activeTool === 'connect';
@@ -382,6 +384,108 @@ const CanvasInner = () => {
     };
   }, []); // Empty deps - we get current state directly from stores
 
+  // Duplicate immediately (Ctrl+D)
+  const handleDuplicateImmediate = useCallback(async (objectId: string) => {
+    try {
+      const response = await window.electronAPI.invoke<CanvasObject>(
+        CANVAS_OBJECT_CHANNELS.DUPLICATE,
+        { sourceObjectId: objectId, offset: { x: 20, y: 20 } }
+      );
+
+      if (response.success && response.data) {
+        const newObject = response.data;
+        const shape = getShapeById(newObject.shapeId);
+
+        if (!shape) {
+          console.error('[Duplicate] Shape not found:', newObject.shapeId);
+          return;
+        }
+
+        // Build complete object with shape
+        const objectWithDetails = {
+          ...newObject,
+          shape,
+        };
+
+        // Add to canvas
+        addNode({
+          id: newObject.id,
+          type: 'genericShape',
+          position: { x: newObject.xPosition, y: newObject.yPosition },
+          data: objectWithDetails,
+        });
+
+        // Add to store
+        addObject(objectWithDetails);
+
+        console.log('[Duplicate] Created:', newObject.name);
+      }
+    } catch (error) {
+      console.error('[Duplicate] Error:', error);
+    }
+  }, [addNode, addObject]);
+
+  // Keyboard shortcuts for copy/paste/duplicate
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      // Get current state directly from stores
+      const currentActiveTool = useToolStore.getState().activeTool;
+      const currentSelectedNode = useCanvasStore.getState().selectedNode;
+      const currentCopiedObject = useClipboardStore.getState().copiedObject;
+      const currentObjects = useCanvasObjectStore.getState().objects;
+      const currentPlantId = useNavigationStore.getState().currentPlantId;
+
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      // ESC - Cancel paste mode
+      if (e.key === 'Escape' && isPasteTool(currentActiveTool)) {
+        setSelectTool();
+        return;
+      }
+
+      if (!isCtrlOrCmd) return;
+
+      switch (e.key.toLowerCase()) {
+        case 'c': // Copy
+          if (currentSelectedNode) {
+            e.preventDefault();
+            const selectedObj = currentObjects.find(obj => obj.id === currentSelectedNode);
+            if (selectedObj) {
+              copyObject(selectedObj);
+              console.log('[Copy] Copied to clipboard:', selectedObj.name);
+            }
+          }
+          break;
+
+        case 'v': // Paste (activate paste mode with ghost)
+          if (currentCopiedObject && currentPlantId) {
+            e.preventDefault();
+            setPasteTool(currentCopiedObject.id);
+            console.log('[Paste] Activated paste mode');
+          }
+          break;
+
+        case 'd': // Duplicate (immediate with offset)
+          if (currentSelectedNode && currentPlantId) {
+            e.preventDefault();
+            handleDuplicateImmediate(currentSelectedNode);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [copyObject, setPasteTool, setSelectTool, handleDuplicateImmediate]);
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       const updatedNodes = applyNodeChanges(changes, nodes);
@@ -487,6 +591,69 @@ const CanvasInner = () => {
       return;
     }
 
+    // Handle PASTE mode (NEW)
+    if (isPasteTool(activeTool) && currentPlantId && copiedObject) {
+      console.log('[Paste] Pasting object:', copiedObject.name);
+
+      try {
+        // Get click position
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        // Duplicate object at click position
+        const response = await window.electronAPI.invoke<CanvasObject>(
+          CANVAS_OBJECT_CHANNELS.DUPLICATE,
+          {
+            sourceObjectId: copiedObject.id,
+            offset: {
+              x: position.x - copiedObject.xPosition,
+              y: position.y - copiedObject.yPosition,
+            },
+          }
+        );
+
+        if (!response.success || !response.data) {
+          console.error('[Paste] Failed:', response.error);
+          return;
+        }
+
+        const newObject = response.data;
+        const shape = getShapeById(newObject.shapeId);
+
+        if (!shape) {
+          console.error('[Paste] Shape not found:', newObject.shapeId);
+          return;
+        }
+
+        // Build complete object with shape
+        const objectWithDetails = {
+          ...newObject,
+          shape,
+        };
+
+        // Add to canvas
+        addNode({
+          id: newObject.id,
+          type: 'genericShape',
+          position: { x: newObject.xPosition, y: newObject.yPosition },
+          data: objectWithDetails,
+        });
+
+        // Add to store
+        addObject(objectWithDetails);
+
+        console.log('[Paste] ✓ Object pasted:', newObject.name);
+
+        // KEEP in paste mode (allow multiple pastes)
+        // User presses ESC to exit
+      } catch (error) {
+        console.error('[Paste] Error:', error);
+      }
+      return;
+    }
+
     // Handle placement mode (Phase 7.5)
     if (isPlaceTool(activeTool) && currentPlantId) {
       console.log('[Placement] Conditions met - shapeId:', activeTool.shapeId, 'plantId:', currentPlantId);
@@ -572,14 +739,20 @@ const CanvasInner = () => {
         console.error('[Placement] Skipped - no currentPlantId!');
       }
     }
-  }, [setSelectedNode, clearSelection, activeTool, getShapeById, createObject, currentPlantId, screenToFlowPosition, addNode, addObject, isConnectMode, connectionSource, clearConnectionSource]);
+  }, [setSelectedNode, clearSelection, activeTool, copiedObject, getShapeById, createObject, currentPlantId, screenToFlowPosition, addNode, addObject, isConnectMode, connectionSource, clearConnectionSource]);
 
   // Handle mouse move for ghost preview
   const onMouseMove = useCallback((event: React.MouseEvent) => {
+    // Show ghost for place mode
     if (isPlaceTool(activeTool)) {
       setGhostPosition({ x: event.clientX, y: event.clientY });
     }
-  }, [activeTool, setGhostPosition]);
+
+    // Show ghost for paste mode (NEW)
+    if (isPasteTool(activeTool) && copiedObject) {
+      setGhostPosition({ x: event.clientX, y: event.clientY });
+    }
+  }, [activeTool, copiedObject, setGhostPosition]);
 
   // Handle mouse leave to clear ghost
   const onMouseLeave = useCallback(() => {
