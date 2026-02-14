@@ -489,8 +489,13 @@ export class SQLiteCanvasObjectRepository {
     const newX = source.xPosition + offset.x;
     const newY = source.yPosition + offset.y;
 
-    // 6. Calculate new z-index (higher than source to appear on top)
-    const newZIndex = source.zIndex + 1;
+    // 6. Calculate new z-index (MAX in plant + 1 to appear on top)
+    const maxZIndexRow = this.db
+      .prepare('SELECT MAX(z_index) as max FROM canvas_objects WHERE plant_id = ? AND active = 1')
+      .get(source.plantId) as { max: number | null } | undefined;
+
+    const maxZIndex = maxZIndexRow?.max ?? 0;
+    const newZIndex = maxZIndex + 1;
 
     // 7. Insert new object
     this.db.prepare(`
