@@ -124,18 +124,17 @@ export const usePlantStore = create<PlantState>((set, get) => ({
         const navStore = useNavigationStore.getState();
         navStore.initializePlantFromStorage();
 
-        // If no stored plant, use default
-        if (!navStore.currentPlantId && defaultPlantId) {
-          navStore.setCurrentPlant(defaultPlantId);
-        }
-
-        // Validate stored plant still exists
+        // Validate stored plant EXISTS before using it
         if (navStore.currentPlantId) {
           const storedPlantExists = plants.some(p => p.id === navStore.currentPlantId);
           if (!storedPlantExists) {
             console.warn('[PlantStore] Stored plant no longer exists, using default');
             navStore.setCurrentPlant(defaultPlantId);
           }
+        }
+        // If no stored plant (or was invalid), use default
+        else if (defaultPlantId) {
+          navStore.setCurrentPlant(defaultPlantId);
         }
 
         console.log(`[PlantStore] Initialized with ${plants.length} plants, default: ${defaultPlant?.code || 'none'}`);
@@ -172,12 +171,28 @@ export const usePlantStore = create<PlantState>((set, get) => ({
         }));
 
         const defaultPlant = plants.find(p => p.isDefault);
+        const defaultPlantId = defaultPlant?.id || plants[0]?.id || null;
 
         set({
           plants,
-          defaultPlantId: defaultPlant?.id || plants[0]?.id || null,
+          defaultPlantId,
           isLoading: false,
         });
+
+        // Validate navigation store's plant ID against loaded plants
+        // This ensures currentPlantId matches the active database
+        const navStore = useNavigationStore.getState();
+        if (navStore.currentPlantId) {
+          const storedPlantExists = plants.some(p => p.id === navStore.currentPlantId);
+          if (!storedPlantExists) {
+            console.warn('[PlantStore] Stored plant no longer exists in loaded DB, using default');
+            navStore.setCurrentPlant(defaultPlantId);
+          }
+        }
+        // If no stored plant, use default
+        else if (defaultPlantId) {
+          navStore.setCurrentPlant(defaultPlantId);
+        }
       } else {
         set({
           error: response.error || 'Failed to load plants',

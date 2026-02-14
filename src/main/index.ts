@@ -71,6 +71,67 @@ function createMainWindow(): void {
   });
 }
 
+/**
+ * Ensure shape catalog is seeded with built-in shapes.
+ * Re-seeds if tables are empty (safety check for data integrity).
+ */
+function ensureShapesSeeded(db: any): void {
+  try {
+    // Check if shape_catalog has data
+    const shapeCount = db.prepare('SELECT COUNT(*) as count FROM shape_catalog').get() as { count: number };
+
+    if (shapeCount.count > 0) {
+      console.log('[Main] Shape catalog already seeded');
+      return;
+    }
+
+    console.log('[Main] Shape catalog empty, re-seeding built-in shapes...');
+
+    // Re-seed shape categories
+    db.prepare(`
+      INSERT INTO shape_categories (id, name, display_order, icon) VALUES
+        ('basic', 'Basic Shapes', 1, 'Shapes'),
+        ('machines', 'Machines & Equipment', 2, 'Cog'),
+        ('flow', 'Flow Control', 3, 'GitBranch'),
+        ('custom', 'Custom', 99, 'Sparkles')
+    `).run();
+
+    // Re-seed basic shapes
+    db.prepare(`
+      INSERT INTO shape_catalog (id, category_id, name, description, source, render_type, primitive_type, default_width, default_height) VALUES
+        ('rect-basic', 'basic', 'Rectangle', 'Standard rectangular shape for general use', 'builtin', 'primitive', 'rectangle', 200, 100),
+        ('triangle-basic', 'basic', 'Triangle', 'Triangular shape for decision points or flow direction', 'builtin', 'primitive', 'triangle', 200, 120),
+        ('circle-basic', 'basic', 'Circle', 'Circular shape for nodes or junctions', 'builtin', 'primitive', 'circle', 120, 120),
+        ('diamond-basic', 'basic', 'Diamond', 'Diamond shape for decision or inspection points', 'builtin', 'primitive', 'diamond', 120, 120)
+    `).run();
+
+    // Re-seed shape anchors
+    db.prepare(`
+      INSERT INTO shape_anchors (id, shape_id, name, position, offset_x, offset_y, is_input, is_output) VALUES
+        ('rect-top', 'rect-basic', 'top', 'top', 0.5, 0, 1, 1),
+        ('rect-bottom', 'rect-basic', 'bottom', 'bottom', 0.5, 1, 1, 1),
+        ('rect-left', 'rect-basic', 'left', 'left', 0, 0.5, 1, 1),
+        ('rect-right', 'rect-basic', 'right', 'right', 1, 0.5, 1, 1),
+        ('tri-top', 'triangle-basic', 'top', 'top', 0.5, 0, 1, 1),
+        ('tri-bottom-left', 'triangle-basic', 'bottom-left', 'bottom', 0.25, 1, 1, 1),
+        ('tri-bottom-right', 'triangle-basic', 'bottom-right', 'bottom', 0.75, 1, 1, 1),
+        ('circle-top', 'circle-basic', 'top', 'top', 0.5, 0, 1, 1),
+        ('circle-bottom', 'circle-basic', 'bottom', 'bottom', 0.5, 1, 1, 1),
+        ('circle-left', 'circle-basic', 'left', 'left', 0, 0.5, 1, 1),
+        ('circle-right', 'circle-basic', 'right', 'right', 1, 0.5, 1, 1),
+        ('diamond-top', 'diamond-basic', 'top', 'top', 0.5, 0, 1, 1),
+        ('diamond-bottom', 'diamond-basic', 'bottom', 'bottom', 0.5, 1, 1, 1),
+        ('diamond-left', 'diamond-basic', 'left', 'left', 0, 0.5, 1, 1),
+        ('diamond-right', 'diamond-basic', 'right', 'right', 1, 0.5, 1, 1)
+    `).run();
+
+    console.log('[Main] ✓ Shape catalog re-seeded successfully');
+  } catch (error) {
+    console.warn('[Main] Failed to re-seed shapes (may already exist):', error);
+    // Non-fatal error - shapes might already exist from migration
+  }
+}
+
 async function initializeApp(): Promise<void> {
   try {
     const db = DatabaseConnection.getInstance();
@@ -97,6 +158,9 @@ async function initializeApp(): Promise<void> {
 
       console.log('✓ Default plant "My Plant" created successfully');
     }
+
+    // Safety check: Ensure shape catalog is seeded
+    ensureShapesSeeded(db);
   } catch (error) {
     console.error('Failed to initialize app:', error);
     app.quit();

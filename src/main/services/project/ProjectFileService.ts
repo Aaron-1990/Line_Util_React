@@ -8,6 +8,7 @@ import { MigrationRunner } from '@main/database/MigrationRunner';
 import { ProjectState } from '@shared/types/project';
 import DatabaseConnection from '@main/database/connection';
 import { DB_CONFIG } from '@shared/constants';
+import { SQLitePlantRepository } from '@main/database/repositories/SQLitePlantRepository';
 
 /**
  * Manages project file operations (open, save, save-as).
@@ -401,10 +402,16 @@ export class ProjectFileService {
       db.pragma('foreign_keys = OFF');
 
       try {
-        // Clear all data (keep schema)
-        const tables = db.prepare(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'migrations'"
-        ).all() as { name: string }[];
+        // Clear all data (keep schema and system tables)
+        // Exclude:
+        // - migrations: schema version tracking
+        // - shape_catalog, shape_categories, shape_anchors: built-in system data
+        const tables = db.prepare(`
+          SELECT name FROM sqlite_master
+          WHERE type='table'
+            AND name NOT LIKE 'sqlite_%'
+            AND name NOT IN ('migrations', 'shape_catalog', 'shape_categories', 'shape_anchors')
+        `).all() as { name: string }[];
 
         const transaction = db.transaction(() => {
           tables.forEach(table => {
@@ -417,6 +424,27 @@ export class ProjectFileService {
         // Always re-enable foreign keys
         db.pragma('foreign_keys = ON');
       }
+
+      // Auto-create default plant for new project (same logic as initializeApp)
+      const plantRepo = new SQLitePlantRepository(db);
+      console.log('[ProjectFileService] Creating default plant for new project');
+
+      // Auto-detect timezone
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
+
+      const newPlant = await plantRepo.create({
+        code: 'PLANT-001',
+        name: 'My Plant',
+        timezone,
+      });
+
+      // Set as default plant
+      await plantRepo.setDefault(newPlant.id);
+      console.log('[ProjectFileService] ✓ Default plant "My Plant" created successfully');
+
+      // Re-seed shape catalog if empty (safety check)
+      // This ensures shapes are always available after creating new project
+      this.ensureShapesSeeded(db);
 
       // Initialize metadata for new project
       ProjectMetadataHelper.initialize(db, 'Untitled Project');
@@ -504,6 +532,68 @@ export class ProjectFileService {
    * sanitizeFilePath('/Users/me/CON.lop')
    * // => '/Users/me/CON_file.lop'
    */
+  /**
+   * Ensure shape catalog is seeded with built-in shapes.
+   * Re-seeds if tables are empty (safety check for data integrity).
+   * @param db Database instance to check and seed
+   */
+  private static ensureShapesSeeded(db: Database.Database): void {
+    try {
+      // Check if shape_catalog has data
+      const shapeCount = db.prepare('SELECT COUNT(*) as count FROM shape_catalog').get() as { count: number };
+
+      if (shapeCount.count > 0) {
+        console.log('[ProjectFileService] Shape catalog already seeded, skipping');
+        return;
+      }
+
+      console.log('[ProjectFileService] Shape catalog empty, re-seeding built-in shapes...');
+
+      // Re-seed shape categories
+      db.prepare(`
+        INSERT INTO shape_categories (id, name, display_order, icon) VALUES
+          ('basic', 'Basic Shapes', 1, 'Shapes'),
+          ('machines', 'Machines & Equipment', 2, 'Cog'),
+          ('flow', 'Flow Control', 3, 'GitBranch'),
+          ('custom', 'Custom', 99, 'Sparkles')
+      `).run();
+
+      // Re-seed basic shapes
+      db.prepare(`
+        INSERT INTO shape_catalog (id, category_id, name, description, source, render_type, primitive_type, default_width, default_height) VALUES
+          ('rect-basic', 'basic', 'Rectangle', 'Standard rectangular shape for general use', 'builtin', 'primitive', 'rectangle', 200, 100),
+          ('triangle-basic', 'basic', 'Triangle', 'Triangular shape for decision points or flow direction', 'builtin', 'primitive', 'triangle', 200, 120),
+          ('circle-basic', 'basic', 'Circle', 'Circular shape for nodes or junctions', 'builtin', 'primitive', 'circle', 120, 120),
+          ('diamond-basic', 'basic', 'Diamond', 'Diamond shape for decision or inspection points', 'builtin', 'primitive', 'diamond', 120, 120)
+      `).run();
+
+      // Re-seed shape anchors
+      db.prepare(`
+        INSERT INTO shape_anchors (id, shape_id, name, position, offset_x, offset_y, is_input, is_output) VALUES
+          ('rect-top', 'rect-basic', 'top', 'top', 0.5, 0, 1, 1),
+          ('rect-bottom', 'rect-basic', 'bottom', 'bottom', 0.5, 1, 1, 1),
+          ('rect-left', 'rect-basic', 'left', 'left', 0, 0.5, 1, 1),
+          ('rect-right', 'rect-basic', 'right', 'right', 1, 0.5, 1, 1),
+          ('tri-top', 'triangle-basic', 'top', 'top', 0.5, 0, 1, 1),
+          ('tri-bottom-left', 'triangle-basic', 'bottom-left', 'bottom', 0.25, 1, 1, 1),
+          ('tri-bottom-right', 'triangle-basic', 'bottom-right', 'bottom', 0.75, 1, 1, 1),
+          ('circle-top', 'circle-basic', 'top', 'top', 0.5, 0, 1, 1),
+          ('circle-bottom', 'circle-basic', 'bottom', 'bottom', 0.5, 1, 1, 1),
+          ('circle-left', 'circle-basic', 'left', 'left', 0, 0.5, 1, 1),
+          ('circle-right', 'circle-basic', 'right', 'right', 1, 0.5, 1, 1),
+          ('diamond-top', 'diamond-basic', 'top', 'top', 0.5, 0, 1, 1),
+          ('diamond-bottom', 'diamond-basic', 'bottom', 'bottom', 0.5, 1, 1, 1),
+          ('diamond-left', 'diamond-basic', 'left', 'left', 0, 0.5, 1, 1),
+          ('diamond-right', 'diamond-basic', 'right', 'right', 1, 0.5, 1, 1)
+      `).run();
+
+      console.log('[ProjectFileService] ✓ Shape catalog re-seeded successfully');
+    } catch (error) {
+      console.warn('[ProjectFileService] Failed to re-seed shapes (may already exist):', error);
+      // Non-fatal error - shapes might already exist from migration
+    }
+  }
+
   private static sanitizeFilePath(filePath: string): string {
     const dir = path.dirname(filePath);
     const ext = path.extname(filePath); // e.g., ".lop"

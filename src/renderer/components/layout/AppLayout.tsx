@@ -39,7 +39,12 @@ async function refreshAllStores(): Promise<void> {
   console.log('[AppLayout] Refreshing all stores after database change...');
 
   try {
+    // CRITICAL: Clear localStorage plant ID BEFORE loading stores
+    // This prevents stale plant IDs from persisting across database switches
+    useNavigationStore.getState().clearPersistedPlantId();
+
     // Refresh all stores in parallel for performance
+    // Note: usePlantStore.loadPlants() now handles navigation store plant validation
     await Promise.all([
       useProjectStore.getState().refreshProjectInfo(),
       usePlantStore.getState().loadPlants(),
@@ -52,9 +57,6 @@ async function refreshAllStores(): Promise<void> {
       useCanvasStore.getState().refreshNodes(),
       useShapeCatalogStore.getState().refreshCatalog(),
     ]);
-
-    // Refresh navigation store (synchronous - uses localStorage, not DB)
-    useNavigationStore.getState().initializePlantFromStorage();
 
     console.log('[AppLayout] All stores refreshed successfully');
   } catch (error) {

@@ -33,6 +33,7 @@ interface NavigationState {
   // Actions - Plant Context (Phase 7)
   setCurrentPlant: (plantId: string | null) => void;
   initializePlantFromStorage: () => void;
+  clearPersistedPlantId: () => void;
 }
 
 // ===== Helper Functions =====
@@ -96,6 +97,21 @@ export const useNavigationStore = create<NavigationState>((set) => ({
     const stored = loadPersistedPlantId();
     if (stored) {
       set({ currentPlantId: stored });
+    }
+  },
+
+  /**
+   * Clear persisted plant ID from localStorage.
+   * Called when switching database instances (project open, new, save as).
+   * This ensures the plant ID is not stale when a new database is loaded.
+   */
+  clearPersistedPlantId: () => {
+    try {
+      localStorage.removeItem(PLANT_STORAGE_KEY);
+      set({ currentPlantId: null });
+      console.log('[NavigationStore] Cleared persisted plant ID');
+    } catch (error) {
+      console.warn('[NavigationStore] Failed to clear plant from localStorage:', error);
     }
   },
 }));
