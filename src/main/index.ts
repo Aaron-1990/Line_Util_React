@@ -300,8 +300,10 @@ async function showSavePrompt(window: BrowserWindow): Promise<SaveDialogResult> 
  * Tables preserved (seed/system data):
  * - migrations (schema tracking)
  * - shape_categories, shape_catalog, shape_anchors (built-in shapes)
- * - area_catalog (default areas - seed data)
  * - _archived_*, _migration_*, _production_line_id_mapping (migration artifacts)
+ *
+ * Note: area_catalog is cleared (includes user-created areas) but default areas
+ * are automatically re-seeded on next app open via migration 001 (INSERT OR IGNORE)
  *
  * Uses a transaction for atomicity - all or nothing.
  */
@@ -337,6 +339,9 @@ async function clearTempDatabase(): Promise<void> {
       // Core entities (models before plants due to FK)
       'product_models_v2',
       'plants',
+
+      // Catalogs (user-created + seed data - will be re-seeded on next run via migrations)
+      'area_catalog',
 
       // Historical/UI data
       'analysis_runs',
