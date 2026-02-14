@@ -277,6 +277,8 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
           type: 'genericShape',
           position,
           data: fullObject, // Already has CanvasObjectWithDetails including shape
+          selectable: true, // Enable ReactFlow selection
+          draggable: true,  // Enable dragging
         });
 
         // Select the newly created object so the properties panel shows
@@ -338,6 +340,8 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
               y: originalPosition.y + 20,
             },
             data: newObjectWithDetails,
+            selectable: true, // Enable ReactFlow selection
+            draggable: true,  // Enable dragging
           });
 
           // Also add to store

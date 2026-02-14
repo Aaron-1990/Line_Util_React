@@ -241,17 +241,43 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
 
       if (!response.success) {
         console.error('[CanvasObjectStore] Delete failed:', response.error);
-        // Revert on error - add object back
+        // Revert on error - add object back to BOTH stores
         set({ objects: [...get().objects, objectToDelete] });
+        useCanvasStore.getState().addNode({
+          id: objectToDelete.id,
+          type: 'genericShape',
+          position: { x: objectToDelete.xPosition, y: objectToDelete.yPosition },
+          data: objectToDelete,
+          selectable: true, // Enable ReactFlow selection
+          draggable: true,  // Enable dragging
+        });
+        console.warn('[CanvasObjectStore] Object delete failed, reverted to both stores');
         alert(`Failed to delete object: ${response.error}`);
       } else {
         markProjectUnsaved(); // Track unsaved changes
+
+        // Reload canvas to sync state (like duplicateObject does)
+        // This ensures ReactFlow's internal state, useCanvasStore, and useCanvasObjectStore
+        // are all synchronized after deletion, preventing stale closure issues
+        await get().loadObjectsForPlant(objectToDelete.plantId);
       }
     } catch (error) {
       console.error('[CanvasObjectStore] Error deleting object:', error);
-      // Revert on error
+      // Revert on error - add object back to BOTH stores
       set({ objects: [...get().objects, objectToDelete] });
+      useCanvasStore.getState().addNode({
+        id: objectToDelete.id,
+        type: 'genericShape',
+        position: { x: objectToDelete.xPosition, y: objectToDelete.yPosition },
+        data: objectToDelete,
+        selectable: true, // Enable ReactFlow selection
+        draggable: true,  // Enable dragging
+      });
+      console.warn('[CanvasObjectStore] Object delete exception, reverted to both stores');
       alert('Failed to delete object. Please try again.');
+
+      // Reload to ensure sync (defensive)
+      await get().loadObjectsForPlant(objectToDelete.plantId);
     }
   },
 

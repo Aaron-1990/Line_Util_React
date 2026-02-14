@@ -325,6 +325,9 @@ export class ProjectFileService {
       const newDb = new Database(savePath, { readonly: false });
       DatabaseConnection.replaceInstance(newDb);
 
+      // Clear temp database after successful Save As to prevent data leakage
+      await this.clearTempDatabase();
+
       // Update current file path
       this.currentFilePath = savePath;
       this.hasUnsavedChanges = false;
@@ -606,6 +609,80 @@ export class ProjectFileService {
     } catch (error) {
       console.warn('[ProjectFileService] Failed to re-seed shapes (may already exist):', error);
       // Non-fatal error - shapes might already exist from migration
+    }
+  }
+
+  /**
+   * Clear all user data from temp database after Save As
+   * Preserves system tables: shape_catalog, shape_categories, shape_anchors, user_preferences
+   */
+  private static clearingTempDb = false;
+
+  private static async clearTempDatabase(): Promise<void> {
+    // Prevent race conditions from double-click on Save As button
+    if (this.clearingTempDb) {
+      console.log('[ProjectFileService] Temp DB clear already in progress');
+      return;
+    }
+
+    const tempDbPath = DatabaseConnection.getDefaultPath();
+
+    // Check if temp DB is currently active (edge case)
+    const currentDb = DatabaseConnection.getInstance();
+    if (currentDb.name === tempDbPath) {
+      console.warn('[ProjectFileService] Skipping temp DB clear - currently active');
+      return;
+    }
+
+    this.clearingTempDb = true;
+
+    try {
+      const tempDb = new Database(tempDbPath, { readonly: false });
+
+      const tablesToClear = [
+        'canvas_objects',
+        'canvas_connections',
+        'production_lines',
+        'product_models_v2',
+        'product_volumes',
+        'line_model_compatibilities',
+        'model_area_routing',
+        'model_area_predecessors',
+        'family_changeover_defaults',
+        'line_changeover_overrides',
+        'process_properties',
+        'buffer_properties',
+        'process_line_links',
+        'canvas_object_compatibilities',
+        'plants',
+        'area_catalog',
+      ];
+
+      const clearAll = tempDb.transaction(() => {
+        for (const table of tablesToClear) {
+          tempDb.prepare(`DELETE FROM ${table}`).run();
+        }
+      });
+
+      clearAll();
+
+      // Verify clear succeeded
+      const remainingObjects = tempDb.prepare(
+        'SELECT COUNT(*) as total FROM canvas_objects'
+      ).get() as { total: number };
+
+      if (remainingObjects.total > 0) {
+        console.warn('[ProjectFileService] Temp DB clear incomplete - objects remain');
+      } else {
+        console.log('[ProjectFileService] Temp database cleared successfully');
+      }
+
+      tempDb.close();
+    } catch (error) {
+      console.error('[ProjectFileService] Failed to clear temp DB:', error);
+      // Non-fatal error - don't throw
+    } finally {
+      this.clearingTempDb = false;
     }
   }
 

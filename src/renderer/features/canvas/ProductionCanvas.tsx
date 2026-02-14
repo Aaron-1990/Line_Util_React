@@ -88,7 +88,7 @@ const CanvasInner = () => {
     addNode,
   } = useCanvasStore();
 
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
   const lastMiddleClickTime = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -338,41 +338,35 @@ const CanvasInner = () => {
 
       // Check for Delete or Backspace key (Mac uses Backspace for Delete)
       if (event.key === 'Delete' || event.key === 'Backspace') {
+        // CRITICAL FIX: Get selection directly from ReactFlow (source of truth)
+        // This bypasses async callback sync issues with useToolStore/useCanvasStore
+        const reactFlowNodes = getNodes();
+        const selectedNodes = reactFlowNodes.filter((node) => node.selected);
+        const objectsToDelete = selectedNodes.map((node) => node.id);
 
-        // Get CURRENT state directly from stores to avoid stale closure
-        const currentSelectedNode = useCanvasStore.getState().selectedNode;
-        const currentSelectedObjectIds = useToolStore.getState().selectedObjectIds;
-        const currentNodes = useCanvasStore.getState().nodes;
-
-        // Combine BOTH selection sources (prioritize multi-select if available):
-        // - selectedObjectIds from useToolStore (used for multi-select via onSelectionChange)
-        // - selectedNode from useCanvasStore (fallback for single click selection)
-        const objectsToDelete = currentSelectedObjectIds.length > 0
-          ? currentSelectedObjectIds
-          : currentSelectedNode
-            ? [currentSelectedNode]
-            : [];
-
-        if (objectsToDelete.length > 0) {
-          event.preventDefault();
-
-          // Delete each selected object (Phase 7.5: all objects are canvas_objects)
-          for (const objectId of objectsToDelete) {
-            // Find the node
-            const node = currentNodes.find((n) => n.id === objectId);
-
-            if (node) {
-              // All objects now use deleteObject from useCanvasObjectStore
-              await useCanvasObjectStore.getState().deleteObject(objectId);
-            } else {
-              console.warn('[ProductionCanvas] Node not found for deletion:', objectId);
-            }
-          }
-
-          // Clear selection after deletion
-          useToolStore.getState().clearSelection();
-          useCanvasStore.getState().setSelectedNode(null);
+        if (objectsToDelete.length === 0) {
+          console.warn('[ProductionCanvas] Delete pressed but no objects selected');
+          return; // Early return if nothing selected
         }
+
+        event.preventDefault();
+
+        // Delete each selected object (Phase 7.5: all objects are canvas_objects)
+        for (const objectId of objectsToDelete) {
+          // Find the node
+          const node = reactFlowNodes.find((n) => n.id === objectId);
+
+          if (node) {
+            // All objects now use deleteObject from useCanvasObjectStore
+            await useCanvasObjectStore.getState().deleteObject(objectId);
+          } else {
+            console.warn('[ProductionCanvas] Node not found for deletion:', objectId);
+          }
+        }
+
+        // Clear selection after deletion
+        useToolStore.getState().clearSelection();
+        useCanvasStore.getState().setSelectedNode(null);
       }
     };
 
@@ -382,7 +376,7 @@ const CanvasInner = () => {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []); // Empty deps - we get current state directly from stores
+  }, [getNodes]); // IMPORTANT: Only stable ref here. DO NOT add 'nodes' - it causes infinite re-execution loop because nodes array reference changes on every position/selection update, creating race conditions where Delete key has no handler attached
 
   // Duplicate immediately (Ctrl+D)
   const handleDuplicateImmediate = useCallback(async (objectId: string) => {
@@ -401,6 +395,8 @@ const CanvasInner = () => {
           type: 'genericShape',
           position: { x: newObjectWithDetails.xPosition, y: newObjectWithDetails.yPosition },
           data: newObjectWithDetails,
+          selectable: true, // Enable ReactFlow selection
+          draggable: true,  // Enable dragging
         });
 
         // Add to store
@@ -568,8 +564,17 @@ const CanvasInner = () => {
   const onPaneClick = useCallback(async (event: React.MouseEvent) => {
     console.log('[onPaneClick] Fired - activeTool:', activeTool);
 
-    setSelectedNode(null);
-    clearSelection();
+    // CRITICAL FIX: Only clear selection if clicking on the actual pane, not on nodes
+    // Without this check, clicking on nodes clears selection due to event bubbling
+    const target = event.target as HTMLElement;
+    const isClickOnPane = target.classList.contains('react-flow__pane');
+
+    if (isClickOnPane) {
+      setSelectedNode(null);
+      clearSelection();
+    }
+
+    // Context menus should always close on any click
     setContextMenu(null);
     setEdgeContextMenu(null);
 
@@ -615,6 +620,8 @@ const CanvasInner = () => {
           type: 'genericShape',
           position: { x: newObjectWithDetails.xPosition, y: newObjectWithDetails.yPosition },
           data: newObjectWithDetails,
+          selectable: true, // Enable ReactFlow selection
+          draggable: true,  // Enable dragging
         });
 
         // Add to store
@@ -695,6 +702,8 @@ const CanvasInner = () => {
           type: 'genericShape',
           position: { x: xPos, y: yPos },
           data: objectData,
+          selectable: true, // Enable ReactFlow selection
+          draggable: true,  // Enable dragging
         });
 
         // Also add to useCanvasObjectStore so ContextMenu can find it

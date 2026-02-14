@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
+import { useToolStore } from '../store/useToolStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
 import { CanvasObjectWithDetails, CanvasConnection } from '@shared/types';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
@@ -20,7 +21,9 @@ interface UseLoadLinesResult {
 }
 
 export function useLoadLines(): UseLoadLinesResult {
-  const { addNode, setNodes } = useCanvasStore();
+  // CRITICAL: Use specific selectors to prevent infinite reload loop
+  // Subscribing to the entire store causes re-execution every time nodes change
+  const setNodes = useCanvasStore((state) => state.setNodes);
   const setCanvasObjects = useCanvasObjectStore((state) => state.setObjects);
   const setConnections = useCanvasObjectStore((state) => state.setConnections);
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
@@ -32,12 +35,15 @@ export function useLoadLines(): UseLoadLinesResult {
       setIsLoading(true);
 
       try {
-        // Clear existing nodes
-        setNodes([]);
+        // Clear selection state before reload
+        useToolStore.getState().clearSelection();
+        useCanvasStore.getState().setSelectedNode(null);
 
         // If no plant selected, don't load anything
         if (!currentPlantId) {
           setObjectCount(0);
+          setNodes([]); // Clear nodes atomically
+          setCanvasObjects([]);
           setIsLoading(false);
           return;
         }
@@ -62,16 +68,23 @@ export function useLoadLines(): UseLoadLinesResult {
           // Store objects in useCanvasObjectStore for ContextMenu and panel access
           setCanvasObjects(objectsResponse.data);
 
-          objectsResponse.data.forEach((obj) => {
-            addNode({
-              id: obj.id,
-              type: 'genericShape',  // All objects now use GenericShapeNode
-              position: { x: obj.xPosition, y: obj.yPosition },
-              data: obj, // Pass the full CanvasObjectWithDetails
-            });
-          });
+          // CRITICAL FIX: Build all nodes in one array for atomic update
+          // This prevents ReactFlow selection state from becoming corrupted after multiple reloads
+          // See: Explore agent analysis (a8a0e6f) - incremental addNode() causes selection degradation
+          const newNodes = objectsResponse.data.map((obj) => ({
+            id: obj.id,
+            type: 'genericShape',  // All objects now use GenericShapeNode
+            position: { x: obj.xPosition, y: obj.yPosition },
+            data: obj, // Pass the full CanvasObjectWithDetails
+            selectable: true, // Enable ReactFlow selection
+            draggable: true,  // Enable dragging
+          }));
+
+          // Set all nodes at once (atomic update - fixes selection degradation)
+          setNodes(newNodes);
         } else {
           setObjectCount(0);
+          setNodes([]); // Clear nodes atomically
           setCanvasObjects([]);
         }
 
@@ -90,7 +103,7 @@ export function useLoadLines(): UseLoadLinesResult {
     };
 
     loadAll();
-  }, [addNode, setNodes, currentPlantId, setCanvasObjects, setConnections]);
+  }, [setNodes, currentPlantId, setCanvasObjects, setConnections]);
 
   // Count process objects as "lines" for backward compatibility
   const processCount = useCanvasObjectStore.getState().objects.filter(
