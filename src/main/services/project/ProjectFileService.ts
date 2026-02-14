@@ -402,10 +402,16 @@ export class ProjectFileService {
       db.pragma('foreign_keys = OFF');
 
       try {
-        // Clear all data (keep schema and system tables)
-        // Exclude:
+        // ============================================
+        // CRITICAL: DO NOT MODIFY EXCLUSION LIST
+        // Fix: Shape catalog auto-seed (2025-02-14)
+        // Documentation: docs/fixes/fix-canvas-save-load-and-shapes.md
+        // ============================================
+        // Clear all USER data (keep schema and SYSTEM tables).
+        // These tables contain built-in data that must be preserved:
         // - migrations: schema version tracking
-        // - shape_catalog, shape_categories, shape_anchors: built-in system data
+        // - shape_catalog, shape_categories, shape_anchors: built-in shapes
+        // Removing these from exclusion list will delete shapes on every "New Project".
         const tables = db.prepare(`
           SELECT name FROM sqlite_master
           WHERE type='table'
@@ -535,11 +541,20 @@ export class ProjectFileService {
   /**
    * Ensure shape catalog is seeded with built-in shapes.
    * Re-seeds if tables are empty (safety check for data integrity).
+   *
+   * CRITICAL: DO NOT REMOVE THIS FUNCTION
+   * Fix: Shape catalog auto-seed (2025-02-14)
+   * Documentation: docs/fixes/fix-canvas-save-load-and-shapes.md
+   *
+   * This function prevents Object Palette from being empty when:
+   * - Creating new projects
+   * - Database has empty shape tables
+   *
    * @param db Database instance to check and seed
    */
   private static ensureShapesSeeded(db: Database.Database): void {
     try {
-      // Check if shape_catalog has data
+      // Check if shape_catalog has data (idempotent check)
       const shapeCount = db.prepare('SELECT COUNT(*) as count FROM shape_catalog').get() as { count: number };
 
       if (shapeCount.count > 0) {

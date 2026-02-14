@@ -39,8 +39,14 @@ async function refreshAllStores(): Promise<void> {
   console.log('[AppLayout] Refreshing all stores after database change...');
 
   try {
-    // CRITICAL: Clear localStorage plant ID BEFORE loading stores
-    // This prevents stale plant IDs from persisting across database switches
+    // ============================================
+    // CRITICAL: DO NOT MODIFY THIS SEQUENCE
+    // Fix: Canvas objects save/load bug (2025-02-14)
+    // Documentation: docs/fixes/fix-canvas-save-load-and-shapes.md
+    // ============================================
+    // Clear localStorage plant ID BEFORE loading stores.
+    // This prevents stale plant IDs from persisting across database switches.
+    // Moving this AFTER Promise.all() will break project save/load functionality.
     useNavigationStore.getState().clearPersistedPlantId();
 
     // Refresh all stores in parallel for performance

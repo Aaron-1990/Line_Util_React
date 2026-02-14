@@ -179,8 +179,15 @@ export const usePlantStore = create<PlantState>((set, get) => ({
           isLoading: false,
         });
 
-        // Validate navigation store's plant ID against loaded plants
-        // This ensures currentPlantId matches the active database
+        // ============================================
+        // CRITICAL: DO NOT REMOVE THIS VALIDATION
+        // Fix: Canvas objects save/load bug (2025-02-14)
+        // Documentation: docs/fixes/fix-canvas-save-load-and-shapes.md
+        // ============================================
+        // Validate navigation store's plant ID against loaded plants.
+        // This ensures currentPlantId matches the active database.
+        // Removing this validation will cause canvas objects to fail loading
+        // when switching between databases (temp DB vs .lop files).
         const navStore = useNavigationStore.getState();
         if (navStore.currentPlantId) {
           const storedPlantExists = plants.some(p => p.id === navStore.currentPlantId);

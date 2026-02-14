@@ -33,6 +33,36 @@ This project follows the global development framework. Key principles:
 
 ---
 
+## CRITICAL CODE SECTIONS (DO NOT MODIFY)
+
+**⚠️ These sections have inline "DO NOT MODIFY" comments. Read them before making changes.**
+
+### 1. Project Save/Load & Plant ID Management (2025-02-14)
+
+**Documentation:** `docs/fixes/fix-canvas-save-load-and-shapes.md`
+
+**Critical Files & Sections:**
+
+| File | Section | Why Critical |
+|------|---------|--------------|
+| `AppLayout.tsx:44-48` | `refreshAllStores()` sequence | localStorage must be cleared BEFORE loading stores |
+| `usePlantStore.ts:175-188` | Plant ID validation in `loadPlants()` | Prevents stale plant IDs from breaking canvas |
+| `ProjectFileService.ts:405-410` | System tables exclusion list | Prevents deleting built-in shapes on "New Project" |
+| `ProjectFileService.ts:537-595` | `ensureShapesSeeded()` function | Auto-seeds shapes if empty (idempotent) |
+| `main/index.ts:74-130` | `ensureShapesSeeded()` function | App startup shape validation |
+
+**What happens if modified:**
+- Canvas objects won't load after save/reopen
+- Object Palette will be empty (no shapes)
+- Plant IDs will mismatch across database switches
+
+**If you need to modify these areas:**
+1. Read `docs/fixes/fix-canvas-save-load-and-shapes.md` FIRST
+2. Run full regression test suite (4 scenarios in doc)
+3. Consult with user before proceeding
+
+---
+
 ## Agent Orchestration (MANDATORY)
 
 **ALL agents MUST follow `~/.claude/CLAUDE.md`**
