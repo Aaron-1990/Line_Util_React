@@ -62,6 +62,12 @@ export const ObjectPalette = memo(() => {
         return;
       }
 
+      // Don't activate tool shortcuts if Ctrl/Cmd is pressed (reserved for copy/paste)
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (isCtrlOrCmd) {
+        return;
+      }
+
       switch (e.key.toLowerCase()) {
         case 'v':
           setSelectTool();

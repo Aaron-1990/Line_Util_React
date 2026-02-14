@@ -66,7 +66,7 @@ import { AnalysisControlBar, useAnalysisStore } from '../analysis';
 import { ChangeoverMatrixModal } from '../changeover';
 import { TIMELINE_EVENTS, WINDOW_CHANNELS, CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 import { ExternalLink, CheckCircle } from 'lucide-react';
-import { isPlaceTool, isPasteTool, CanvasConnection, ConnectionType, CanvasObject } from '@shared/types';
+import { isPlaceTool, isPasteTool, CanvasConnection, ConnectionType, CanvasObjectWithDetails } from '@shared/types';
 import { useNavigationStore } from '../../store/useNavigationStore';
 
 // Phase 7.5: All nodes now use GenericShapeNode (unified)
@@ -387,43 +387,31 @@ const CanvasInner = () => {
   // Duplicate immediately (Ctrl+D)
   const handleDuplicateImmediate = useCallback(async (objectId: string) => {
     try {
-      const response = await window.electronAPI.invoke<CanvasObject>(
+      const response = await window.electronAPI.invoke<CanvasObjectWithDetails>(
         CANVAS_OBJECT_CHANNELS.DUPLICATE,
         { sourceObjectId: objectId, offset: { x: 20, y: 20 } }
       );
 
       if (response.success && response.data) {
-        const newObject = response.data;
-        const shape = getShapeById(newObject.shapeId);
-
-        if (!shape) {
-          console.error('[Duplicate] Shape not found:', newObject.shapeId);
-          return;
-        }
-
-        // Build complete object with shape
-        const objectWithDetails = {
-          ...newObject,
-          shape,
-        };
+        const newObjectWithDetails = response.data;
 
         // Add to canvas
         addNode({
-          id: newObject.id,
+          id: newObjectWithDetails.id,
           type: 'genericShape',
-          position: { x: newObject.xPosition, y: newObject.yPosition },
-          data: objectWithDetails,
+          position: { x: newObjectWithDetails.xPosition, y: newObjectWithDetails.yPosition },
+          data: newObjectWithDetails,
         });
 
         // Add to store
-        addObject(objectWithDetails);
+        addObject(newObjectWithDetails);
 
-        console.log('[Duplicate] Created:', newObject.name);
+        console.log('[Duplicate] Created:', newObjectWithDetails.name);
       }
     } catch (error) {
       console.error('[Duplicate] Error:', error);
     }
-  }, [addNode, addObject]);
+  }, [addNode, addObject, getShapeById]);
 
   // Keyboard shortcuts for copy/paste/duplicate
   useEffect(() => {
@@ -603,7 +591,7 @@ const CanvasInner = () => {
         });
 
         // Duplicate object at click position
-        const response = await window.electronAPI.invoke<CanvasObject>(
+        const response = await window.electronAPI.invoke<CanvasObjectWithDetails>(
           CANVAS_OBJECT_CHANNELS.DUPLICATE,
           {
             sourceObjectId: copiedObject.id,
@@ -619,32 +607,20 @@ const CanvasInner = () => {
           return;
         }
 
-        const newObject = response.data;
-        const shape = getShapeById(newObject.shapeId);
-
-        if (!shape) {
-          console.error('[Paste] Shape not found:', newObject.shapeId);
-          return;
-        }
-
-        // Build complete object with shape
-        const objectWithDetails = {
-          ...newObject,
-          shape,
-        };
+        const newObjectWithDetails = response.data;
 
         // Add to canvas
         addNode({
-          id: newObject.id,
+          id: newObjectWithDetails.id,
           type: 'genericShape',
-          position: { x: newObject.xPosition, y: newObject.yPosition },
-          data: objectWithDetails,
+          position: { x: newObjectWithDetails.xPosition, y: newObjectWithDetails.yPosition },
+          data: newObjectWithDetails,
         });
 
         // Add to store
-        addObject(objectWithDetails);
+        addObject(newObjectWithDetails);
 
-        console.log('[Paste] ✓ Object pasted:', newObject.name);
+        console.log('[Paste] ✓ Object pasted:', newObjectWithDetails.name);
 
         // KEEP in paste mode (allow multiple pastes)
         // User presses ESC to exit

@@ -467,7 +467,7 @@ export class SQLiteCanvasObjectRepository {
   async duplicate(
     sourceObjectId: string,
     offset: { x: number; y: number }
-  ): Promise<CanvasObject> {
+  ): Promise<CanvasObjectWithDetails> {
     // 1. Get source object
     const source = await this.findByIdSimple(sourceObjectId);
     if (!source) {
@@ -489,7 +489,10 @@ export class SQLiteCanvasObjectRepository {
     const newX = source.xPosition + offset.x;
     const newY = source.yPosition + offset.y;
 
-    // 6. Insert new object
+    // 6. Calculate new z-index (higher than source to appear on top)
+    const newZIndex = source.zIndex + 1;
+
+    // 7. Insert new object
     this.db.prepare(`
       INSERT INTO canvas_objects (
         id, plant_id, shape_id, object_type, name, description,
@@ -512,12 +515,12 @@ export class SQLiteCanvasObjectRepository {
       source.colorOverride ?? null,
       1, // active
       0, // locked
-      source.zIndex,
+      newZIndex, // z-index + 1 to appear on top
       now,
       now
     );
 
-    // 7. If object is process, copy compatibilities
+    // 8. If object is process, copy compatibilities
     if (source.objectType === 'process') {
       await this.copyCompatibilities(sourceObjectId, newId);
     }
@@ -586,8 +589,8 @@ export class SQLiteCanvasObjectRepository {
         .run(nanoid(), newId, now);
     }
 
-    // 8. Return new object
-    const newObject = await this.findByIdSimple(newId);
+    // 9. Return new object WITH DETAILS (includes processProperties)
+    const newObject = await this.findByIdWithDetails(newId);
     if (!newObject) {
       throw new Error('Failed to create duplicate object');
     }
