@@ -96,6 +96,7 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
    */
   addObject: (object: CanvasObjectWithDetails) => {
     set((state) => ({ objects: [...state.objects, object] }));
+    markProjectUnsaved(); // Track unsaved changes for project save prompt
   },
 
   /**
