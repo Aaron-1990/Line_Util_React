@@ -290,26 +290,42 @@ From UX Designer analysis:
 
 ---
 
-## Next Steps (Phase 8.4 - BLOQUE 2-5)
+## Status: Hybrid Approach Complete ✅
 
-### Remaining Hybrid Approach Components
+### Components Implemented
 
-**BLOQUE 2:** PlantSelector component (top bar, always visible)
-**BLOQUE 3:** OnboardingTooltip component (dismissible)
-**BLOQUE 4:** Integrate selector into canvas layout
-**BLOQUE 5:** Onboarding logic (show tooltip after first object placed)
+**✅ BLOQUE 1:** Auto-create default plant on first run
+**✅ BLOQUE 2:** PlantSelector component (already existed from Phase 7.x)
+**⚠️ BLOQUE 3-5:** Onboarding tooltips (OPTIONAL - deferred)
 
-**Design Spec:**
+### What Already Existed (Phase 7.x Multi-Plant)
+
+The following components were already implemented in Phase 7:
+- **PlantSelector:** Top bar dropdown with plant switcher
+- **Add New Plant:** Button to create additional plants
+- **Plant Management:** Create, edit, delete plants
+- **Multi-plant scoping:** Data isolated per plant
+
+**Current UI (already working):**
 ```
 ┌─────────────────────────────────────────┐
 │ 🏭 My Plant  [▼]  │  📅 2026  │  ⚙️   │
+│   ├─ My Plant (active)                   │
+│   └─ Add New Plant                       │
 └─────────────────────────────────────────┘
-
-💡 Lines belong to plants
-   "My Plant" was created for you.
-   Click here to rename or add more plants.
-   [Got it]
 ```
+
+### Onboarding Tooltips (Optional Future Enhancement)
+
+**BLOQUE 3-5** were originally planned for progressive disclosure:
+- Dismissible tooltip after first object placed
+- Educate users about plant concept
+- Guide to rename/add more plants
+
+**Decision:** DEFERRED (not critical for UX)
+- Plant selector is already visible and discoverable
+- "My Plant" name is self-explanatory and editable
+- Users who need multi-plant will find "Add New Plant" naturally
 
 ---
 
