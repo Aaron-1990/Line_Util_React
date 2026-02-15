@@ -8,7 +8,6 @@
 import { useEffect, useState } from 'react';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
-import { useToolStore } from '../store/useToolStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
 import { CanvasObjectWithDetails, CanvasConnection } from '@shared/types';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
@@ -32,14 +31,34 @@ export function useLoadLines(): UseLoadLinesResult {
 
   useEffect(() => {
     const loadAll = async () => {
+      // CRITICAL: Only load if plant actually changed (prevents redundant loads on remount)
+      if (!currentPlantId) {
+        setObjectCount(0);
+        setNodes([]);
+        setCanvasObjects([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Skip if store already has objects loaded for this plant
+      // This survives component unmount/remount unlike useRef
+      const currentObjects = useCanvasObjectStore.getState().objects;
+      const hasObjectsForPlant = currentObjects.length > 0 &&
+        currentObjects.every(obj => obj.plantId === currentPlantId);
+
+      if (hasObjectsForPlant) {
+        console.log('[useLoadLines] Store already has', currentObjects.length, 'objects for plant:', currentPlantId, '- skipping reload');
+        setObjectCount(currentObjects.length);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('[useLoadLines] EXECUTING loadAll - currentPlantId:', currentPlantId);
       setIsLoading(true);
 
       try {
-        // Clear selection state before reload
-        useToolStore.getState().clearSelection();
-        useCanvasStore.getState().setSelectedNode(null);
 
-        // If no plant selected, don't load anything
+        // If no plant selected, don't load anything (redundant check, but keeping for safety)
         if (!currentPlantId) {
           setObjectCount(0);
           setNodes([]); // Clear nodes atomically
@@ -68,19 +87,25 @@ export function useLoadLines(): UseLoadLinesResult {
           // Store objects in useCanvasObjectStore for ContextMenu and panel access
           setCanvasObjects(objectsResponse.data);
 
-          // CRITICAL FIX: Build all nodes in one array for atomic update
-          // This prevents ReactFlow selection state from becoming corrupted after multiple reloads
-          // See: Explore agent analysis (a8a0e6f) - incremental addNode() causes selection degradation
+          // STANDARD ReactFlow Pattern: Preserve selection state when updating nodes
+          // Get current selection state from ReactFlow (source of truth)
+          const currentNodes = useCanvasStore.getState().nodes;
+          const currentSelection = new Set(currentNodes.filter(n => n.selected).map(n => n.id));
+
+          // Build nodes while preserving ReactFlow's selection state
           const newNodes = objectsResponse.data.map((obj) => ({
             id: obj.id,
             type: 'genericShape',  // All objects now use GenericShapeNode
             position: { x: obj.xPosition, y: obj.yPosition },
             data: obj, // Pass the full CanvasObjectWithDetails
-            selectable: true, // Enable ReactFlow selection
-            draggable: true,  // Enable dragging
+            selectable: true,  // Enable ReactFlow selection
+            draggable: true,   // Enable dragging
+            // CRITICAL: Preserve selection - if this node was selected before reload, keep it selected
+            // This follows ReactFlow's controlled component pattern correctly
+            selected: currentSelection.has(obj.id),
           }));
 
-          // Set all nodes at once (atomic update - fixes selection degradation)
+          // Set all nodes at once (atomic update)
           setNodes(newNodes);
         } else {
           setObjectCount(0);
@@ -97,13 +122,18 @@ export function useLoadLines(): UseLoadLinesResult {
       } catch (error) {
         console.error('Error loading canvas data:', error);
         setObjectCount(0);
+        // On error, store is already cleared (no objects), so retry will work automatically
       } finally {
         setIsLoading(false);
       }
     };
 
     loadAll();
-  }, [setNodes, currentPlantId, setCanvasObjects, setConnections]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPlantId]);
+  // NOTE: setNodes, setCanvasObjects, setConnections are stable Zustand methods
+  // and don't need to be in the dependency array. Including them causes spurious
+  // re-executions after store updates, which clears ReactFlow selection.
 
   // Count process objects as "lines" for backward compatibility
   const processCount = useCanvasObjectStore.getState().objects.filter(

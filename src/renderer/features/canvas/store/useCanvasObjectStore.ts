@@ -255,11 +255,8 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         alert(`Failed to delete object: ${response.error}`);
       } else {
         markProjectUnsaved(); // Track unsaved changes
-
-        // Reload canvas to sync state (like duplicateObject does)
-        // This ensures ReactFlow's internal state, useCanvasStore, and useCanvasObjectStore
-        // are all synchronized after deletion, preventing stale closure issues
-        await get().loadObjectsForPlant(objectToDelete.plantId);
+        // NOTE: No reload needed - optimistic update already removed object from both stores
+        // Reloading here causes ReactFlow to re-initialize, which triggers selection clearing
       }
     } catch (error) {
       console.error('[CanvasObjectStore] Error deleting object:', error);
@@ -293,7 +290,10 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
       );
 
       if (response.success && response.data) {
-        // Reload objects
+        // NOTE: Must reload to fetch the new duplicated object from backend
+        // Backend returns only the new ID, not the full object
+        // Trade-off: This reload can trigger ReactFlow selection clearing after tab navigation
+        // TODO: Consider having backend return full object to avoid reload
         const { objects } = get();
         const originalObject = objects.find((obj) => obj.id === objectId);
         if (originalObject) {
@@ -330,9 +330,8 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         objectId,
         newType
       );
-
-      // Reload to get updated properties
-      await get().loadObjectsForPlant(existingObject.plantId);
+      // NOTE: No reload needed - optimistic update already changed type
+      // Reloading causes ReactFlow to re-initialize, triggering selection clearing
     } catch (error) {
       console.error('[CanvasObjectStore] Error converting object type:', error);
       // Revert on error
@@ -420,12 +419,8 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         objectId,
         props
       );
-      // Reload to get updated properties
-      const { objects } = get();
-      const obj = objects.find((o) => o.id === objectId);
-      if (obj) {
-        await get().loadObjectsForPlant(obj.plantId);
-      }
+      // NOTE: No reload needed - properties don't affect canvas rendering
+      // Reloading causes ReactFlow to re-initialize, triggering selection clearing
     } catch (error) {
       console.error('[CanvasObjectStore] Error setting buffer props:', error);
     }
@@ -457,12 +452,8 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         objectId,
         props
       );
-      // Reload to get updated properties
-      const { objects } = get();
-      const obj = objects.find((o) => o.id === objectId);
-      if (obj) {
-        await get().loadObjectsForPlant(obj.plantId);
-      }
+      // NOTE: No reload needed - properties don't affect canvas rendering
+      // Reloading causes ReactFlow to re-initialize, triggering selection clearing
     } catch (error) {
       console.error('[CanvasObjectStore] Error setting process props:', error);
     }
@@ -478,12 +469,8 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         objectId,
         lineId
       );
-      // Reload to get updated link
-      const { objects } = get();
-      const obj = objects.find((o) => o.id === objectId);
-      if (obj) {
-        await get().loadObjectsForPlant(obj.plantId);
-      }
+      // NOTE: No reload needed - link relationship doesn't affect canvas rendering
+      // Reloading causes ReactFlow to re-initialize, triggering selection clearing
     } catch (error) {
       console.error('[CanvasObjectStore] Error linking to line:', error);
     }
@@ -498,12 +485,8 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         CANVAS_OBJECT_CHANNELS.UNLINK_FROM_LINE,
         objectId
       );
-      // Reload to get updated state
-      const { objects } = get();
-      const obj = objects.find((o) => o.id === objectId);
-      if (obj) {
-        await get().loadObjectsForPlant(obj.plantId);
-      }
+      // NOTE: No reload needed - link removal doesn't affect canvas rendering
+      // Reloading causes ReactFlow to re-initialize, triggering selection clearing
     } catch (error) {
       console.error('[CanvasObjectStore] Error unlinking from line:', error);
     }
@@ -524,7 +507,10 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
       );
 
       if (response.success && response.data) {
-        // Reload objects for the plant to get the new canvas object with shape details
+        // NOTE: Must reload to fetch the new canvas object created from line
+        // Backend creates a NEW object and deletes the line
+        // Trade-off: This reload can trigger ReactFlow selection clearing after tab navigation
+        // TODO: Consider having backend return full object to avoid reload
         await get().loadObjectsForPlant(plantId);
 
         // Get the full object with shape details from the UPDATED store

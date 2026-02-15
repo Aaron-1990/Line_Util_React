@@ -1,0 +1,213 @@
+# Analysis Report
+
+**AI Model:** Gemini 3 Pro
+**Timestamp:** 2026-02-15 09:20 UTC
+**Analysis ID:** GEMINI-001
+
+---
+
+## A. Initial Hypothesis
+
+The evidence strongly suggests a **"Component Trashing"** (Unmount/Remount) cycle triggered by user interaction, combined with a **State Synchronization Gap**. The `ProductionCanvas` component is fully unmounting and remounting on every click, causing `useLoadLines` to re-execute. Because the `onNodesChange` handler likely isn't syncing the `selected` status back to the Zustand store instantly, the re-execution of `loadAll` fetches "clean" data from the database/store (where `selected` is false) and overwrites the active ReactFlow state, clearing the selection.
+
+---
+
+## B. Root Cause Analysis
+
+### 1. Primary Suspect: Unintentional Component Remounting
+
+The component hosting `useLoadLines` (likely `ProductionCanvas`) is unmounting and immediately remounting every time the user clicks a node. This is often caused by a parent component re-rendering (due to `useToolStore` updates) and forcing the Canvas to be destroyed and recreated because of an unstable `key` or component definition.
+
+### 2. Evidence
+
+The smoking gun is in your logs:
+
+```
+useLoadLines.ts:36 [useLoadLines] Stack trace
+commitHookEffectListMount  <-- CRITICAL EVIDENCE
+
+```
+
+`commitHookEffectListMount` **only** runs when a component mounts (initializes). If this was just a dependency change (`currentPlantId`), you would typically see `commitHookEffectListUpdate`. The fact that `useLoadLines` is *mounting* repeatedly proves the component is being destroyed and recreated.
+
+### 3. ReactFlow Internals
+
+At `reactflow.js:4490`, ReactFlow is running its initialization effect. Since your component is remounting, ReactFlow is initializing a fresh instance. It receives the `nodes` prop. If the `nodes` prop passed during this fresh mount doesn't have `selected: true` explicitly set, the new ReactFlow instance defaults to unselected.
+
+---
+
+## C. The Standard Solution
+
+**SOLUTION:** Prevent the `ProductionCanvas` from remounting and ensure `onNodesChange` strictly syncs selection state to Zustand.
+
+**WHY THIS IS STANDARD:** ReactFlow requires a stable component identity to maintain internal state. Additionally, in a Controlled flow (which you are using), the external store (Zustand) must be the "Single Source of Truth" for selection, mirroring `applyNodeChanges`.
+
+**IMPLEMENTATION:**
+
+1. **Stop the Remount:** Memoize the `ProductionCanvas` component so parent updates (like `useToolStore` changes) don't force a re-render/remount.
+2. **Sync Selection:** Ensure `onNodesChange` updates the Zustand store's `nodes` array with the `selected` boolean.
+3. **Refine Load Logic:** Ensure `useLoadLines` doesn't strictly depend on `currentPlantId` if `currentPlantId` is unstable, though Step 1 should fix the execution loop.
+
+**CODE CHANGES:**
+
+**1. Fix `onNodesChange` in `ProductionCanvas.tsx` (or where `ReactFlow` is rendered)**
+
+Ensure you are using `applyNodeChanges` and updating the store. If you are already doing this, verify the `selected` property is being preserved.
+
+```typescript
+// ProductionCanvas.tsx
+import { shallow } from 'zustand/shallow'; // or appropriate shallow import
+import { applyNodeChanges } from 'reactflow';
+
+// Inside component
+const { nodes, setNodes, onNodesChange } = useCanvasStore(
+  (state) => ({
+    nodes: state.nodes,
+    setNodes: state.setNodes,
+    onNodesChange: state.onNodesChange, // Ensure this exists or define locally
+  }),
+  shallow
+);
+
+// If onNodesChange is defined in the store, verify it looks like this:
+// src/renderer/features/canvas/store/useCanvasStore.ts
+onNodesChange: (changes) => {
+  set({
+    nodes: applyNodeChanges(changes, get().nodes),
+  });
+},
+
+```
+
+**2. Memoize the Canvas Component (CRITICAL FIX)**
+
+Wrap your export or component definition to prevent parent re-renders from destroying it.
+
+```typescript
+// src/renderer/features/canvas/ProductionCanvas.tsx
+
+// Before:
+export const ProductionCanvas = () => { ... }
+
+// After:
+import React from 'react';
+
+const ProductionCanvasComponent = () => {
+  // ... your existing code ...
+  
+  // Ensure useLoadLines is CALLED here
+  useLoadLines(); 
+  
+  return (
+    <div style={{ width: '100%', height: '100%' }}>
+      <ReactFlow
+        nodes={nodes}
+        onNodesChange={onNodesChange} // Must sync to Zustand
+        // ... other props
+      />
+    </div>
+  );
+};
+
+// Prevent re-renders from parent (e.g. Layout/Router) from causing Remounts
+export const ProductionCanvas = React.memo(ProductionCanvasComponent);
+
+```
+
+**3. Verify `useLoadLines` Dependency**
+
+Ensure `useLoadLines` is not defined *inside* the component body.
+
+```typescript
+// src/renderer/features/canvas/hooks/useLoadLines.ts
+
+// Before (Hypothetical risk):
+// dependency [currentPlantId] might be unstable if fetched from a hook without shallow
+
+// After:
+import { useShallow } from 'zustand/react/shallow'; 
+
+export const useLoadLines = () => {
+  // Use shallow to ensure primitive string comparison
+  const currentPlantId = usePlantStore(useShallow(state => state.currentPlantId));
+  const setNodes = useCanvasStore(state => state.setNodes);
+  // ...
+  
+  useEffect(() => {
+    if (!currentPlantId) return;
+    
+    // ... loadAll logic ...
+    
+  }, [currentPlantId]); // This is now safe
+};
+
+```
+
+**VALIDATION:**
+
+1. Open DevTools.
+2. Navigate Canvas → Models → Canvas.
+3. Click a node.
+4. **Check:** Does `useLoadLines` log "EXECUTING"? It should **NOT** log on click.
+5. **Check:** Does selection stay? It should.
+
+---
+
+## D. Alternative Approaches
+
+1. **The "Ref Guard" Approach** (Low Complexity)
+* **Concept:** Use a `useRef` inside `useLoadLines` to track if the plant ID has actually changed.
+* **Why:** Even if the component remounts, you can skip the expensive `setNodes` call if the ID matches the last loaded ID.
+* **Risk:** Doesn't fix the underlying performance issue of remounting, but stops the symptom.
+
+
+2. **Uncontrolled Mode Hybrid** (Medium Complexity)
+* **Concept:** Switch to `<ReactFlow defaultNodes={nodes} />` and remove `nodes={nodes}`.
+* **Why:** ReactFlow manages selection internally. You only update Zustand for "Save" operations.
+* **Risk:** You lose real-time sync with `useToolStore`. Not recommended for your architecture.
+
+
+
+---
+
+## E. Architecture Review
+
+Your multi-store setup is **NOT** fundamentally flawed. Using separate stores for `CanvasObject` (DB data) and `ReactFlow` (Visual state) is a standard and robust pattern ("View Model" pattern).
+
+**The Trap:** The synchronization between "Visual State" (ReactFlow nodes) and "Persisted State" (CanvasObjects) is fragile.
+
+* **Recommendation:** Keep the stores. Just ensure that `useCanvasStore` (Visual) is the **authoritative owner** of transient state like `selected`, `position`, and `dragging`. `useCanvasObjectStore` should only be updated on "Save" or "Drop", not on every pixel of movement.
+
+---
+
+## Answers to Key Questions
+
+### Q1: Why does effect fire on every click?
+
+**Answer:** Because your `ProductionCanvas` component is **unmounting and remounting**. The stack trace `commitHookEffectListMount` confirms a mount lifecycle event. The effect is simply initializing a "new" ReactFlow instance on every click.
+
+### Q2: Is our setNodes() call wrong?
+
+**Answer:** It is technically correct for an *initial load*, but it is fatal when executed during a remount because it overwrites the `nodes` array with fresh data from the DB, which lacks the `selected: true` status. Attempt 5 failed because `useCanvasStore` likely hadn't received the `selected` update from `onNodesChange` before the remount occurred.
+
+### Q3: Controlled vs Uncontrolled mode?
+
+**Answer:** **Controlled.** Since you need to coordinate between 4 stores (Tool, Canvas, Object, Plant), you need the `nodes` to be driven by state you own. Stick to `nodes={nodes}` but fix the `onNodesChange` sync.
+
+### Q4: Why does useLoadLines execute repeatedly?
+
+**Answer:** It executes because the component calling it is being destroyed and recreated. This triggers the `useEffect` inside it to run its "Mount" phase again.
+
+---
+
+## Confidence Level
+
+* **Solution Confidence:** Very High
+* **Implementation Risk:** Low
+* **Expected Resolution Time:** 15 Minutes
+
+---
+
+## Additional Notes
+
+Check the parent component of `ProductionCanvas`. If you have something like `<ProductionCanvas key={someChangingValue} />` or if `ProductionCanvas` is defined *inside* another component function, that is the culprit. Using `React.memo` is the safety net, but fixing the parent structure is the clean fix.

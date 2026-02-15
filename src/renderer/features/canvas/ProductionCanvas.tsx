@@ -3,7 +3,8 @@
 // Componente principal del canvas con ReactFlow
 // ============================================
 
-import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Background,
@@ -78,15 +79,22 @@ const nodeTypes = {
 
 // Inner component that has access to ReactFlow context
 const CanvasInner = () => {
-  const {
-    nodes,
-    edges,
-    setNodes,
-    setEdges,
-    updateNodePosition,
-    setSelectedNode,
-    addNode,
-  } = useCanvasStore();
+  // STANDARD PATTERN: Use specific Zustand selectors to prevent unnecessary re-renders
+  // State values: Individual selectors (subscribe to specific fields only)
+  const nodes = useCanvasStore((state) => state.nodes);
+  const edges = useCanvasStore((state) => state.edges);
+
+  // Function refs: useShallow for stable references (Zustand 4.5+ best practice)
+  // This prevents callback recreation on every render
+  const { setNodes, setEdges, updateNodePosition, setSelectedNode, addNode } = useCanvasStore(
+    useShallow((state) => ({
+      setNodes: state.setNodes,
+      setEdges: state.setEdges,
+      updateNodePosition: state.updateNodePosition,
+      setSelectedNode: state.setSelectedNode,
+      addNode: state.addNode,
+    }))
+  );
 
   const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
   const lastMiddleClickTime = useRef<number>(0);
@@ -109,11 +117,50 @@ const CanvasInner = () => {
   // State for edge/connection context menu
   const [edgeContextMenu, setEdgeContextMenu] = useState<{ x: number; y: number; edgeId: string; connectionType: string } | null>(null);
 
-  // Tool store for placement and connect modes (Phase 7.5)
-  const { activeTool, setGhostPosition, connectionSource, clearConnectionSource, clearSelection, setSelectTool, setPasteTool } = useToolStore();
-  const { loadCatalog, getShapeById } = useShapeCatalogStore();
-  const { createObject, addObject, connections, loadConnectionsForPlant } = useCanvasObjectStore();
-  const { copyObject, copiedObject } = useClipboardStore();
+  // Tool store - State value
+  const activeTool = useToolStore((state) => state.activeTool);
+  const connectionSource = useToolStore((state) => state.connectionSource);
+
+  // Tool store - Function refs with useShallow
+  const { setGhostPosition, clearConnectionSource, clearSelection, setSelectTool, setPasteTool } = useToolStore(
+    useShallow((state) => ({
+      setGhostPosition: state.setGhostPosition,
+      clearConnectionSource: state.clearConnectionSource,
+      clearSelection: state.clearSelection,
+      setSelectTool: state.setSelectTool,
+      setPasteTool: state.setPasteTool,
+    }))
+  );
+
+  // Shape catalog store - Function refs with useShallow
+  const { loadCatalog, getShapeById } = useShapeCatalogStore(
+    useShallow((state) => ({
+      loadCatalog: state.loadCatalog,
+      getShapeById: state.getShapeById,
+    }))
+  );
+
+  // Canvas object store - State value
+  const connections = useCanvasObjectStore((state) => state.connections);
+
+  // Canvas object store - Function refs with useShallow
+  const { createObject, addObject, loadConnectionsForPlant } = useCanvasObjectStore(
+    useShallow((state) => ({
+      createObject: state.createObject,
+      addObject: state.addObject,
+      loadConnectionsForPlant: state.loadConnectionsForPlant,
+    }))
+  );
+
+  // Clipboard store - State value
+  const copiedObject = useClipboardStore((state) => state.copiedObject);
+
+  // Clipboard store - Function ref with useShallow
+  const { copyObject } = useClipboardStore(
+    useShallow((state) => ({
+      copyObject: state.copyObject,
+    }))
+  );
 
   // Check if we're in connect mode
   const isConnectMode = activeTool === 'connect';
@@ -186,6 +233,28 @@ const CanvasInner = () => {
 
   // Load lines for current plant
   const { isLoading, isEmpty } = useLoadLines();
+
+  // FitView on initial load (when nodes first appear)
+  // Using the function instead of the prop prevents interference with selection state
+  useEffect(() => {
+    if (!isLoading && nodes.length > 0) {
+      // Delay fitView to ensure nodes are fully rendered with dimensions
+      const timeoutId = setTimeout(() => {
+        fitView({
+          padding: 0.1,
+          duration: 300,
+          includeHiddenNodes: true,
+          minZoom: ABSOLUTE_MIN_ZOOM,
+          maxZoom: 1.5,
+        });
+      }, 50);
+
+      return () => clearTimeout(timeoutId);
+    }
+    return undefined;
+  }, [isLoading, fitView]);
+  // NOTE: Only depends on isLoading, NOT nodes.length
+  // This ensures fitView runs once when data loads, not on every node update
 
   // Handlers for empty state actions
   const handleImportClick = useCallback(() => {
@@ -341,28 +410,52 @@ const CanvasInner = () => {
         // CRITICAL FIX: Get selection directly from ReactFlow (source of truth)
         // This bypasses async callback sync issues with useToolStore/useCanvasStore
         const reactFlowNodes = getNodes();
+        console.log('[Delete] Total nodes:', reactFlowNodes.length);
+        console.log('[Delete] Nodes with selected=true:', reactFlowNodes.filter(n => n.selected).length);
+        console.log('[Delete] Node details:', reactFlowNodes.map(n => ({ id: n.id, selected: n.selected, selectable: n.selectable })));
+
         const selectedNodes = reactFlowNodes.filter((node) => node.selected);
         const objectsToDelete = selectedNodes.map((node) => node.id);
 
         if (objectsToDelete.length === 0) {
-          console.warn('[ProductionCanvas] Delete pressed but no objects selected');
           return; // Early return if nothing selected
         }
 
         event.preventDefault();
 
-        // Delete each selected object (Phase 7.5: all objects are canvas_objects)
-        for (const objectId of objectsToDelete) {
-          // Find the node
-          const node = reactFlowNodes.find((n) => n.id === objectId);
+        console.log('[Delete] About to batch delete', objectsToDelete.length, 'objects:', objectsToDelete);
 
-          if (node) {
-            // All objects now use deleteObject from useCanvasObjectStore
-            await useCanvasObjectStore.getState().deleteObject(objectId);
-          } else {
-            console.warn('[ProductionCanvas] Node not found for deletion:', objectId);
-          }
+        // BATCH DELETE: Update both stores atomically (single React render cycle)
+        // This prevents intermediate renders that trigger remounting
+        useCanvasStore.setState(state => ({
+          nodes: state.nodes.filter(n => !objectsToDelete.includes(n.id)),
+          selectedNode: objectsToDelete.includes(state.selectedNode || '') ? null : state.selectedNode,
+        }));
+
+        useCanvasObjectStore.setState(state => ({
+          objects: state.objects.filter(obj => !objectsToDelete.includes(obj.id)),
+        }));
+
+        console.log('[Delete] UI updated, now persisting to backend...');
+
+        // BACKEND DELETES: Parallel execution (after UI already updated)
+        const deleteResults = await Promise.all(
+          objectsToDelete.map(id =>
+            window.electronAPI
+              .invoke(CANVAS_OBJECT_CHANNELS.DELETE, id)
+              .then(result => ({ id, success: result.success, error: null }))
+              .catch(error => ({ id, success: false, error: error.message }))
+          )
+        );
+
+        // Check for failures
+        const failures = deleteResults.filter(r => !r.success);
+        if (failures.length > 0) {
+          console.error('[Delete] Some deletions failed:', failures);
+          alert(`Failed to delete ${failures.length} object(s). Check console for details.`);
         }
+
+        console.log('[Delete] All deletions completed successfully');
 
         // Clear selection after deletion
         useToolStore.getState().clearSelection();
@@ -472,7 +565,10 @@ const CanvasInner = () => {
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
-      const updatedNodes = applyNodeChanges(changes, nodes);
+      // STANDARD PATTERN: Read current nodes from store to avoid stale closure
+      // This prevents callback recreation on every nodes change (Zustand best practice)
+      const currentNodes = useCanvasStore.getState().nodes;
+      const updatedNodes = applyNodeChanges(changes, currentNodes);
       setNodes(updatedNodes);
 
       changes.forEach((change) => {
@@ -492,15 +588,17 @@ const CanvasInner = () => {
         }
       });
     },
-    [nodes, setNodes, updateNodePosition]
+    [setNodes, updateNodePosition] // Stable Zustand refs only - NO `nodes` (prevents ReactFlow effect remount)
   );
 
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
-      const updatedEdges = applyEdgeChanges(changes, edges);
+      // STANDARD PATTERN: Read current edges from store to avoid stale closure
+      const currentEdges = useCanvasStore.getState().edges;
+      const updatedEdges = applyEdgeChanges(changes, currentEdges);
       setEdges(updatedEdges);
     },
-    [edges, setEdges]
+    [setEdges] // Stable Zustand ref only - NO `edges` (prevents ReactFlow effect remount)
   );
 
   const onConnect = useCallback(
@@ -542,6 +640,7 @@ const CanvasInner = () => {
 
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      console.log('[onNodeClick] Clicked node:', node.id, 'selectable:', node.selectable);
       setSelectedNode(node.id);
     },
     [setSelectedNode]
@@ -550,6 +649,15 @@ const CanvasInner = () => {
   // Sync ReactFlow's multi-selection to useToolStore
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes }: OnSelectionChangeParams) => {
+      console.log('[onSelectionChange] Selection changed:', selectedNodes.length, 'nodes selected');
+      console.log('[onSelectionChange] Selected IDs:', selectedNodes.map(n => n.id));
+
+      // Add stack trace to see what triggered this
+      if (selectedNodes.length === 0) {
+        console.log('[onSelectionChange] ⚠️ Selection cleared! Stack trace:');
+        console.trace();
+      }
+
       const selectedIds = selectedNodes.map((n) => n.id);
       useToolStore.getState().setSelectedObjects(selectedIds);
 
@@ -851,7 +959,6 @@ const CanvasInner = () => {
           onEdgeContextMenu={onEdgeContextMenu}
           onPaneContextMenu={onPaneContextMenu}
           nodeTypes={nodeTypes}
-          fitView
           attributionPosition="bottom-right"
           connectOnClick={isConnectMode}
           className="bg-gray-50 dark:bg-gray-900"
@@ -954,11 +1061,16 @@ const CanvasInner = () => {
   );
 };
 
+// CRITICAL FIX: Memoize CanvasInner to prevent unnecessary remounts
+// This prevents parent re-renders from destroying and recreating the component
+// (React.memo is standard React optimization - documented at https://react.dev/reference/react/memo)
+const CanvasInnerMemoized = React.memo(CanvasInner);
+
 // Export wrapped with ReactFlowProvider so child components can use useReactFlow()
 export const ProductionCanvas = () => {
   return (
     <ReactFlowProvider>
-      <CanvasInner />
+      <CanvasInnerMemoized />
     </ReactFlowProvider>
   );
 };

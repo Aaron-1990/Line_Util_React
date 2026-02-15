@@ -5,7 +5,8 @@
 // Phase 8.1: Added Untitled Project Workflow listeners
 // ============================================
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { Sidebar } from './Sidebar';
 import { FileMenu } from './FileMenu';
 import { useNavigationStore } from '../../store/useNavigationStore';
@@ -78,17 +79,29 @@ async function refreshAllStores(): Promise<void> {
  * Switches between different views based on navigation store state.
  */
 export const AppLayout = () => {
-  const { currentView } = useNavigationStore();
-  const { initialize: initializePlants, isInitialized: plantsInitialized } = usePlantStore();
-  const {
-    refreshProjectInfo,
-    saveProjectAs,
-    setProjectType,
-    clearUnsavedChanges,
-    projectType,
-    hasUnsavedChanges,
-    projectFilePath,
-  } = useProjectStore();
+  // Navigation store - single selector (already optimal)
+  const currentView = useNavigationStore((state) => state.currentView);
+
+  // Plant store - state values as individual selectors
+  const plantsInitialized = usePlantStore((state) => state.isInitialized);
+  // Plant store - function refs with useShallow
+  const { initialize: initializePlants } = usePlantStore(
+    useShallow((state) => ({ initialize: state.initialize }))
+  );
+
+  // Project store - state values as individual selectors
+  const projectType = useProjectStore((state) => state.projectType);
+  const hasUnsavedChanges = useProjectStore((state) => state.hasUnsavedChanges);
+  const projectFilePath = useProjectStore((state) => state.projectFilePath);
+  // Project store - function refs with useShallow
+  const { refreshProjectInfo, saveProjectAs, setProjectType, clearUnsavedChanges } = useProjectStore(
+    useShallow((state) => ({
+      refreshProjectInfo: state.refreshProjectInfo,
+      saveProjectAs: state.saveProjectAs,
+      setProjectType: state.setProjectType,
+      clearUnsavedChanges: state.clearUnsavedChanges,
+    }))
+  );
 
   // Apply theme to document
   useApplyTheme();
@@ -374,7 +387,9 @@ export const AppLayout = () => {
   ]);
 
   // Render view based on current selection with exhaustive type checking
-  const renderView = () => {
+  // useMemo prevents unnecessary component remounting by maintaining stable JSX element references
+  // Only recreates the view when currentView actually changes
+  const renderedView = useMemo(() => {
     switch (currentView) {
       case 'canvas':
         return <ProductionCanvas />;
@@ -397,7 +412,7 @@ export const AppLayout = () => {
         return <ProductionCanvas />;
       }
     }
-  };
+  }, [currentView]);
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-950 transition-colors duration-150">
@@ -410,7 +425,7 @@ export const AppLayout = () => {
 
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-hidden" role="main">
-          {renderView()}
+          {renderedView}
         </main>
       </div>
     </div>
