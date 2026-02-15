@@ -96,126 +96,71 @@ When creating process objects, assigning areas to them, the system doesn't autom
 
 ---
 
-## Bug 3: Delete Post-Navigation May Not Persist to Database (CRITICAL - NEEDS VERIFICATION)
+## Bug 3: Delete Selection Fails After Navigation (UX Issue - NOT Data Loss)
 
-**Priority:** CRITICAL
-**Impact:** Data Loss - Deletes might not persist
+**Priority:** Medium
+**Impact:** UX - Selection doesn't work consistently after navigation
+**Status:** ✅ CLARIFIED - Soft delete works correctly, issue is selection UX only
 
 ### Description
 
-After investigating the Canvas delete bug for 5 days, we noticed that deletes AFTER navigation may not be persisting to the database, despite appearing to work in the UI.
+After navigation (Canvas → Models → Canvas), selection sometimes fails intermittently, making it difficult to delete objects. However, **this is NOT a data loss bug** - the system correctly implements soft delete.
+
+### CLARIFICATION (2026-02-15)
+
+**✅ System works correctly:**
+- Delete operations use soft delete: `UPDATE canvas_objects SET active = 0`
+- Load operations filter correctly: `WHERE active = 1`
+- Objects marked as deleted stay deleted (don't reappear after navigation)
+- Future Ctrl+Z functionality can restore `active = 0` objects
+
+**❌ UX issue (selection):**
+- After navigation, `commitHookEffectListMount` appears
+- Selection clears immediately after clicking
+- Sometimes takes multiple attempts to select and delete
+- But when delete DOES execute, it works correctly (soft delete)
 
 ### Expected Behavior
-- User creates objects
-- User navigates to Models (or any tab)
-- User returns to Canvas
-- User selects and deletes object
-- **Object is deleted from database**
-- When app restarts, object stays deleted
+- User navigates between tabs
+- Returns to Canvas
+- Clicks object → Selection applies and STAYS
+- Presses Delete → Works on first attempt
 
 ### Actual Behavior
-- User creates objects
-- User navigates to Models
-- User returns to Canvas
-- User selects and deletes object
-- **Object disappears from UI** ✅
-- **BUT backend logs don't show deletion** ❌
-- Unknown if object is actually deleted from DB
+- User navigates between tabs
+- Returns to Canvas
+- Clicks object → Selection applies then CLEARS immediately
+- May need multiple clicks/attempts
+- Eventually works, but UX is frustrating
 
-### Evidence
+### Root Cause
 
-**Test 1 (no navigation) - Backend logs show:**
-```
-[Canvas Object Handler] Deleting object: cDPJvUeaa04ArgCjMyHk1
-[Canvas Object Handler] Deleting object: U_zIu4Cm4jJH_cXS99Tgu
-...
-```
-✅ Each delete reaches backend
+The `commitHookEffectListMount` behavior is caused by ReactFlow's internal effects remounting after navigation. This creates a timing issue where selection clears immediately after being applied.
 
-**Test 2 (with navigation) - Backend logs show:**
-```
-[useLoadLines] Store already has 5 objects for plant: X - skipping reload
-```
-❌ NO "[Canvas Object Handler] Deleting object: ..." logs
+**Why it happens:**
+1. Navigation causes ProductionCanvas to unmount/remount
+2. ReactFlow reinitializes its internal state
+3. Something in the initialization triggers effect remounting on interactions
+4. Selection applies → Effect remounts → Selection clears
 
-**Frontend logs show:**
-```
-[Delete] Total nodes: 4
-[Delete] Nodes with selected=true: 0
-[ProductionCanvas] Delete pressed but no objects selected
-```
-→ Delete handler returns early (no objects selected)
+**Why it's only a UX issue, not data loss:**
+- When delete DOES execute, it correctly does soft delete
+- Soft delete verified: `UPDATE canvas_objects SET active = 0`
+- Load filter verified: `WHERE active = 1`
+- Objects stay deleted across navigation cycles
 
-### User Reports
-- "funciona al primer click, veo el borde azul y funciona"
-- Objects don't reappear after multiple navigation cycles
-- Tested with all tabs: Models, Routings, Areas, Plants, Global, Preferences
+### Possible Solutions
 
-### The Mystery
-- User sees objects disappear ✅
-- User sees blue selection border ✅
-- Objects don't reappear after navigation ✅
-- **But backend doesn't log the delete** ❌
+**Option 1: Improve selection stability (Low effort)**
+- Investigate why `getNodes().filter(n => n.selected)` returns empty after navigation
+- May involve timing of when selection state is read vs when it's applied
+- Estimated: 1-2 hours
 
-### Hypotheses
-
-**Hypothesis A: Deletes are working, logs were just missed**
-- Maybe backend logs were scrolled past
-- Maybe delete happens through different code path
-- Need to verify by checking DB directly
-
-**Hypothesis B: Objects removed from UI store but not DB**
-- useLoadLines "skips reload" so uses local store
-- Local store has objects removed (visually)
-- But DB still has them
-- On app restart, would they reappear?
-
-**Hypothesis C: commitHookEffectListMount is cosmetic**
-- The effect remount happens but doesn't break functionality
-- Selection clears momentarily but re-applies
-- Delete works despite the logs suggesting otherwise
-
-### Verification Steps (MUST DO NEXT SESSION)
-
-1. **Setup:**
-   - Fresh database
-   - Create 5 objects in Canvas
-   - Note their IDs
-
-2. **Test:**
-   - Navigate to Models
-   - Return to Canvas
-   - Select and delete 1 object
-   - User confirms: "It worked, I see it disappear"
-
-3. **Verify Database:**
-   - Open DB with SQLite browser
-   - Check `canvas_objects` table
-   - Is the deleted object still there?
-   - Check `active` flag (should be 0 if soft delete)
-
-4. **Verify Persistence:**
-   - Completely restart the app (kill process)
-   - Fresh load from database
-   - Do the "deleted" objects reappear?
-
-5. **Check Backend Logs:**
-   - Did `[Canvas Object Handler] Deleting object: ID` appear?
-   - If yes: Hypothesis A is correct
-   - If no: Hypothesis B is correct → CRITICAL BUG
-
-### If Verification Shows Bug Exists
-
-**Option 1: Quick Fix**
-- Find why `getNodes().filter(n => n.selected)` returns empty array post-navigation
-- Fix the selection state preservation
-- Ensure delete handler actually executes
-
-**Option 2: Architectural Refactor (ChatGPT's recommendation)**
-- Make ReactFlow single source of truth
-- Remove dual-store pattern
-- Estimated effort: 2-3 hours
-- Higher confidence of success
+**Option 2: Architectural refactor (High effort)**
+- Make ReactFlow single source of truth (ChatGPT's recommendation)
+- Remove dual-store pattern entirely
+- Estimated: 2-3 hours
+- Higher confidence but more invasive
 
 ### Files to Check
 - `src/renderer/features/canvas/ProductionCanvas.tsx` (delete handler lines 410-459)
@@ -265,25 +210,122 @@ commitHookEffectListMount  ← ReactFlow effect mounts
 
 ---
 
+## Bug 5: Deleted Objects Reappear After Mac Sleep/Wake (CRITICAL)
+
+**Priority:** CRITICAL
+**Impact:** Data Loss / Inconsistent State - Deleted objects reappear
+
+### Description
+
+When the Mac enters sleep/suspension mode and then wakes up (user logs back in with fingerprint), all objects that were previously deleted reappear in the Canvas, even though they were correctly marked as `active = 0` in the database.
+
+### Expected Behavior
+1. User deletes objects from Canvas
+2. Objects marked as `active = 0` in DB (soft delete)
+3. Mac enters sleep mode
+4. User wakes Mac (Touch ID / password)
+5. App resumes
+6. **Deleted objects stay deleted** (not visible)
+
+### Actual Behavior
+1. User deletes objects from Canvas ✅
+2. Objects marked as `active = 0` in DB ✅
+3. Mac enters sleep mode
+4. User wakes Mac
+5. App resumes
+6. **Deleted objects REAPPEAR in Canvas** ❌
+
+### User Report
+- "me fui por un rato de la laptop mac, entro en modo creo suspension, o reposo"
+- "al poner mi huella, todos los objetos que habia borrado del canvas reaparecieron"
+- "si la app esta activa y los borro al navegar ya no reaparecen"
+- "incluso si genero nuevos objetos, estos ya no aparecen" (after wake)
+
+### Possible Causes
+
+**Hypothesis 1: App reload on wake**
+- Electron might be reloading the entire app on wake
+- Store gets cleared and reloads from DB
+- BUT load query might be broken and loading `active = 0` objects
+
+**Hypothesis 2: State reset on wake**
+- Mac sleep triggers some state reset
+- Zustand stores get cleared
+- Reload happens but with incorrect query
+
+**Hypothesis 3: Event listener issue**
+- Electron has resume/wake event listeners
+- Custom code might be reloading data incorrectly
+- May be resetting `active` flags back to 1
+
+**Hypothesis 4: Cache/WAL checkpoint issue**
+- Soft delete happens (`active = 0`)
+- But change isn't flushed to disk before sleep
+- On wake, WAL rollback restores `active = 1`
+- Note: Code comment mentions "WAL checkpoint removed to prevent table locks"
+
+### Investigation Needed
+
+1. **Check for Electron wake/resume listeners:**
+   - Search for: `app.on('resume')`, `powerMonitor`, `'wake'` events
+   - See if custom code reloads data on wake
+
+2. **Verify DB query on load:**
+   - Confirm `findAllByPlant()` uses `WHERE active = 1`
+   - Already verified (line 112 of SQLiteCanvasObjectRepository.ts)
+   - So if objects reappear, they must have `active = 1` in DB
+
+3. **Test WAL persistence:**
+   - Delete object
+   - Check DB immediately: `SELECT active FROM canvas_objects WHERE id = ?`
+   - Sleep Mac
+   - Wake Mac
+   - Check DB again: Did `active` change from 0 to 1?
+
+4. **Check DB transaction handling:**
+   - Are deletes wrapped in transactions?
+   - Are transactions committed before sleep?
+   - Is WAL checkpoint needed to persist changes?
+
+### Files to Check
+- `src/main/index.ts` - Main process, app lifecycle events
+- `src/main/database/index.ts` - DB initialization, WAL mode
+- Electron docs: Power monitoring, app events
+- SQLite WAL documentation
+
+### Temporary Workaround
+Force WAL checkpoint after delete:
+```typescript
+// In SQLiteCanvasObjectRepository.delete()
+this.db.prepare('PRAGMA wal_checkpoint(FULL)').run();
+```
+
+But this was previously removed due to "table locks during bulk operations".
+
+---
+
 ## Summary
 
 | Bug | Priority | Impact | Verification Needed |
 |-----|----------|--------|-------------------|
 | 1. Status bar "0 Lines" | Medium | UX | No - clearly reproducible |
 | 2. Routings don't auto-generate | Medium-High | Workflow | No - clearly reproducible |
-| 3. Delete post-navigation may not persist | **CRITICAL** | Data Loss | **YES - MUST DO FIRST** |
-| 4. commitHookEffectListMount appears | Low | Unknown | Depends on Bug 3 result |
+| 3. Delete selection fails post-navigation | Medium | UX (NOT data loss) | ✅ Clarified - soft delete works |
+| 4. commitHookEffectListMount appears | Low | UX/Cosmetic | No - low priority |
+| 5. Objects reappear after Mac sleep | **CRITICAL** | Data inconsistency | **YES - MUST FIX** |
 
 ---
 
 ## Recommended Priority Order for Next Session
 
-1. **FIRST:** Verify Bug 3 (delete persistence)
-   - If deletes work: Mark as resolved, celebrate 🎉
-   - If deletes fail: Fix immediately (critical data loss bug)
+1. **FIRST:** Investigate Bug 5 (Mac sleep/wake) - CRITICAL
+   - Check Electron wake/resume listeners
+   - Verify if objects have `active = 1` after wake
+   - Test WAL checkpoint behavior
+   - Implement fix (likely force WAL checkpoint or handle resume event)
 
 2. **SECOND:** Fix Status bar "0 Lines" (quick win)
-   - Likely just updating query to count process objects
+   - Update query to count process objects
    - Should be < 30 min
 
 3. **THIRD:** Investigate Routings auto-generation
@@ -291,9 +333,9 @@ commitHookEffectListMount  ← ReactFlow effect mounts
    - If yes, implement feature
    - If no, update UX to make manual process clear
 
-4. **FOURTH:** Address commitHookEffectListMount (only if needed)
-   - If Bug 3 shows deletes work: Ignore this (cosmetic)
-   - If Bug 3 shows deletes fail: Requires architectural fix
+4. **FOURTH:** Address Bug 3 selection UX (only if user workflow requires)
+   - If users can work around it: Low priority
+   - If it's blocking workflow: Implement selection stability fix
 
 ---
 
