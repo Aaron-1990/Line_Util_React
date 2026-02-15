@@ -1,6 +1,6 @@
 # Line Optimizer - Project Context
 
-> **Version:** 0.7.3 | **Last Updated:** 2026-02-02 | **Developer:** Aaron Zapata
+> **Version:** 0.7.3 | **Last Updated:** 2026-02-15 | **Developer:** Aaron Zapata
 
 ---
 
@@ -12,6 +12,14 @@ This project follows the global development framework. Key principles:
 - **CONTRACTS-FIRST**: Define interfaces in `@shared/types/` BEFORE implementing
 - **NO WORKAROUNDS**: If solution requires a "trick", STOP and find the standard way
 - **BLOQUE 0**: Always investigate documentation and define contracts first
+
+---
+
+## MODEL CONFIGURATION
+
+**Default model:** `opusplan` (automatic hybrid workflow)
+
+See `~/.claude/CLAUDE.md` for full configuration details. This project uses the global `opusplan` configuration which maps Framework Hibrido v2.0 phases to optimal models (Opus for BLOQUE 0, Sonnet for implementation).
 
 ---
 
