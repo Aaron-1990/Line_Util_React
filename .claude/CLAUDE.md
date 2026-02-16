@@ -69,6 +69,77 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 2. Run full regression test suite (4 scenarios in doc)
 3. Consult with user before proceeding
 
+### 2. Mac Sleep/Wake & Store Persistence (2025-02-15)
+
+**Documentation:** `docs/fixes/bug-5-mac-sleep-wake-objects-reappear.md`
+
+**CRITICAL: DO NOT break these mechanisms - they prevent data loss on Mac sleep/wake**
+
+**Critical Files & Sections:**
+
+| File | Section | Why Critical |
+|------|---------|--------------|
+| `index.tsx:21-42` | `beforeunload` handler | Blocks Vite's page reload on Mac wake - MUST preserve |
+| `AppLayout.tsx:371-380` | Resume handler | Log-only, NO `refreshAllStores()` - prevents DB overwrite |
+| `main/index.ts` | powerMonitor handlers | WAL checkpoints on suspend/shutdown - ensures DB writes persist |
+| `connection.ts` | `checkpoint()` method | PASSIVE/TRUNCATE modes - critical for data durability |
+| `SQLiteCanvasObjectRepository.ts` | WAL checkpoint after delete | Ensures deletes survive Mac sleep |
+
+**What happens if modified:**
+- Deleted canvas objects reappear after Mac sleep/wake
+- User changes lost (stores destroyed by page reload)
+- Data corruption (writes not persisted to DB)
+- 5000x slower resume (50-200ms vs 0.01ms)
+
+**The Bug 5 Mechanism (DO NOT BREAK):**
+
+```
+Mac Sleep → Vite WebSocket disconnects
+           ↓
+Mac Wake → Vite attempts location.reload()
+           ↓
+beforeunload fires → preventDefault() → Reload BLOCKED ✅
+           ↓
+Stores persist in memory (NO DB reload)
+           ↓
+Resume handler logs only (NO refreshAllStores())
+           ↓
+Objects stay exactly as user left them ✅
+```
+
+**If you need to modify these areas:**
+
+1. **Read full documentation FIRST:** `docs/fixes/bug-5-mac-sleep-wake-objects-reappear.md`
+   - Understand all 4 failed attempts (v1, v2, v3.1)
+   - Know why each failed
+   - v4 is the ONLY working solution
+
+2. **NEVER do these (proven to fail):**
+   - ❌ Override `window.location.reload` (read-only in Chromium)
+   - ❌ Call `refreshAllStores()` on resume (overwrites in-memory state)
+   - ❌ Remove WAL checkpoints (data loss on crashes)
+   - ❌ Remove `beforeunload` handler (page reload destroys stores)
+
+3. **If adding new stores:**
+   - Zustand stores automatically persist through sleep/wake (thanks to `beforeunload`)
+   - NO special handling needed
+   - Just ensure important writes trigger WAL checkpoint
+
+4. **If modifying resume flow:**
+   - Resume handler MUST be lightweight (log-only)
+   - NO DB queries on resume
+   - Stores already have correct state (page didn't reload)
+
+5. **Testing requirements:**
+   - Test sleep/wake cycles (Apple menu → Reposo → Wake after 1 min)
+   - Verify objects don't reappear after delete
+   - Check DevTools console persists (not reset)
+   - Verify Save/Don't Save dialog still works
+
+**Related bugs:**
+- Bug 3/4: `commitHookEffectListMount` clears ReactFlow selection (separate issue)
+- Legacy `production_lines` VIEW causes "Area cannot be empty" (30+ files to migrate)
+
 ---
 
 ## Agent Orchestration (MANDATORY)

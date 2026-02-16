@@ -369,10 +369,23 @@ export const AppLayout = () => {
     );
 
     // ============================================
-    // Power events - handle system resume (Bug 5 fix v4)
+    // CRITICAL: DO NOT MODIFY THIS SECTION
+    // Bug 5 Fix v4 (2025-02-15): Prevents deleted canvas objects from reappearing after Mac sleep/wake
+    // Documentation: docs/fixes/bug-5-mac-sleep-wake-objects-reappear.md
+    //
+    // Power events - handle system resume
     // Since beforeunload blocks Vite's page reload, all stores persist
     // through sleep/wake. Refreshing from DB is unnecessary and destructive
     // (it overwrites in-memory state and triggers commitHookEffectListMount).
+    //
+    // WARNING: DO NOT call refreshAllStores() here! It will:
+    // - Overwrite in-memory canvas state with DB state
+    // - Cause deleted objects to reappear (deletes may not be in DB due to Bug 3/4)
+    // - Trigger commitHookEffectListMount (clears ReactFlow selection)
+    // - 5000x slower (50-200ms vs 0.01ms)
+    //
+    // v1-v3.1 attempted this and FAILED. v4 is the ONLY working solution.
+    // See .claude/CLAUDE.md section "Mac Sleep/Wake & Store Persistence"
     // ============================================
     const unsubscribeResume = window.electronAPI.on(
       POWER_EVENTS.SYSTEM_RESUMED,

@@ -9,6 +9,10 @@ import { router } from './router';
 import './styles/globals.css';
 
 // ============================================
+// CRITICAL: DO NOT MODIFY THIS SECTION
+// Bug 5 Fix (2025-02-15): Prevents deleted canvas objects from reappearing after Mac sleep/wake
+// Documentation: docs/fixes/bug-5-mac-sleep-wake-objects-reappear.md
+//
 // PREVENT VITE PAGE RELOAD ON MAC SLEEP/WAKE
 // Bug 5: Vite's HMR WebSocket disconnects during sleep.
 // On wake, Vite calls location.reload() which destroys
@@ -17,6 +21,11 @@ import './styles/globals.css';
 // Fix v3: Use beforeunload event to block the reload.
 // - location.reload override (v2) fails: read-only in Chromium
 // - beforeunload works: standard DOM event, Electron skips dialog
+//
+// WARNING: Removing this will cause:
+// - Deleted objects reappear after Mac sleep/wake
+// - User changes lost (stores destroyed)
+// - See .claude/CLAUDE.md section "Mac Sleep/Wake & Store Persistence"
 // ============================================
 if ((import.meta as any).hot) {
   let blockNextReload = false;
