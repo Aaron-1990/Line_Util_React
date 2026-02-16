@@ -77,6 +77,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       })),
     })),
 
+  // @deprecated Legacy method - loads from production_lines table (Phase 7.5 deprecated)
+  // Use useLoadLines hook instead, which loads from canvas_objects table with correct active filtering
   refreshNodes: async () => {
     try {
       console.log('[CanvasStore] Refreshing nodes from database...');

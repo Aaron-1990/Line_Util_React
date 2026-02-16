@@ -429,8 +429,8 @@ export class SQLiteCanvasObjectRepository {
       throw new Error(`Failed to delete canvas object ${id} - no rows updated`);
     }
 
-    // Force WAL checkpoint to ensure persistence across app restarts
-    // WAL checkpoint removed to prevent table locks during bulk operations
+    // Force WAL checkpoint to ensure soft delete persists across sleep/wake
+    this.db.pragma('wal_checkpoint(PASSIVE)');
   }
 
   /**

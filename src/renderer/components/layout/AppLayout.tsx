@@ -21,13 +21,12 @@ import { AreasPage } from '../../pages/AreasPage';
 import { PreferencesPage } from '../../pages/PreferencesPage';
 import { PlantsPage } from '../../pages/PlantsPage';
 import { GlobalAnalysisPage } from '../../pages/GlobalAnalysisPage';
-import { PROJECT_CHANNELS, PROJECT_EVENTS } from '@shared/constants';
+import { PROJECT_CHANNELS, PROJECT_EVENTS, POWER_EVENTS } from '@shared/constants';
 import { useModelStore } from '../../features/models';
 import { useAreaStore } from '../../features/areas';
 import { useAnalysisStore } from '../../features/analysis';
 import { useChangeoverStore } from '../../features/changeover';
 import { useRoutingStore } from '../../features/routings';
-import { useCanvasStore } from '../../features/canvas';
 import { useShapeCatalogStore } from '../../features/canvas/store/useShapeCatalogStore';
 
 // ===== Helpers =====
@@ -61,7 +60,7 @@ async function refreshAllStores(): Promise<void> {
       useChangeoverStore.getState().loadFamilyDefaults(),
       useChangeoverStore.getState().loadGlobalSettings(),
       useRoutingStore.getState().loadData(),
-      useCanvasStore.getState().refreshNodes(),
+      // useCanvasStore.getState().refreshNodes(), // REMOVED: Legacy method loads from production_lines table (Phase 7.5 deprecated). useLoadLines hook handles canvas objects correctly.
       useShapeCatalogStore.getState().refreshCatalog(),
     ]);
 
@@ -369,6 +368,19 @@ export const AppLayout = () => {
       handleProjectReset
     );
 
+    // ============================================
+    // Power events - handle system resume (Bug 5 fix v4)
+    // Since beforeunload blocks Vite's page reload, all stores persist
+    // through sleep/wake. Refreshing from DB is unnecessary and destructive
+    // (it overwrites in-memory state and triggers commitHookEffectListMount).
+    // ============================================
+    const unsubscribeResume = window.electronAPI.on(
+      POWER_EVENTS.SYSTEM_RESUMED,
+      () => {
+        console.log('[AppLayout] System resumed - stores preserved (no reload needed)');
+      }
+    );
+
     return () => {
       unsubscribeSaveAs?.();
       unsubscribeStateRequest?.();
@@ -376,6 +388,7 @@ export const AppLayout = () => {
       unsubscribeSaveAsThenNew?.();
       unsubscribeProjectOpened?.();
       unsubscribeProjectReset?.();
+      unsubscribeResume?.();
     };
   }, [
     handleTriggerSaveAs,

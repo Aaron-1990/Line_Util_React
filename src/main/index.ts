@@ -3,11 +3,11 @@
 // Electron Main Process
 // ============================================
 
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from 'electron';
 import path from 'path';
 import DatabaseConnection from './database/connection';
 import { registerAllHandlers } from './ipc/handlers';
-import { PROJECT_EVENTS, PROJECT_CHANNELS } from '@shared/constants';
+import { PROJECT_EVENTS, PROJECT_CHANNELS, POWER_EVENTS } from '@shared/constants';
 import { ApiResponse } from '@shared/types';
 import { SQLitePlantRepository } from './database/repositories/SQLitePlantRepository';
 
@@ -21,6 +21,9 @@ let mainWindow: BrowserWindow | null = null;
 
 // Flag to track if app is in the process of quitting (after user confirmed)
 let isQuitting = false;
+
+// Periodic WAL checkpoint timer (Bug 5 fix)
+let checkpointTimer: NodeJS.Timeout | null = null;
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -176,6 +179,44 @@ app.on('ready', async () => {
     registerAllHandlers(mainWindow);
     console.log('IPC handlers registered successfully');
   }
+
+  // ============================================
+  // POWER MONITOR - Handle Mac sleep/wake cycle
+  // Fix: Bug 5 - Deleted objects reappear after sleep
+  // ============================================
+  powerMonitor.on('suspend', () => {
+    console.log('[Main] System suspending - forcing WAL checkpoint');
+    DatabaseConnection.checkpoint('TRUNCATE');
+  });
+
+  powerMonitor.on('shutdown', () => {
+    console.log('[Main] System shutting down - forcing WAL checkpoint');
+    DatabaseConnection.checkpoint('TRUNCATE');
+  });
+
+  powerMonitor.on('lock-screen', () => {
+    console.log('[Main] Screen locked - forcing WAL checkpoint');
+    DatabaseConnection.checkpoint('PASSIVE');
+  });
+
+  powerMonitor.on('resume', () => {
+    console.log('[Main] System resumed from sleep');
+    // Notify renderer to refresh state from DB
+    const window = BrowserWindow.getAllWindows()[0];
+    if (window && !window.isDestroyed()) {
+      window.webContents.send(POWER_EVENTS.SYSTEM_RESUMED);
+    }
+  });
+
+  // ============================================
+  // PERIODIC WAL CHECKPOINT (Bug 5 defense-in-depth)
+  // Checkpoint every 30 seconds to ensure writes persist
+  // PASSIVE mode: non-blocking, safe for concurrent operations
+  // ============================================
+  checkpointTimer = setInterval(() => {
+    DatabaseConnection.checkpoint('PASSIVE');
+  }, 30000); // 30 seconds
+  console.log('[Main] Periodic WAL checkpoint enabled (30s interval)');
 });
 
 app.on('window-all-closed', () => {
@@ -211,6 +252,16 @@ ipcMain.handle(
 // Intercepts app close to check for unsaved changes
 // ============================================
 app.on('before-quit', async (event) => {
+  // Clear periodic checkpoint timer
+  if (checkpointTimer) {
+    clearInterval(checkpointTimer);
+    checkpointTimer = null;
+  }
+
+  // Force final WAL checkpoint before quit (Bug 5 fix)
+  console.log('[Main] App quitting - forcing final WAL checkpoint');
+  DatabaseConnection.checkpoint('TRUNCATE');
+
   // If already handling quit, allow it to proceed
   if (isQuitting) {
     DatabaseConnection.close();

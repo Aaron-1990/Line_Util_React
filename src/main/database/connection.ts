@@ -61,6 +61,21 @@ class DatabaseConnection {
     }
   }
 
+  /**
+   * Force WAL checkpoint to persist data to main DB file.
+   * @param mode - PASSIVE (default, non-blocking), FULL (complete checkpoint), or TRUNCATE (complete + truncate WAL)
+   */
+  static checkpoint(mode: 'PASSIVE' | 'FULL' | 'TRUNCATE' = 'PASSIVE'): void {
+    if (DatabaseConnection.instance) {
+      try {
+        DatabaseConnection.instance.pragma(`wal_checkpoint(${mode})`);
+        console.log(`[DatabaseConnection] WAL checkpoint (${mode}) completed`);
+      } catch (error) {
+        console.error('[DatabaseConnection] WAL checkpoint failed:', error);
+      }
+    }
+  }
+
   static getPath(): string | null {
     return DatabaseConnection.dbPath;
   }

@@ -480,6 +480,12 @@ export const PROJECT_EVENTS = {
   PROJECT_RESET: 'project:reset',
 } as const;
 
+// Power Events (Bug 5 fix: Mac sleep/wake)
+export const POWER_EVENTS = {
+  /** System resumed from sleep/suspension */
+  SYSTEM_RESUMED: 'power:system-resumed',
+} as const;
+
 // ============================================
 // SHAPE CATALOG CONSTANTS (Phase 7.5)
 // ============================================
