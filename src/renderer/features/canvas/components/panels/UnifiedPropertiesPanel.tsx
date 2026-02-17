@@ -26,6 +26,7 @@ import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
 import { useCanvasObjectCompatibilityStore } from '../../store/useCanvasObjectCompatibilityStore';
 import { useToolStore } from '../../store/useToolStore';
 import { useAreaStore } from '../../../areas/store/useAreaStore';
+import { useAnalysisStore } from '../../../analysis/store/useAnalysisStore';
 import { BufferProperties, OverflowPolicy, ProcessProperties } from '@shared/types';
 import { CompatibilityList } from '../../../compatibility/components/CompatibilityList';
 import { AssignModelModal } from '../../../compatibility/components/AssignModelModal';
@@ -145,6 +146,7 @@ UnifiedPropertiesPanel.displayName = 'UnifiedPropertiesPanel';
 // ============================================
 // LINE PROPERTIES CONTENT (Process Objects)
 // Phase 7.5: Now uses canvas_objects (unified structure)
+// Phase 7.6: Data comes from useCanvasObjectStore.objects[] (single source of truth)
 // ============================================
 
 interface LinePropertiesContentProps {
@@ -152,8 +154,10 @@ interface LinePropertiesContentProps {
 }
 
 const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
-  const { nodes, setSelectedNode, updateNode, deleteNode } = useCanvasStore();
+  const { setSelectedNode, deleteNode } = useCanvasStore();
   const { deleteObject, updateObject, setProcessProps } = useCanvasObjectStore();
+  // Phase 7.6: Get object data from objects[] (single source of truth)
+  const objects = useCanvasObjectStore((state) => state.objects);
   const { areas, loadAreas } = useAreaStore();
 
   // Local state for inline editing
@@ -164,73 +168,70 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const node = nodes.find((n) => n.id === lineId);
+  // Phase 7.6: Get object from objects[] instead of node.data
+  const object = objects.find((o) => o.id === lineId);
 
-  // Sync local state with selected node
+  // Sync local state with selected object
   useEffect(() => {
-    if (node) {
-      setName(node.data.name || '');
-      // Area and timeAvailableDaily may come from processProperties
-      const processProps = node.data.processProperties;
-      setArea(processProps?.area || node.data.area || '');
-      setTimeAvailableDaily(processProps?.timeAvailableDaily || node.data.timeAvailableDaily || 72000);
+    if (object) {
+      setName(object.name || '');
+      // Area and timeAvailableDaily come from processProperties
+      const processProps = object.processProperties;
+      setArea(processProps?.area || '');
+      setTimeAvailableDaily(processProps?.timeAvailableDaily || 72000);
       if (areas.length === 0) {
         loadAreas();
       }
     }
-  }, [node?.id, node?.data.name, node?.data.processProperties?.area, node?.data.processProperties?.timeAvailableDaily, areas.length, loadAreas]);
+  }, [object?.id, object?.name, object?.processProperties?.area, object?.processProperties?.timeAvailableDaily, areas.length, loadAreas]);
 
-  if (!node) return null;
-
-  const data = node.data;
+  if (!object) return null;
 
   const handleClose = () => {
     setSelectedNode(null);
   };
 
-  // Save field on blur - Phase 7.5: use canvas object update
+  // Save field on blur - Phase 7.6: updateObject updates objects[], GenericShapeNode re-renders via selector
   const handleNameBlur = async () => {
-    if (name.trim() && name !== data.name) {
+    if (name.trim() && name !== object.name) {
       try {
-        await updateObject(data.id, { name: name.trim() });
-        updateNode(data.id, { name: name.trim() });
+        await updateObject(object.id, { name: name.trim() });
+        // Phase 7.6: No updateNode needed - GenericShapeNode reads from objects[] via selector
       } catch (error) {
         console.error('Error updating name:', error);
-        setName(data.name); // Revert on error
+        setName(object.name); // Revert on error
       }
     } else {
-      setName(data.name); // Revert if empty
+      setName(object.name); // Revert if empty
     }
   };
 
-  // Phase 7.5: Update process properties for area
+  // Phase 7.6: Update process properties for area
   const handleAreaChange = async (newArea: string) => {
     setArea(newArea);
-    if (newArea && newArea !== (data.processProperties?.area || data.area)) {
+    if (newArea && newArea !== (object.processProperties?.area || '')) {
       try {
-        await setProcessProps(data.id, { area: newArea });
-        updateNode(data.id, {
-          area: newArea,
-          processProperties: { ...data.processProperties, area: newArea }
-        });
+        await setProcessProps(object.id, { area: newArea });
+        // Phase 7.6: No updateNode needed - setProcessProps updates objects[], GenericShapeNode re-renders
+        // Bug 1 Fix: Refresh status bar counts when area changes
+        useAnalysisStore.getState().refreshData();
       } catch (error) {
         console.error('Error updating area:', error);
-        setArea(data.processProperties?.area || data.area); // Revert on error
+        setArea(object.processProperties?.area || ''); // Revert on error
       }
     }
   };
 
-  // Phase 7.5: Update process properties for time
+  // Phase 7.6: Update process properties for time
   const handleTimeChange = async (seconds: number) => {
     setTimeAvailableDaily(seconds);
-    const currentTime = data.processProperties?.timeAvailableDaily || data.timeAvailableDaily;
+    const currentTime = object.processProperties?.timeAvailableDaily || 72000;
     if (seconds !== currentTime) {
       try {
-        await setProcessProps(data.id, { timeAvailableDaily: seconds });
-        updateNode(data.id, {
-          timeAvailableDaily: seconds,
-          processProperties: { ...data.processProperties, timeAvailableDaily: seconds }
-        });
+        await setProcessProps(object.id, { timeAvailableDaily: seconds });
+        // Phase 7.6: No updateNode needed - setProcessProps updates objects[], GenericShapeNode re-renders
+        // Bug 1 Fix: Refresh status bar counts when time changes
+        useAnalysisStore.getState().refreshData();
       } catch (error) {
         console.error('Error updating time:', error);
         setTimeAvailableDaily(currentTime); // Revert on error
@@ -242,8 +243,8 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
   const handleConfirmDelete = async () => {
     setIsDeleting(true);
     try {
-      await deleteObject(data.id);
-      deleteNode(data.id);
+      await deleteObject(object.id);
+      deleteNode(object.id);
       setSelectedNode(null);
     } catch (error) {
       console.error('Error deleting process object:', error);
@@ -334,14 +335,14 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
 
         {/* Assigned Models */}
         <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-          <CompatibilityList lineId={data.id} />
+          <CompatibilityList lineId={object.id} />
         </div>
       </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <DeleteConfirmModal
-          itemName={data.name}
+          itemName={object.name}
           itemType="line"
           onConfirm={handleConfirmDelete}
           onCancel={() => setShowDeleteModal(false)}
@@ -453,6 +454,11 @@ const ObjectPropertiesContent = ({ objectId }: ObjectPropertiesContentProps) => 
   const handleProcessPropChange = async (key: keyof ProcessProperties, value: unknown) => {
     setLocalProcessProps((prev) => ({ ...prev, [key]: value }));
     await setProcessProps(object.id, { [key]: value });
+    // Phase 7.6: No updateNode needed - setProcessProps updates objects[], GenericShapeNode re-renders via selector
+
+    if (key === 'area' || key === 'timeAvailableDaily') {
+      useAnalysisStore.getState().refreshData();
+    }
   };
 
   const handleConfirmDelete = async () => {

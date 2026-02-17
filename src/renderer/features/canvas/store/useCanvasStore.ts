@@ -1,26 +1,24 @@
 // ============================================
 // CANVAS STORE - Zustand
 // State management para el canvas de produccion
+// Phase 7.6: Single Source of Truth - nodes only contain objectId reference
 // ============================================
 
 import { create } from 'zustand';
 import { Node, Edge } from 'reactflow';
-import { ProductionLine } from '@shared/types';
+import { CanvasNodeData } from '@shared/types';
 
 interface CanvasState {
-  // State
-  nodes: Node[];
+  // State - Phase 7.6: nodes only contain { objectId } reference
+  nodes: Node<CanvasNodeData>[];
   edges: Edge[];
   selectedNode: string | null;
 
   // Actions - Nodes
-  setNodes: (nodes: Node[]) => void;
-  addNode: (node: Node) => void;
-  updateNode: (id: string, data: Partial<Node['data']>) => void;
-  updateAllNodes: (dataUpdater: (data: Node['data']) => Node['data']) => void;
+  setNodes: (nodes: Node<CanvasNodeData>[]) => void;
+  addNode: (node: Node<CanvasNodeData>) => void;
   deleteNode: (id: string) => void;
   updateNodePosition: (id: string, x: number, y: number) => void;
-  refreshNodes: () => Promise<void>;
 
   // Actions - Edges
   setEdges: (edges: Edge[]) => void;
@@ -34,7 +32,7 @@ interface CanvasState {
   reset: () => void;
 }
 
-const initialState = {
+const initialState: Pick<CanvasState, 'nodes' | 'edges' | 'selectedNode'> = {
   nodes: [],
   edges: [],
   selectedNode: null,
@@ -42,78 +40,23 @@ const initialState = {
 
 /**
  * Canvas Store
- * 
- * Maneja todo el estado del canvas:
- * - Nodes (lineas de produccion)
- * - Edges (conexiones)
- * - Seleccion actual
+ *
+ * Phase 7.6: Single Source of Truth
+ * - Nodes contain only { objectId } reference
+ * - Business data (name, area, processProperties, etc.) is in useCanvasObjectStore.objects[]
+ * - GenericShapeNode retrieves data via Zustand selector
  */
 export const useCanvasStore = create<CanvasState>((set) => ({
   ...initialState,
 
   // ===== Nodes =====
-  
+
   setNodes: (nodes) => set({ nodes }),
 
   addNode: (node) =>
     set((state) => ({
       nodes: [...state.nodes, node],
     })),
-
-  updateNode: (id, data) =>
-    set((state) => ({
-      nodes: state.nodes.map((node) =>
-        node.id === id
-          ? { ...node, data: { ...node.data, ...data } }
-          : node
-      ),
-    })),
-
-  updateAllNodes: (dataUpdater) =>
-    set((state) => ({
-      nodes: state.nodes.map((node) => ({
-        ...node,
-        data: dataUpdater(node.data),
-      })),
-    })),
-
-  // @deprecated Legacy method - loads from production_lines table (Phase 7.5 deprecated)
-  // Use useLoadLines hook instead, which loads from canvas_objects table with correct active filtering
-  refreshNodes: async () => {
-    try {
-      console.log('[CanvasStore] Refreshing nodes from database...');
-      const response = await window.electronAPI.invoke<ProductionLine[]>('lines:get-all');
-      if (response.success && response.data) {
-        const linesData = response.data;
-        console.log('[CanvasStore] Fetched lines:', linesData.map(l => ({
-          id: l.id,
-          name: l.name,
-          changeoverEnabled: l.changeoverEnabled,
-          changeoverExplicit: l.changeoverExplicit,
-        })));
-        set((state) => {
-          const updatedNodes = state.nodes.map((node) => {
-            const lineData = linesData.find((l) => l.id === node.id);
-            if (lineData) {
-              console.log(`[CanvasStore] Updating node ${node.id}: enabled=${lineData.changeoverEnabled}, explicit=${lineData.changeoverExplicit}`);
-              return {
-                ...node,
-                data: {
-                  ...node.data,
-                  changeoverEnabled: lineData.changeoverEnabled,
-                  changeoverExplicit: lineData.changeoverExplicit,
-                },
-              };
-            }
-            return node;
-          });
-          return { nodes: updatedNodes };
-        });
-      }
-    } catch (error) {
-      console.error('Error refreshing nodes:', error);
-    }
-  },
 
   deleteNode: (id) =>
     set((state) => ({

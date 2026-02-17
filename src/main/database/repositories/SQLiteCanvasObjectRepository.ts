@@ -265,6 +265,12 @@ export class SQLiteCanvasObjectRepository {
           }
         }
       }
+
+      // Bug 1 Fix: Include compatibility count so node can determine completeness
+      const compatCountRow = this.db
+        .prepare('SELECT COUNT(*) as count FROM canvas_object_compatibilities WHERE canvas_object_id = ?')
+        .get(id) as { count: number };
+      result.compatibilitiesCount = compatCountRow.count;
     }
 
     return result;

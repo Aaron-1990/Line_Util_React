@@ -11,6 +11,8 @@ import {
   UpdateCanvasObjectCompatibilityInput,
 } from '@shared/types/canvas-object';
 import { CANVAS_OBJECT_COMPATIBILITY_CHANNELS } from '@shared/constants';
+import { useCanvasObjectStore } from './useCanvasObjectStore';
+import { useAnalysisStore } from '../../analysis/store/useAnalysisStore';
 
 // ============================================
 // TYPES
@@ -103,6 +105,19 @@ export const useCanvasObjectCompatibilityStore = create<CanvasObjectCompatibilit
       if (response.success && response.data) {
         // Reload compatibilities for this object
         await get().loadForObject(data.canvasObjectId);
+
+        // Phase 7.6: Update objects[] directly (single source of truth)
+        const newCount = get().getForObject(data.canvasObjectId).length;
+        const currentObjects = useCanvasObjectStore.getState().objects;
+        useCanvasObjectStore.getState().setObjects(
+          currentObjects.map(obj =>
+            obj.id === data.canvasObjectId
+              ? { ...obj, compatibilitiesCount: newCount }
+              : obj
+          )
+        );
+        useAnalysisStore.getState().refreshData();
+
         set({ isFormOpen: false, editingCompatibility: null, targetObjectId: null, isLoading: false });
         return true;
       } else {
@@ -168,6 +183,18 @@ export const useCanvasObjectCompatibilityStore = create<CanvasObjectCompatibilit
       if (response.success) {
         // Reload compatibilities for this object
         await get().loadForObject(canvasObjectId);
+
+        // Phase 7.6: Update objects[] directly (single source of truth)
+        const newCount = get().getForObject(canvasObjectId).length;
+        const currentObjects = useCanvasObjectStore.getState().objects;
+        useCanvasObjectStore.getState().setObjects(
+          currentObjects.map(obj =>
+            obj.id === canvasObjectId
+              ? { ...obj, compatibilitiesCount: newCount }
+              : obj
+          )
+        );
+        useAnalysisStore.getState().refreshData();
       } else {
         set({ error: response.error || 'Failed to delete compatibility' });
       }

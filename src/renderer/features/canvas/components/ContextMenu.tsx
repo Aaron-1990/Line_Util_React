@@ -23,6 +23,7 @@ import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useToolStore } from '../store/useToolStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
+import { useAnalysisStore } from '../../analysis/store/useAnalysisStore';
 import { CanvasObjectType, CanvasObjectWithDetails } from '@shared/types';
 import { PRODUCTION_LINE_SHAPE_ID } from '../constants/shapes';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
@@ -80,7 +81,7 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
     addObject
   } = useCanvasObjectStore();
 
-  const { nodes, setSelectedNode, deleteNode, addNode, updateNode } = useCanvasStore();
+  const { nodes, setSelectedNode, deleteNode, addNode } = useCanvasStore();
   const setSelectedObjects = useToolStore((state) => state.setSelectedObjects);
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
 
@@ -271,12 +272,12 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
         // Remove the old production line node from canvas
         deleteNode(objectId);
 
-        // Add the new genericShape node with complete data
+        // Add the new genericShape node - Phase 7.6: Use objectId reference only
         addNode({
           id: fullObject.id,
           type: 'genericShape',
           position,
-          data: fullObject, // Already has CanvasObjectWithDetails including shape
+          data: { objectId: fullObject.id },  // Phase 7.6: Reference only
           selectable: true, // Enable ReactFlow selection
           draggable: true,  // Enable dragging
         });
@@ -284,16 +285,21 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
         // Select the newly created object so the properties panel shows
         setSelectedObjects([fullObject.id]);
       }
+
+      // Bug 1 Fix: Refresh status bar counts when converting to process
+      if (newType === 'process') {
+        useAnalysisStore.getState().refreshData();
+      }
     } else {
       // Convert existing canvas object type
       await convertType(objectId, newType);
 
-      // Get the updated object with new type from store (loadObjectsForPlant already ran)
-      const updatedObject = getObjectById(objectId);
-      if (updatedObject) {
-        // Update the node data in place (don't delete/add to preserve selection)
-        updateNode(objectId, updatedObject);
+      // Bug 1 Fix: Refresh status bar counts when converting to process
+      if (newType === 'process') {
+        useAnalysisStore.getState().refreshData();
       }
+
+      // Phase 7.6: No updateNode needed - convertType updates objects[], GenericShapeNode re-renders via selector
 
       // Close menu first, then ensure selection is maintained after React re-renders
       onClose();
@@ -331,7 +337,7 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
           const originalNode = nodes.find((n) => n.id === objectId);
           const originalPosition = originalNode?.position ?? { x: 0, y: 0 };
 
-          // Add the duplicated object to canvas with offset position
+          // Add the duplicated object to canvas - Phase 7.6: Use objectId reference only
           addNode({
             id: newObjectWithDetails.id,
             type: 'genericShape',
@@ -339,13 +345,18 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
               x: originalPosition.x + 20,
               y: originalPosition.y + 20,
             },
-            data: newObjectWithDetails,
+            data: { objectId: newObjectWithDetails.id },  // Phase 7.6: Reference only
             selectable: true, // Enable ReactFlow selection
             draggable: true,  // Enable dragging
           });
 
           // Also add to store
           addObject(newObjectWithDetails);
+
+          // Bug 1 Fix: Refresh status bar if duplicating a process object
+          if (newObjectWithDetails.objectType === 'process') {
+            useAnalysisStore.getState().refreshData();
+          }
 
           console.log('[ContextMenu] Duplicated:', newObjectWithDetails.name);
         }
@@ -374,6 +385,8 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
       // Delete canvas object
       await deleteObject(objectId);
     }
+    // Bug 1 Fix: Refresh status bar counts after any delete
+    useAnalysisStore.getState().refreshData();
     onClose();
   };
 

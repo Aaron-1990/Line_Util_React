@@ -243,11 +243,12 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         console.error('[CanvasObjectStore] Delete failed:', response.error);
         // Revert on error - add object back to BOTH stores
         set({ objects: [...get().objects, objectToDelete] });
+        // Phase 7.6: Use objectId reference only
         useCanvasStore.getState().addNode({
           id: objectToDelete.id,
           type: 'genericShape',
           position: { x: objectToDelete.xPosition, y: objectToDelete.yPosition },
-          data: objectToDelete,
+          data: { objectId: objectToDelete.id },  // Phase 7.6: Reference only
           selectable: true, // Enable ReactFlow selection
           draggable: true,  // Enable dragging
         });
@@ -262,11 +263,12 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
       console.error('[CanvasObjectStore] Error deleting object:', error);
       // Revert on error - add object back to BOTH stores
       set({ objects: [...get().objects, objectToDelete] });
+      // Phase 7.6: Use objectId reference only
       useCanvasStore.getState().addNode({
         id: objectToDelete.id,
         type: 'genericShape',
         position: { x: objectToDelete.xPosition, y: objectToDelete.yPosition },
-        data: objectToDelete,
+        data: { objectId: objectToDelete.id },  // Phase 7.6: Reference only
         selectable: true, // Enable ReactFlow selection
         draggable: true,  // Enable dragging
       });
@@ -452,8 +454,15 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
         objectId,
         props
       );
-      // NOTE: No reload needed - properties don't affect canvas rendering
-      // Reloading causes ReactFlow to re-initialize, triggering selection clearing
+      // Bug 1 Fix: Update objects[] so panels and nodes read current data after navigation
+      const { objects } = get();
+      set({
+        objects: objects.map(obj =>
+          obj.id === objectId
+            ? { ...obj, processProperties: { ...obj.processProperties, ...props } as typeof obj.processProperties }
+            : obj
+        ),
+      });
     } catch (error) {
       console.error('[CanvasObjectStore] Error setting process props:', error);
     }

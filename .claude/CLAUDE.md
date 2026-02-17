@@ -1,6 +1,6 @@
 # Line Optimizer - Project Context
 
-> **Version:** 0.7.3 | **Last Updated:** 2026-02-16 | **Developer:** Aaron Zapata
+> **Version:** 0.7.6 | **Last Updated:** 2026-02-17 | **Developer:** Aaron Zapata
 
 ---
 
@@ -30,6 +30,7 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 1. **MANDATORY: Run Bug Prevention Checklist** - `docs/standards/BUG-5-AND-3-4-PREVENTION-CHECKLIST.md`
    - Prevents regression of Bug 5 (Mac sleep/wake data loss)
    - Prevents regression of Bug 3-4 (ReactFlow remount/selection clearing)
+   - Prevents regression of Phase 7.6 bugs (Rules of Hooks, deleteKeyCode race)
    - **Use checklist BEFORE implementing ANY feature**
 
 2. **Use `Explore` agent first** when asked to modify any feature - understand what exists before changing
@@ -39,6 +40,7 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
    - Routings (Phase 6.5+) - DAG model, cycle detection, predecessor logic
    - Multi-Plant (Phase 7.x) - plant scoping, Excel import with plant detection
    - Canvas nodes - stacked bars, year navigation, toggle states
+   - **Canvas architecture (Phase 7.6)** - Single Source of Truth, node data pattern
 
 4. **Check existing stores** before creating new state: `useAnalysisStore`, `useChangeoverStore`, `useRoutingStore`, `usePlantStore`, `useNavigationStore`
 
@@ -77,6 +79,33 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 1. Read `docs/fixes/fix-canvas-save-load-and-shapes.md` FIRST
 2. Run full regression test suite (4 scenarios in doc)
 3. Consult with user before proceeding
+
+### 3. Canvas Single Source of Truth (2026-02-17)
+
+**Documentation:** `docs/phases/phase-7.6-canvas-single-source-of-truth.md`
+
+**Architecture:** `nodes[].data = { objectId: string }` (reference only). All canvas object data lives in `useCanvasObjectStore.objects[]`.
+
+**Critical Files & Rules:**
+
+| Rule | Why Critical |
+|------|-------------|
+| `GenericShapeNode.tsx` — ALL hooks before `if (!object) return null` | `useMemo` after early return causes crash on deletion (TypeScript cannot detect this) |
+| `ProductionCanvas.tsx` — `deleteKeyCode={null}` on `<ReactFlow>` | Without it, RF's internal handler fires first, empties selection, custom handler is a NOOP, `objects[]` never updated → objects reappear |
+| Only use `updateObject()` to change canvas object data | `nodes[].data` is now `{ objectId }` only — updating `node.data` does nothing |
+| `deleteObject(id)` handles both stores | Calls `deleteNode(id)` internally — do not call them separately |
+
+**What happens if Rules are violated:**
+- Missing `deleteKeyCode={null}` → deleted objects reappear after tab navigation (Bug 5-like symptom)
+- Hook after early return → `Rendered fewer hooks than expected` crash when any object is deleted
+- Updating `node.data` directly → changes are ignored (node reads from `objects[]`, not `node.data`)
+
+**If you need to add a new node component:**
+1. Read `docs/phases/phase-7.6-canvas-single-source-of-truth.md`
+2. Use `GenericShapeNode` as the template
+3. Verify: all hooks before early return, no hook count mismatch possible
+
+---
 
 ### 2. Mac Sleep/Wake & Store Persistence (2025-02-15)
 

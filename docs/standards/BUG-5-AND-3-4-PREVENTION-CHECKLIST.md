@@ -54,6 +54,7 @@ if (loadedRef.current === plantId) return;
 - [ ] Do you use `fitView` **prop**? → Use `fitView()` **function** instead
 - [ ] Do you clear selection in data loading hooks? → **NEVER DO THIS**
 - [ ] Do you delete nodes in a loop? → Use **batch operations** instead
+- [ ] Does your feature change how `nodes[]` is rebuilt from store data? → Verify `deleteKeyCode={null}` is set (prevents RF internal handler race condition — see Bug B in `docs/phases/phase-7.6-canvas-single-source-of-truth.md`)
 
 **Critical Patterns:**
 ```typescript
@@ -76,6 +77,42 @@ useCanvasStore.setState(state => ({
 for (const id of idsToDelete) {
   await deleteNode(id);
 }
+
+// ✅ CORRECT: deleteKeyCode disabled (single delete handler on document)
+<ReactFlow deleteKeyCode={null} ... />
+
+// ❌ WRONG: deleteKeyCode active while custom handler exists on document
+<ReactFlow ... />  // ← RF fires first, empties selection, custom handler is NOOP
+```
+
+---
+
+### 3b. Does your feature add an early return to a node component?
+
+**If YES, answer:**
+- [ ] Have you listed ALL hooks in the component in order?
+- [ ] Is the early return placed AFTER the very last hook?
+- [ ] NOTE: TypeScript CANNOT catch Rules of Hooks violations — they are runtime-only crashes
+
+**Critical Pattern:**
+```typescript
+// ✅ CORRECT: ALL hooks before early return (Phase 7.6 pattern)
+const object = useCanvasObjectStore((s) => s.objects.find(...));
+const activeTool = useToolStore(...);
+const handles = useMemo(...);   // ← last hook
+if (!object) return null;        // ← early return AFTER all hooks
+
+// ❌ WRONG: hook after early return (crashes when object is deleted)
+const object = useCanvasObjectStore((s) => s.objects.find(...));
+if (!object) return null;        // ← early return
+const handles = useMemo(...);   // ← NEVER REACHED during deletion → crash
+```
+
+**How to audit a component before adding an early return:**
+```bash
+# List all hook calls in the component (check line numbers)
+grep -n "use[A-Z]\|useMemo\|useCallback\|useEffect\|useState\|useRef" src/.../MyComponent.tsx
+# Verify the early return line number is HIGHER than all hook line numbers
 ```
 
 ---
@@ -143,7 +180,15 @@ powerMonitorApi.onResume(async () => {
 6. Press Delete key
 7. **VERIFY:** Object deletes on first attempt
 
-### Test 3: Combined Test
+### Test 3: Keyboard Delete + Navigate Regression Test (Phase 7.6)
+1. Create canvas objects
+2. Select an object
+3. Press Backspace to delete
+4. Navigate: Canvas → Models → Canvas
+5. **VERIFY:** Deleted object does NOT reappear
+6. **VERIFY:** No console error "Rendered fewer hooks than expected"
+
+### Test 4: Combined Test
 1. Create canvas objects
 2. Navigate between tabs multiple times
 3. Delete some objects
@@ -180,5 +225,5 @@ powerMonitorApi.onResume(async () => {
 
 ---
 
-**Last Updated:** 2026-02-16
+**Last Updated:** 2026-02-17
 **Mandatory for all agents implementing features**

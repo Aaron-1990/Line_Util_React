@@ -5,6 +5,37 @@
 
 ---
 
+## Phase 7.6: Canvas Single Source of Truth (2026-02-17)
+
+**Status:** ✅ Completed with post-implementation bug fixes
+**Full documentation:** `docs/phases/phase-7.6-canvas-single-source-of-truth.md`
+
+### What Was Implemented
+
+Eliminated dual data sources on the canvas. `nodes[].data` changed from a full `CanvasObjectWithDetails` copy to a minimal `{ objectId: string }` reference. `GenericShapeNode` now reads all display data via Zustand selector directly from `useCanvasObjectStore.objects[]`.
+
+**Key invariant:** `objects[]` is the single source of truth. One `updateObject()` call updates everything.
+
+### Three Post-Implementation Bugs Fixed
+
+| Bug | Cause | Fix |
+|-----|-------|-----|
+| **A** "Rendered fewer hooks than expected" | `useMemo(handles)` placed after `if (!object) return null` — hook count dropped on deletion | Moved `useMemo` and its dependencies before the early return in `GenericShapeNode` |
+| **B** Deleted objects reappear after navigation | ReactFlow's internal `deleteKeyCode` handler fires before the custom `document` handler, emptying selection before `objects[]` can be updated | Added `deleteKeyCode={null}` to `<ReactFlow>` |
+| **C** ChangeoverToggle heavier than needed | `refreshNodes()` (partial merge) removed and replaced with `loadObjectsForPlant()` (full DB reload) — different semantics | Functional, noted as architectural concern for future optimization |
+
+### New Mandatory Rules (from lessons learned)
+
+1. **All hooks before any early return** — TypeScript cannot catch this; it is runtime-only
+2. **`deleteKeyCode={null}` always set** on the ReactFlow instance
+3. **Audit all callers before removing a method** — `grep -rn "methodName" src/`
+
+### Files Modified
+
+15 files — see `docs/phases/phase-7.6-canvas-single-source-of-truth.md` for full list.
+
+---
+
 ## Phase 8.0: Project Files Foundation (2026-02-07)
 
 **Status:** ✅ Completed with critical bug fixes

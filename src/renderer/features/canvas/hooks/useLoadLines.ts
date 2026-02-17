@@ -6,10 +6,11 @@
 // ============================================
 
 import { useEffect, useState } from 'react';
+import { Node } from 'reactflow';
 import { useCanvasStore } from '../store/useCanvasStore';
 import { useCanvasObjectStore } from '../store/useCanvasObjectStore';
 import { useNavigationStore } from '../../../store/useNavigationStore';
-import { CanvasObjectWithDetails, CanvasConnection } from '@shared/types';
+import { CanvasObjectWithDetails, CanvasConnection, CanvasNodeData } from '@shared/types';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 
 interface UseLoadLinesResult {
@@ -47,7 +48,24 @@ export function useLoadLines(): UseLoadLinesResult {
         currentObjects.every(obj => obj.plantId === currentPlantId);
 
       if (hasObjectsForPlant) {
-        console.log('[useLoadLines] Store already has', currentObjects.length, 'objects for plant:', currentPlantId, '- skipping reload');
+        console.log('[useLoadLines] Store already has', currentObjects.length, 'objects for plant:', currentPlantId, '- syncing nodes');
+        // Phase 7.6: Rebuild ReactFlow nodes with minimal data (objectId reference only)
+        // GenericShapeNode retrieves full data via Zustand selector from objects[]
+        const currentNodes = useCanvasStore.getState().nodes;
+        const currentSelection = new Set(currentNodes.filter(n => n.selected).map(n => n.id));
+        const updatedNodes: Node<CanvasNodeData>[] = currentObjects.map(obj => {
+          const existingNode = currentNodes.find(n => n.id === obj.id);
+          return {
+            id: obj.id,
+            type: 'genericShape',
+            position: existingNode?.position ?? { x: obj.xPosition, y: obj.yPosition },
+            data: { objectId: obj.id },  // Phase 7.6: Reference only
+            selectable: true,
+            draggable: true,
+            selected: currentSelection.has(obj.id),
+          };
+        });
+        setNodes(updatedNodes);
         setObjectCount(currentObjects.length);
         setIsLoading(false);
         return;
@@ -92,12 +110,13 @@ export function useLoadLines(): UseLoadLinesResult {
           const currentNodes = useCanvasStore.getState().nodes;
           const currentSelection = new Set(currentNodes.filter(n => n.selected).map(n => n.id));
 
-          // Build nodes while preserving ReactFlow's selection state
-          const newNodes = objectsResponse.data.map((obj) => ({
+          // Phase 7.6: Build nodes with minimal data (objectId reference only)
+          // GenericShapeNode retrieves full data via Zustand selector from objects[]
+          const newNodes: Node<CanvasNodeData>[] = objectsResponse.data.map((obj) => ({
             id: obj.id,
             type: 'genericShape',  // All objects now use GenericShapeNode
             position: { x: obj.xPosition, y: obj.yPosition },
-            data: obj, // Pass the full CanvasObjectWithDetails
+            data: { objectId: obj.id },  // Phase 7.6: Reference only
             selectable: true,  // Enable ReactFlow selection
             draggable: true,   // Enable dragging
             // CRITICAL: Preserve selection - if this node was selected before reload, keep it selected

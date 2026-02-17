@@ -2,27 +2,32 @@
 // LINE PROPERTIES PANEL
 // Panel lateral con propiedades de linea seleccionada
 // Incluye edicion y eliminacion
+// Phase 7.6: DEPRECATED - Use UnifiedPropertiesPanel instead
+// This file is kept for backward compatibility only
 // ============================================
 
 import { X, Edit2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useCanvasStore } from '../../store/useCanvasStore';
+import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
 import { LineForm } from '../forms/LineForm';
 import { ConfirmDeleteModal } from '../modals/ConfirmDeleteModal';
-import { ProductionLine } from '@shared/types';
 import { CompatibilityList } from '../../../compatibility/components/CompatibilityList';
 import { AssignModelModal } from '../../../compatibility/components/AssignModelModal';
 
 export const LinePropertiesPanel = () => {
-  const { nodes, selectedNode, setSelectedNode, updateNode, deleteNode } = useCanvasStore(
+  const { nodes, selectedNode, setSelectedNode, deleteNode } = useCanvasStore(
     (state) => ({
       nodes: state.nodes,
       selectedNode: state.selectedNode,
       setSelectedNode: state.setSelectedNode,
-      updateNode: state.updateNode,
       deleteNode: state.deleteNode,
     })
   );
+
+  // Phase 7.6: Get object data from useCanvasObjectStore (single source of truth)
+  const objects = useCanvasObjectStore((state) => state.objects);
+  const updateObject = useCanvasObjectStore((state) => state.updateObject);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +39,19 @@ export const LinePropertiesPanel = () => {
   const node = nodes.find((n) => n.id === selectedNode);
   if (!node) return null;
 
-  const data = node.data;
+  // Phase 7.6: Get object data from objects[] (single source of truth)
+  const object = objects.find((o) => o.id === selectedNode);
+  if (!object) return null;
+
+  const processProperties = object.processProperties;
+  // Build compatible data object from object + processProperties
+  const data = {
+    id: object.id,
+    name: object.name,
+    area: processProperties?.area ?? '',
+    timeAvailableDaily: processProperties?.timeAvailableDaily ?? 72000,
+    assignedModelsCount: object.compatibilitiesCount ?? 0,
+  };
 
   const handleClose = () => {
     setSelectedNode(null);
@@ -58,19 +75,16 @@ export const LinePropertiesPanel = () => {
     setIsLoading(true);
 
     try {
-      const response = await window.electronAPI.invoke<ProductionLine>('lines:update', data.id, formData);
+      // Phase 7.6: Update via useCanvasObjectStore (single source of truth)
+      await updateObject(data.id, {
+        name: formData.name,
+        processProperties: {
+          area: formData.area,
+          timeAvailableDaily: formData.timeAvailableDaily,
+        },
+      });
 
-      if (response.success && response.data) {
-        updateNode(data.id, {
-          name: response.data.name,
-          area: response.data.area,
-          timeAvailableDaily: response.data.timeAvailableDaily,
-        });
-
-        setIsEditing(false);
-      } else {
-        alert(`Error: ${response.error || 'Failed to update line'}`);
-      }
+      setIsEditing(false);
     } catch (error) {
       console.error('Error updating line:', error);
       alert('Failed to update line. Check console for details.');

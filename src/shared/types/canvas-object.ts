@@ -127,6 +127,7 @@ export interface CanvasObjectWithDetails extends CanvasObject {
   processProperties?: ProcessProperties;  // Process's own production properties
   processLink?: ProcessLineLink;           // Legacy: link to existing production line
   linkedLine?: ProductionLine;             // Legacy: the linked production line data
+  compatibilitiesCount?: number;           // Bug 1 Fix: Count of assigned models (for completeness indicator)
 }
 
 /**
@@ -345,4 +346,16 @@ export interface ConvertFromLineInput {
   lineId: string;
   newType: CanvasObjectType;
   shapeId: string;
+}
+
+// ============================================
+// CANVAS NODE DATA (Phase 7.6 - Single Source of Truth)
+// ============================================
+
+/**
+ * Minimal data stored in ReactFlow nodes.
+ * GenericShapeNode retrieves full data via Zustand selector.
+ */
+export interface CanvasNodeData {
+  objectId: string;
 }

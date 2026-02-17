@@ -488,12 +488,12 @@ const CanvasInner = () => {
       if (response.success && response.data) {
         const newObjectWithDetails = response.data;
 
-        // Add to canvas
+        // Add to canvas - Phase 7.6: Use objectId reference only
         addNode({
           id: newObjectWithDetails.id,
           type: 'genericShape',
           position: { x: newObjectWithDetails.xPosition, y: newObjectWithDetails.yPosition },
-          data: newObjectWithDetails,
+          data: { objectId: newObjectWithDetails.id },  // Phase 7.6: Reference only
           selectable: true, // Enable ReactFlow selection
           draggable: true,  // Enable dragging
         });
@@ -731,12 +731,12 @@ const CanvasInner = () => {
 
         const newObjectWithDetails = response.data;
 
-        // Add to canvas
+        // Add to canvas - Phase 7.6: Use objectId reference only
         addNode({
           id: newObjectWithDetails.id,
           type: 'genericShape',
           position: { x: newObjectWithDetails.xPosition, y: newObjectWithDetails.yPosition },
-          data: newObjectWithDetails,
+          data: { objectId: newObjectWithDetails.id },  // Phase 7.6: Reference only
           selectable: true, // Enable ReactFlow selection
           draggable: true,  // Enable dragging
         });
@@ -744,7 +744,7 @@ const CanvasInner = () => {
         // Add to store
         addObject(newObjectWithDetails);
 
-        console.log('[Paste] ✓ Object pasted:', newObjectWithDetails.name);
+        console.log('[Paste] Object pasted:', newObjectWithDetails.name);
 
         // KEEP in paste mode (allow multiple pastes)
         // User presses ESC to exit
@@ -813,12 +813,12 @@ const CanvasInner = () => {
           updatedAt: new Date(),
         };
 
-        // Add the new node directly to the canvas
+        // Add the new node directly to the canvas - Phase 7.6: Use objectId reference only
         addNode({
           id: newObjectId,
           type: 'genericShape',
           position: { x: xPos, y: yPos },
-          data: objectData,
+          data: { objectId: newObjectId },  // Phase 7.6: Reference only
           selectable: true, // Enable ReactFlow selection
           draggable: true,  // Enable dragging
         });
@@ -826,7 +826,7 @@ const CanvasInner = () => {
         // Also add to useCanvasObjectStore so ContextMenu can find it
         addObject(objectData);
 
-        console.log('[Placement] ✓ Object successfully added to canvas');
+        console.log('[Placement] Object successfully added to canvas');
 
         // Bug 1 Fix: Refresh status bar counts after creating object
         refreshData().catch(err => console.error('[Placement] Failed to refresh status bar:', err));
@@ -990,6 +990,13 @@ const CanvasInner = () => {
           nodesDraggable={!isPanMode}
           // Allow multi-select with Ctrl/Cmd+click
           multiSelectionKeyCode="Meta"
+          // CRITICAL: Disable ReactFlow's internal delete key handler.
+          // ReactFlow's handler updates its internal Zustand store synchronously BEFORE
+          // the event bubbles to document. When our custom handleKeyDown fires, getNodes()
+          // already returns empty selection (node already removed from RF internal state).
+          // Result: objects[] never gets updated → object reappears from cache-hit rebuild.
+          // Our custom handleKeyDown (document listener) handles delete correctly for both stores.
+          deleteKeyCode={null}
           // Allow source-to-source connections (eliminates need for dual handles)
           connectionMode={ConnectionMode.Loose}
         >

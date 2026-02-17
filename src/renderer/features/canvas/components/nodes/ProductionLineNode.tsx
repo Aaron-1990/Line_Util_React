@@ -2,6 +2,8 @@
 // PRODUCTION LINE NODE
 // Nodo visual de una linea de produccion en el canvas
 // Phase 5.6: Per-line changeover toggle + stacked bar visualization
+// Phase 7.6: DEPRECATED - All nodes now use GenericShapeNode with Zustand selector
+// This file is kept for backward compatibility with cached node types
 // ============================================
 
 import { memo, useCallback } from 'react';
@@ -9,20 +11,10 @@ import { Handle, Position, NodeProps } from 'reactflow';
 import { Settings2, Timer, TimerOff } from 'lucide-react';
 import { useChangeoverStore } from '../../../changeover/store/useChangeoverStore';
 import { useAnalysisStore } from '../../../analysis/store/useAnalysisStore';
-import { IPC_CHANNELS } from '@shared/constants';
-import { useCanvasStore } from '../../store/useCanvasStore';
+import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
+import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
 import { useToolStore } from '../../store/useToolStore';
-
-interface ProductionLineData {
-  id: string;
-  name: string;
-  area: string;
-  timeAvailableDaily: number;
-  efficiency: number;
-  assignedModelsCount?: number;
-  changeoverEnabled?: boolean;  // Phase 5.6
-  changeoverExplicit?: boolean; // Phase 5.6.1: True if user explicitly set toggle
-}
+import { CanvasNodeData } from '@shared/types';
 
 // Utilization thresholds for border colors
 const UTILIZATION_THRESHOLDS = {
@@ -59,18 +51,18 @@ function getBorderColorClass(utilizationPercent: number | null, selected: boolea
 /**
  * ProductionLineNode
  *
- * Nodo visual que representa una linea de produccion
- *
- * Phase 5.6 features:
- * - Per-line changeover toggle icon
- * - Stacked bar visualization (production + changeover + available)
- * - Border color by utilization threshold
+ * Phase 7.6: DEPRECATED - This component is kept for backward compatibility only
+ * All new nodes use GenericShapeNode with Zustand selector pattern
  */
-export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
+export const ProductionLineNode = memo<NodeProps<CanvasNodeData>>(
   ({ data, selected, id }) => {
-    const hoursAvailable = (data.timeAvailableDaily / 3600).toFixed(1);
+    // Phase 7.6: Retrieve full object data via Zustand selector
+    const object = useCanvasObjectStore(
+      (state) => state.objects.find((o) => o.id === data.objectId)
+    );
+    const updateCanvasObject = useCanvasObjectStore((state) => state.updateObject);
+
     const openChangeoverModal = useChangeoverStore((state) => state.openModal);
-    const updateNode = useCanvasStore((state) => state.updateNode);
 
     // Get tool state to show handles prominently in connect mode
     const activeTool = useToolStore((state) => state.activeTool);
@@ -83,8 +75,56 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
     const displayedYearIndex = useAnalysisStore((state) => state.displayedYearIndex);
     const globalChangeoverEnabled = useAnalysisStore((state) => state.globalChangeoverEnabled);
 
+    // Extract process properties early for safe use in callbacks (object may be undefined during deletion)
+    const processProperties = object?.processProperties;
+    const changeoverEnabled = processProperties?.changeoverEnabled ?? true;
+    const changeoverExplicit = processProperties?.changeoverExplicit ?? false;
+
+    // Changeover handlers - MUST be declared before early return (Rules of Hooks)
+    const handleChangeoverToggle = useCallback(async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const newEnabled = !changeoverEnabled;
+
+      // Optimistically update the UI via objects[] (single source of truth)
+      if (processProperties) {
+        updateCanvasObject(id, {
+          processProperties: {
+            ...processProperties,
+            changeoverEnabled: newEnabled,
+            changeoverExplicit: true,
+          },
+        });
+      }
+
+      // Persist to database
+      try {
+        await window.electronAPI.invoke(CANVAS_OBJECT_CHANNELS.SET_PROCESS_PROPS, id, {
+          changeoverEnabled: newEnabled,
+          changeoverExplicit: true,
+        });
+      } catch (error) {
+        console.error('Failed to update changeover toggle:', error);
+        // Revert on error
+        if (processProperties) {
+          updateCanvasObject(id, {
+            processProperties: {
+              ...processProperties,
+              changeoverEnabled,
+              changeoverExplicit,
+            },
+          });
+        }
+      }
+    }, [changeoverEnabled, changeoverExplicit, id, processProperties, updateCanvasObject]);
+
+    // RULES OF HOOKS: Early return AFTER all hooks are called
+    if (!object) return null;
+
+    const timeAvailableDaily = processProperties?.timeAvailableDaily ?? 72000;
+    const hoursAvailable = (timeAvailableDaily / 3600).toFixed(1);
+
     // Find this line's result from the analysis (for the currently displayed year)
-    const lineResult = results?.yearResults?.[displayedYearIndex]?.lines?.find(l => l.lineId === data.id);
+    const lineResult = results?.yearResults?.[displayedYearIndex]?.lines?.find(l => l.lineId === id);
 
     // Calculate percentages for stacked bar
     const utilizationPercent = lineResult?.utilizationPercent ?? null;
@@ -93,13 +133,13 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
     // Production time = utilization without changeover
     const productionPercent = utilizationPercent !== null
       ? (hasChangeover
-          ? ((lineResult?.timeUsedDaily ?? 0) / data.timeAvailableDaily) * 100
+          ? ((lineResult?.timeUsedDaily ?? 0) / timeAvailableDaily) * 100
           : utilizationPercent)
       : null;
 
     // Changeover time percentage
     const changeoverPercent = hasChangeover
-      ? ((lineResult?.changeover?.timeUsedChangeover ?? 0) / data.timeAvailableDaily) * 100
+      ? ((lineResult?.changeover?.timeUsedChangeover ?? 0) / timeAvailableDaily) * 100
       : 0;
 
     // Total utilization including changeover
@@ -107,39 +147,17 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
       ? lineResult?.changeover?.utilizationWithChangeover ?? utilizationPercent
       : utilizationPercent;
 
-    // Efficiency (Blended OEE) will be calculated in Phase 4 after optimization
-    const hasEfficiency = data.efficiency != null && !isNaN(data.efficiency) && data.efficiency > 0;
-    const efficiencyDisplay = hasEfficiency ? `${(data.efficiency * 100).toFixed(0)}%` : '--';
-
-    // Phase 5.6: Changeover toggle state
-    const changeoverEnabled = data.changeoverEnabled ?? true;
-    // Phase 5.6.1: Explicit override flag (true if user explicitly set the toggle)
-    const changeoverExplicit = data.changeoverExplicit ?? false;
+    // Efficiency - not available from processProperties
+    const hasEfficiency = false;
+    const efficiencyDisplay = '--';
 
     // Is this line a critical override? (calculating changeover when global is OFF but line is explicitly ON)
     const isCriticalOverride = !globalChangeoverEnabled && changeoverExplicit && changeoverEnabled;
 
     const handleChangeoverClick = (e: React.MouseEvent) => {
       e.stopPropagation();
-      openChangeoverModal(data.id, data.name);
+      openChangeoverModal(id, object.name);
     };
-
-    const handleChangeoverToggle = useCallback(async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const newEnabled = !changeoverEnabled;
-
-      // Optimistically update the UI - also mark as explicit since user is setting it
-      updateNode(data.id, { changeoverEnabled: newEnabled, changeoverExplicit: true });
-
-      // Persist to database (the repository will set explicit=1)
-      try {
-        await window.electronAPI.invoke(IPC_CHANNELS.LINES_UPDATE_CHANGEOVER_ENABLED, data.id, newEnabled);
-      } catch (error) {
-        console.error('Failed to update changeover toggle:', error);
-        // Revert on error
-        updateNode(data.id, { changeoverEnabled, changeoverExplicit });
-      }
-    }, [changeoverEnabled, changeoverExplicit, data.id, updateNode]);
 
     // Border color based on utilization
     const borderClass = getBorderColorClass(totalUtilization, selected ?? false);
@@ -166,7 +184,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
                     : 'bg-green-500'
                 : 'bg-green-500'
             }`} />
-            <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{data.name}</span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{object.name}</span>
           </div>
           <div className="flex items-center gap-1">
             {/* Per-line changeover toggle */}
@@ -261,7 +279,7 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
         <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
           <div className="flex items-center gap-1">
             <span className="font-medium">Area:</span>
-            <span>{data.area}</span>
+            <span>{processProperties?.area ?? '--'}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="font-medium">Time:</span>
@@ -271,10 +289,10 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
             <span className="font-medium">Efficiency:</span>
             <span className={hasEfficiency ? '' : 'text-gray-400'}>{efficiencyDisplay}</span>
           </div>
-          {data.assignedModelsCount !== undefined && data.assignedModelsCount > 0 && (
+          {(object.compatibilitiesCount ?? 0) > 0 && (
             <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 text-primary-600 dark:text-primary-400">
               <span>Models:</span>
-              <span>{data.assignedModelsCount}</span>
+              <span>{object.compatibilitiesCount}</span>
             </div>
           )}
         </div>
@@ -334,24 +352,8 @@ export const ProductionLineNode = memo<NodeProps<ProductionLineData>>(
         />
       </div>
     );
-  },
-  // Custom comparison to ensure re-render when changeover fields change
-  (prevProps, nextProps) => {
-    // Return true if props are equal (skip re-render), false if different (re-render)
-    const prevData = prevProps.data;
-    const nextData = nextProps.data;
-
-    return (
-      prevProps.selected === nextProps.selected &&
-      prevData.id === nextData.id &&
-      prevData.name === nextData.name &&
-      prevData.area === nextData.area &&
-      prevData.timeAvailableDaily === nextData.timeAvailableDaily &&
-      prevData.changeoverEnabled === nextData.changeoverEnabled &&
-      prevData.changeoverExplicit === nextData.changeoverExplicit &&
-      prevData.assignedModelsCount === nextData.assignedModelsCount
-    );
   }
+  // Phase 7.6: No custom comparison needed - Zustand's Object.is on selector result handles this
 );
 
 ProductionLineNode.displayName = 'ProductionLineNode';

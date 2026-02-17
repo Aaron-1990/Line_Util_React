@@ -2,20 +2,31 @@
 // CHANGEOVER TOGGLE
 // Phase 5.6: Global toggle for changeover calculation
 // Phase 5.6.3: Simplified UI with three buttons
+// Phase 7.6: Updated to use useCanvasObjectStore for single source of truth
 // ============================================
 
 import { useState } from 'react';
 import { Timer, TimerOff, RotateCcw } from 'lucide-react';
 import { useAnalysisStore } from '../store/useAnalysisStore';
-import { useCanvasStore } from '../../canvas/store/useCanvasStore';
+import { useCanvasObjectStore } from '../../canvas/store/useCanvasObjectStore';
+import { useNavigationStore } from '../../../store/useNavigationStore';
 import { IPC_CHANNELS } from '@shared/constants';
 
 export const ChangeoverToggle = () => {
   const globalChangeoverEnabled = useAnalysisStore((state) => state.globalChangeoverEnabled);
   const setGlobalChangeoverEnabled = useAnalysisStore((state) => state.setGlobalChangeoverEnabled);
-  const refreshNodes = useCanvasStore((state) => state.refreshNodes);
+  // Phase 7.6: Use loadObjectsForPlant to refresh objects[] (single source of truth)
+  const loadObjectsForPlant = useCanvasObjectStore((state) => state.loadObjectsForPlant);
+  const currentPlantId = useNavigationStore((state) => state.currentPlantId);
 
   const [isLoading, setIsLoading] = useState(false);
+
+  // Helper to reload objects from database
+  const refreshObjects = async () => {
+    if (currentPlantId) {
+      await loadObjectsForPlant(currentPlantId);
+    }
+  };
 
   // Enable changeover for ALL lines + set global ON
   const handleAllOn = async () => {
@@ -25,7 +36,7 @@ export const ChangeoverToggle = () => {
       if (response.success) {
         console.log(`[ChangeoverToggle] Enabled changeover for ${response.data} lines`);
         setGlobalChangeoverEnabled(true);
-        await refreshNodes();
+        await refreshObjects();
       }
     } catch (error) {
       console.error('Failed to enable all changeover:', error);
@@ -42,7 +53,7 @@ export const ChangeoverToggle = () => {
       if (response.success) {
         console.log(`[ChangeoverToggle] Disabled changeover for ${response.data} lines`);
         setGlobalChangeoverEnabled(false);
-        await refreshNodes();
+        await refreshObjects();
       }
     } catch (error) {
       console.error('Failed to disable all changeover:', error);
@@ -62,7 +73,7 @@ export const ChangeoverToggle = () => {
       );
       if (response.success) {
         console.log(`[ChangeoverToggle] Reset ${response.data} lines to ${globalChangeoverEnabled ? 'ON' : 'OFF'}`);
-        await refreshNodes();
+        await refreshObjects();
       }
     } catch (error) {
       console.error('Failed to reset changeover toggles:', error);

@@ -17,16 +17,12 @@ import {
   TimerOff,
   Settings2
 } from 'lucide-react';
-import { CanvasObjectWithDetails, CanvasObjectType } from '@shared/types';
+import { CanvasObjectType, CanvasNodeData } from '@shared/types';
 import { useToolStore } from '../../store/useToolStore';
 import { useChangeoverStore } from '../../../changeover/store/useChangeoverStore';
 import { useAnalysisStore } from '../../../analysis/store/useAnalysisStore';
 import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
-
-interface GenericShapeNodeData extends CanvasObjectWithDetails {
-  // All data comes from CanvasObjectWithDetails
-}
 
 /**
  * Get the icon for an object type
@@ -198,34 +194,122 @@ function getBorderColor(utilizationPercent: number | null, selected: boolean, is
   return '#D1D5DB'; // gray-300
 }
 
-export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
+export const GenericShapeNode = memo<NodeProps<CanvasNodeData>>(
   ({ data, selected, id }) => {
-    const { objectType, name, colorOverride, bufferProperties, processProperties } = data;
-
-    // Use default shape if shape is undefined (can happen during type changes)
-    const shape = data.shape ?? DEFAULT_SHAPE;
+    // Phase 7.6: Retrieve full object data via Zustand selector
+    // Zustand's Object.is comparison ensures re-render only when THIS object changes
+    const object = useCanvasObjectStore(
+      (state) => state.objects.find((o) => o.id === data.objectId)
+    );
+    const updateCanvasObject = useCanvasObjectStore((state) => state.updateObject);
 
     // Get tool state to show anchors prominently in connect mode
     const activeTool = useToolStore((state) => state.activeTool);
     const connectionSource = useToolStore((state) => state.connectionSource);
-    const isConnectMode = activeTool === 'connect';
-    const isConnectionSource = connectionSource?.objectId === id;
 
-    // Changeover stores
+    // Changeover store
     const openChangeoverModal = useChangeoverStore((state) => state.openModal);
-    const updateCanvasObject = useCanvasObjectStore((state) => state.updateObject);
 
     // Analysis results and global changeover state
     const results = useAnalysisStore((state) => state.results);
     const displayedYearIndex = useAnalysisStore((state) => state.displayedYearIndex);
     const globalChangeoverEnabled = useAnalysisStore((state) => state.globalChangeoverEnabled);
 
+    // Extract process properties early for safe use in callbacks (object may be undefined during deletion)
+    const processProperties = object?.processProperties;
+    const changeoverEnabled = processProperties?.changeoverEnabled ?? true;
+    const changeoverExplicit = processProperties?.changeoverExplicit ?? false;
+
+    // Changeover handlers - MUST be declared before early return (Rules of Hooks)
+    const handleChangeoverClick = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      openChangeoverModal(id, object?.name ?? '');
+    }, [id, object?.name, openChangeoverModal]);
+
+    const handleChangeoverToggle = useCallback(async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const newEnabled = !changeoverEnabled;
+
+      // Optimistic UI update
+      if (processProperties) {
+        updateCanvasObject(id, {
+          processProperties: {
+            ...processProperties,
+            changeoverEnabled: newEnabled,
+            changeoverExplicit: true,
+          },
+        });
+      }
+
+      // Persist to database
+      try {
+        await window.electronAPI.invoke(CANVAS_OBJECT_CHANNELS.SET_PROCESS_PROPS, id, {
+          changeoverEnabled: newEnabled,
+          changeoverExplicit: true,
+        });
+      } catch (error) {
+        console.error('Failed to update changeover toggle:', error);
+        // Revert on error
+        if (processProperties) {
+          updateCanvasObject(id, {
+            processProperties: {
+              ...processProperties,
+              changeoverEnabled,
+              changeoverExplicit,
+            },
+          });
+        }
+      }
+    }, [changeoverEnabled, changeoverExplicit, id, processProperties, updateCanvasObject]);
+
+    // Derived values needed by useMemo - MUST be declared before early return (Rules of Hooks)
+    const shape = object?.shape ?? DEFAULT_SHAPE;
+    const isConnectMode = activeTool === 'connect';
+    const isConnectionSource = connectionSource?.objectId === id;
+    const anchors = shape.anchors ?? [];
+    const handles = useMemo(() => {
+      return anchors.map((anchor) => {
+        const position = anchorToPosition(anchor.position);
+
+        // Calculate handle position based on offset
+        const style: React.CSSProperties = {};
+        if (position === Position.Top || position === Position.Bottom) {
+          style.left = `${anchor.offsetX * 100}%`;
+        } else {
+          style.top = `${anchor.offsetY * 100}%`;
+        }
+
+        // Determine handle styling based on mode - matching ProductionLineNode
+        const isSelectedAnchor = connectionSource?.anchor === anchor.id && isConnectionSource;
+        const handleSize = isConnectMode ? 'w-3 h-3' : 'w-2 h-2';
+        const handleColor = isSelectedAnchor
+          ? '!bg-green-500'
+          : isConnectMode
+          ? '!bg-blue-400 hover:!bg-blue-600'
+          : '!bg-gray-400 hover:!bg-primary-500'; // Matches ProductionLineNode
+        const handleVisibility = isConnectMode ? 'opacity-100' : 'opacity-0 hover:opacity-100';
+
+        return (
+          <Handle
+            key={anchor.id}
+            id={anchor.id}
+            type="source"
+            position={position}
+            style={style}
+            className={`${handleSize} ${handleColor} ${handleVisibility} transition-all duration-200 !border-2 !border-white shadow-sm`}
+          />
+        );
+      });
+    }, [anchors, isConnectMode, connectionSource, isConnectionSource]);
+
+    // RULES OF HOOKS: Early return AFTER all hooks are called
+    if (!object) return null;
+
+    const { objectType, name, colorOverride, bufferProperties } = object;
+
     // Get this object's result from analysis (for displayed year)
     const lineResult = results?.yearResults?.[displayedYearIndex]?.lines?.find(l => l.lineId === id);
 
-    // Process-specific properties for changeover
-    const changeoverEnabled = processProperties?.changeoverEnabled ?? true;
-    const changeoverExplicit = processProperties?.changeoverExplicit ?? false;
     const timeAvailableDaily = processProperties?.timeAvailableDaily ?? 0;
 
     // Is this a critical override? (calculating changeover when global is OFF but line explicitly ON)
@@ -273,51 +357,9 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
       ? lineResult?.changeover?.utilizationWithChangeover ?? utilizationPercent
       : utilizationPercent;
 
-    // Changeover handlers
-    const handleChangeoverClick = useCallback((e: React.MouseEvent) => {
-      e.stopPropagation();
-      openChangeoverModal(id, name);
-    }, [id, name, openChangeoverModal]);
-
-    const handleChangeoverToggle = useCallback(async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const newEnabled = !changeoverEnabled;
-
-      // Optimistic UI update
-      if (processProperties) {
-        updateCanvasObject(id, {
-          processProperties: {
-            ...processProperties,
-            changeoverEnabled: newEnabled,
-            changeoverExplicit: true,
-          },
-        });
-      }
-
-      // Persist to database
-      try {
-        await window.electronAPI.invoke(CANVAS_OBJECT_CHANNELS.SET_PROCESS_PROPS, id, {
-          changeoverEnabled: newEnabled,
-          changeoverExplicit: true,
-        });
-      } catch (error) {
-        console.error('Failed to update changeover toggle:', error);
-        // Revert on error
-        if (processProperties) {
-          updateCanvasObject(id, {
-            processProperties: {
-              ...processProperties,
-              changeoverEnabled,
-              changeoverExplicit,
-            },
-          });
-        }
-      }
-    }, [changeoverEnabled, changeoverExplicit, id, processProperties, updateCanvasObject]);
-
     // Calculate dimensions
-    const width = data.width ?? shape.defaultWidth;
-    const height = data.height ?? shape.defaultHeight;
+    const width = object.width ?? shape.defaultWidth;
+    const height = object.height ?? shape.defaultHeight;
 
     // Determine if we have a color override
     const hasColorOverride = !!colorOverride;
@@ -328,46 +370,16 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
       : (selected ? '#6366F1' : isConnectionSource ? '#10B981' : '#D1D5DB');
     const strokeWidth = selected ? 2 : 1;
 
-    // Check if this is a process object (shows changeover controls)
-    const isProcessObject = objectType === 'process' && processProperties;
+    // Check if this is a process object (shows card layout with changeover controls)
+    // Bug 1 Fix: Use objectType alone - processProperties may be undefined right after convert (optimistic update)
+    const isProcessObject = objectType === 'process';
 
-    // Generate handles from shape anchors
-    // Single handle per anchor with type="source" - connectionMode="loose" allows source-to-source connections
-    const anchors = shape.anchors ?? [];
-    const handles = useMemo(() => {
-      return anchors.map((anchor) => {
-        const position = anchorToPosition(anchor.position);
-
-        // Calculate handle position based on offset
-        const style: React.CSSProperties = {};
-        if (position === Position.Top || position === Position.Bottom) {
-          style.left = `${anchor.offsetX * 100}%`;
-        } else {
-          style.top = `${anchor.offsetY * 100}%`;
-        }
-
-        // Determine handle styling based on mode - matching ProductionLineNode
-        const isSelectedAnchor = connectionSource?.anchor === anchor.id && isConnectionSource;
-        const handleSize = isConnectMode ? 'w-3 h-3' : 'w-2 h-2';
-        const handleColor = isSelectedAnchor
-          ? '!bg-green-500'
-          : isConnectMode
-          ? '!bg-blue-400 hover:!bg-blue-600'
-          : '!bg-gray-400 hover:!bg-primary-500'; // Matches ProductionLineNode
-        const handleVisibility = isConnectMode ? 'opacity-100' : 'opacity-0 hover:opacity-100';
-
-        return (
-          <Handle
-            key={anchor.id}
-            id={anchor.id}
-            type="source"
-            position={position}
-            style={style}
-            className={`${handleSize} ${handleColor} ${handleVisibility} transition-all duration-200 !border-2 !border-white shadow-sm`}
-          />
-        );
-      });
-    }, [anchors, isConnectMode, connectionSource, isConnectionSource]);
+    // Bug 1 Fix: Completeness indicator for process objects
+    const hasArea = !!(processProperties?.area && processProperties.area !== '');
+    const hasTime = (processProperties?.timeAvailableDaily ?? 0) > 0;
+    const hasModels = (object.compatibilitiesCount ?? 0) > 0;
+    const isComplete = hasArea && hasTime && hasModels;
+    const isIncomplete = isProcessObject && !isComplete;
 
     // Type badge
     const typeIcon = getTypeIcon(objectType);
@@ -378,7 +390,7 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
       return (
         <div
           className={`
-            px-3 py-2 rounded-lg border-2 bg-white dark:bg-gray-800 shadow-md
+            relative px-3 py-2 rounded-lg border-2 bg-white dark:bg-gray-800 shadow-md
             min-w-[200px] transition-all duration-200
             ${isConnectionSource ? 'ring-2 ring-green-500 ring-offset-2' : ''}
             ${selected ? 'ring-2 ring-primary-200 dark:ring-primary-800 ring-offset-2 border-primary-500' : ''}
@@ -389,9 +401,20 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
             minHeight: 80,
           }}
         >
+          {/* Bug 1 Fix: Incomplete badge - yellow "!" when process is missing area, time, or models */}
+          {isIncomplete && (
+            <div
+              className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shadow-sm z-10"
+              title="Incomplete: missing area, time available, or assigned models"
+            >
+              <span className="text-white text-xs font-bold leading-none">!</span>
+            </div>
+          )}
+
           {/* Header with name and changeover controls */}
           <div className="flex items-center justify-between mb-1.5">
             <div className="flex items-center gap-2 flex-1 min-w-0">
+              {/* Bug 1 Fix: Dot is green only when complete (or when analysis shows utilization) */}
               <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                 totalUtilization !== null
                   ? totalUtilization > 95
@@ -399,7 +422,9 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
                     : totalUtilization > 85
                       ? 'bg-amber-500'
                       : 'bg-green-500'
-                  : 'bg-green-500'
+                  : isComplete
+                    ? 'bg-green-500'
+                    : 'bg-gray-300 dark:bg-gray-600'
               }`} />
               <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate">
                 {name}
@@ -657,28 +682,10 @@ export const GenericShapeNode = memo<NodeProps<GenericShapeNodeData>>(
         {handles}
       </div>
     );
-  },
-  // Custom comparison for memo - includes changeover fields for re-render
-  (prevProps, nextProps) => {
-    const prevData = prevProps.data;
-    const nextData = nextProps.data;
-
-    return (
-      prevProps.selected === nextProps.selected &&
-      prevData.id === nextData.id &&
-      prevData.name === nextData.name &&
-      prevData.objectType === nextData.objectType &&
-      prevData.colorOverride === nextData.colorOverride &&
-      prevData.width === nextData.width &&
-      prevData.height === nextData.height &&
-      prevData.bufferProperties?.currentWip === nextData.bufferProperties?.currentWip &&
-      prevData.linkedLine?.name === nextData.linkedLine?.name &&
-      // Phase 7.5+: Changeover fields
-      prevData.processProperties?.changeoverEnabled === nextData.processProperties?.changeoverEnabled &&
-      prevData.processProperties?.changeoverExplicit === nextData.processProperties?.changeoverExplicit &&
-      prevData.processProperties?.timeAvailableDaily === nextData.processProperties?.timeAvailableDaily
-    );
   }
+  // Phase 7.6: No custom comparison needed - Zustand's Object.is on selector result handles this:
+  // - When objects.map() creates new ref for THIS object -> re-render
+  // - When unrelated object changes -> same ref returned -> NO re-render
 );
 
 GenericShapeNode.displayName = 'GenericShapeNode';

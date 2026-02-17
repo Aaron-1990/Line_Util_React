@@ -162,6 +162,8 @@ export const AssignModelToObjectModal = () => {
         priority: pri,
       });
     }
+    // updateNode and refreshData are now handled inside the store actions
+    // to avoid race condition when modal closes before this code executes
   };
 
   const handleCancel = () => {

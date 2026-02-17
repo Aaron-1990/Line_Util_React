@@ -1,48 +1,56 @@
 # Pending Bugs - To Address in Future Sessions
 
-**Last Updated:** 2026-02-16
-**Status:** 2 pending, 1 clarified, 1 cosmetic, 1 resolved
+**Last Updated:** 2026-02-17
+**Status:** 2 pending (Bug 1 priority next session), 1 clarified, 1 cosmetic, 1 resolved
 
 ---
 
-## Bug 1: Status Bar Shows "0 Lines" Despite Process Objects Existing
+## Bug 1: Incomplete Process Object Counter Still Failing
 
-**Priority:** Medium
-**Impact:** UX/Visual - Data appears incomplete
+**Priority:** High (next session)
+**Impact:** UX/Visual — Status bar counts are wrong, user can't trust "complete/incomplete" indicators
+
+### Current State (2026-02-17)
+
+Two partial fixes were implemented but the counter is still not working correctly:
+
+- **Part 1** (`374ea69`) — Added complete/incomplete process object counts to status bar
+- **Part 1b** (`6e62b16`) — Refresh counts after create/delete/duplicate operations
+
+Despite these commits, the incomplete process object counter still fails. **This is the next item to fix.**
 
 ### Description
 
-The status bar at the bottom of the Canvas shows "Data Incomplete" and displays "0 Lines" even when process objects (converted lines) exist on the canvas.
+The status bar shows complete/incomplete counts for process objects (canvas objects with `objectType = 'process'`). The counts are inaccurate — either showing 0 when objects exist, or not updating correctly after operations.
 
 ### Expected Behavior
-- Status bar should count process objects as "lines"
-- Should show: "X Lines" where X = number of process objects
+- Status bar counts all process objects on the current canvas/plant
+- "Complete" = process object has area + time + at least 1 assigned model
+- "Incomplete" = process object missing area, time, or models
+- Counts refresh immediately after: create, delete, duplicate, edit, model assign/unassign
 
 ### Actual Behavior
-- Shows: "0 Lines"
-- Other metrics are correct: "2 Models", "2 Volumes", "12 Compat"
+- Counter shows wrong values (0 or stale counts)
+- Not consistently updated after operations
 
-### Context
-- User created several objects
-- Converted them to process objects (using object type conversion)
-- Generated areas and models
-- Assigned them to objects/lines
-- Status bar still shows "0 Lines"
+### Investigation Starting Point
 
-### Possible Causes
-1. Status bar logic only counts `production_lines` table entries
-2. Doesn't count `canvas_objects` where `objectType = 'process'`
-3. After Phase 7.5 unification, status bar wasn't updated
-
-### Investigation Needed
-- Check where status bar data comes from
-- Verify if it queries `production_lines` (deprecated) instead of `canvas_objects`
-- See Phase 7.5 migration 017_unify_production_lines.sql
+Since Phase 7.6 changed how canvas object data is stored (`nodes[].data` → `objects[]`), verify:
+1. Does the status bar query `useCanvasObjectStore.objects[]` or the old `useCanvasStore.nodes[]`?
+2. Is the "completeness" check reading from `objects[]` (which has fresh `processProperties`) or from a stale source?
+3. Do the refresh triggers (create/delete/duplicate) fire AFTER `objects[]` is updated?
 
 ### Files to Check
-- Status bar component (likely in Canvas feature)
-- IPC handler for status data
-- Repository that provides line count
+- Status bar component in Canvas feature
+- IPC handler for status count data
+- Repository query — verify it reads `canvas_objects WHERE objectType='process'`
+- Completeness logic — needs `area`, `timeAvailableDaily`, and `compatibilitiesCount > 0`
+
+### Context After Phase 7.6
+- `objects[]` is the single source of truth for all canvas object data
+- `processProperties` (area, timeAvailableDaily) lives inside each object in `objects[]`
+- `compatibilitiesCount` is on the object itself
+- Any completeness check must read from `useCanvasObjectStore.objects[]`
 
 ---
 
@@ -275,10 +283,11 @@ When Mac entered sleep/wake cycle, deleted canvas objects would reappear despite
 
 ## Recommended Priority Order for Next Session
 
-1. **FIRST:** Fix Status bar "0 Lines" (quick win) - Bug 1
-   - Update query to count `canvas_objects` where `objectType = 'process'`
-   - Should be < 30 min
-   - High user visibility, low effort
+1. **FIRST:** Fix incomplete process object counter - Bug 1 (CONTINUED)
+   - Parts 1 and 1b were implemented but counter still fails
+   - Investigate whether completeness check reads from `objects[]` (Phase 7.6 source of truth)
+   - Verify refresh triggers fire AFTER `objects[]` is updated
+   - See updated Bug 1 section above for investigation starting points
 
 2. **SECOND:** Investigate Routings auto-generation - Bug 2
    - Design decision: Should this be automatic?
@@ -300,4 +309,4 @@ When Mac entered sleep/wake cycle, deleted canvas objects would reappear despite
 
 *Documented by: Claude Sonnet 4.5*
 *Date: 2026-02-15*
-*Updated: 2026-02-16 - Bug 5 marked as resolved*
+*Updated: 2026-02-17 - Bug 1 updated with Phase 7.6 context; Phase 7.6 (canvas SSoT) completed*
