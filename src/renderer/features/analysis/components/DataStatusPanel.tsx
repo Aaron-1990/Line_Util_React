@@ -1,9 +1,10 @@
 // ============================================
 // DATA STATUS PANEL
 // Shows Lines/Models/Volumes/Compat counts with ready status icons
+// Bug 1 Fix: Added incomplete count with warning indicator
 // ============================================
 
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { useAnalysisStore } from '../store/useAnalysisStore';
 
 interface StatusItemProps {
@@ -25,6 +26,20 @@ const StatusItem = ({ label, count, isLoading }: StatusItemProps) => {
         <XCircle className="w-4 h-4 text-red-400" />
       )}
       <span className="text-sm text-gray-600 dark:text-gray-300">
+        <span className="font-medium">{count}</span> {label}
+      </span>
+    </div>
+  );
+};
+
+// Bug 1 Fix: Warning status item for incomplete objects
+const WarningStatusItem = ({ label, count, isLoading }: StatusItemProps) => {
+  if (isLoading || count === 0) return null;  // Only show if incomplete objects exist
+
+  return (
+    <div className="flex items-center gap-2" title={`${count} objects missing required data (name, area, time, or models)`}>
+      <AlertTriangle className="w-4 h-4 text-amber-500" />
+      <span className="text-sm text-amber-600 dark:text-amber-400">
         <span className="font-medium">{count}</span> {label}
       </span>
     </div>
@@ -54,6 +69,12 @@ export const DataStatusPanel = () => {
         <StatusItem
           label="Lines"
           count={dataCounts.lines}
+          isLoading={isDataLoading}
+        />
+        {/* Bug 1 Fix: Show incomplete count if > 0 */}
+        <WarningStatusItem
+          label="Incomplete"
+          count={dataCounts.incomplete}
           isLoading={isDataLoading}
         />
         <StatusItem

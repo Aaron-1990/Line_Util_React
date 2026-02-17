@@ -10,7 +10,8 @@ import { ANALYSIS_CHANNELS, IPC_CHANNELS, CHANGEOVER_CHANNELS } from '@shared/co
 // ===== Types =====
 
 export interface DataCounts {
-  lines: number;
+  lines: number;              // Complete process objects (ready for analysis)
+  incomplete: number;         // Incomplete process objects (missing data) - Bug 1 Fix
   models: number;
   volumes: number;
   compatibilities: number;
@@ -113,6 +114,7 @@ interface AnalysisState {
 
 const initialDataCounts: DataCounts = {
   lines: 0,
+  incomplete: 0,  // Bug 1 Fix
   models: 0,
   volumes: 0,
   compatibilities: 0,
@@ -427,9 +429,26 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     setDataError(null);
 
     try {
+      // Bug 1 Fix: Get current plant ID for plant-scoped validation counts
+      const { useNavigationStore } = await import('../../../store/useNavigationStore');
+      const currentPlantId = useNavigationStore.getState().currentPlantId;
+
+      if (!currentPlantId) {
+        // No plant selected - show zero counts
+        setDataCounts({
+          lines: 0,
+          incomplete: 0,
+          models: 0,
+          volumes: 0,
+          compatibilities: 0,
+        });
+        setDataLoading(false);
+        return;
+      }
+
       // Fetch all counts in parallel (including global changeover toggle)
-      const [linesRes, modelsRes, volumesRes, compatsRes, yearsRes, rangeRes, areasRes, changeoverEnabledRes] = await Promise.all([
-        window.electronAPI.invoke<unknown[]>('lines:get-all'),
+      const [validationCountsRes, modelsRes, volumesRes, compatsRes, yearsRes, rangeRes, areasRes, changeoverEnabledRes] = await Promise.all([
+        window.electronAPI.invoke<{ complete: number; incomplete: number; total: number }>(IPC_CHANNELS.LINES_GET_VALIDATION_COUNTS, currentPlantId),
         window.electronAPI.invoke<unknown[]>('models-v2:get-all'),
         window.electronAPI.invoke<unknown[]>('product-volumes:get-all'),
         window.electronAPI.invoke<unknown[]>('compatibility:get-all'),
@@ -441,7 +460,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
       // Extract counts
       const counts: DataCounts = {
-        lines: linesRes.success && Array.isArray(linesRes.data) ? linesRes.data.length : 0,
+        lines: validationCountsRes.success && validationCountsRes.data ? validationCountsRes.data.complete : 0,
+        incomplete: validationCountsRes.success && validationCountsRes.data ? validationCountsRes.data.incomplete : 0,
         models: modelsRes.success && Array.isArray(modelsRes.data) ? modelsRes.data.length : 0,
         volumes: volumesRes.success && Array.isArray(volumesRes.data) ? volumesRes.data.length : 0,
         compatibilities: compatsRes.success && Array.isArray(compatsRes.data) ? compatsRes.data.length : 0,

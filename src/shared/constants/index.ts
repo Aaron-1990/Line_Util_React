@@ -49,6 +49,7 @@ export const IPC_CHANNELS = {
   LINES_UPDATE_CHANGEOVER_ENABLED: 'lines:update-changeover-enabled',  // Phase 5.6
   LINES_RESET_ALL_CHANGEOVER: 'lines:reset-all-changeover',  // Phase 5.6.2
   LINES_SET_ALL_CHANGEOVER: 'lines:set-all-changeover',  // Phase 5.6.2
+  LINES_GET_VALIDATION_COUNTS: 'lines:get-validation-counts-by-plant',  // Bug 1 Fix: Complete/incomplete counts
 
   // Models
   MODELS_GET_ALL: 'models:get-all',

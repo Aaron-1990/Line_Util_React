@@ -863,6 +863,31 @@ export interface RunOptimizationRequest {
 }
 
 // ============================================
+// CANVAS OBJECT VALIDATION TYPES (Bug 1 Fix)
+// ============================================
+
+/**
+ * Validation status for canvas objects (process type)
+ * Used to determine if object is ready for optimization analysis
+ */
+export interface CanvasObjectValidation {
+  objectId: string;
+  isComplete: boolean;
+  missingFields: ('name' | 'area' | 'time_available' | 'models')[];
+}
+
+/**
+ * Validation counts by plant
+ * Used for status bar display in Canvas
+ */
+export interface ProcessObjectCounts {
+  plantId: string;
+  complete: number;      // Objects ready for analysis (all fields + models)
+  incomplete: number;    // Objects missing required data
+  total: number;         // complete + incomplete
+}
+
+// ============================================
 // CHANGEOVER MATRIX TYPES (Phase 5)
 // ============================================
 

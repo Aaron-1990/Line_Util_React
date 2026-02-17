@@ -308,4 +308,63 @@ export function registerProductionLinesHandlers(): void {
       }
     }
   );
+
+  // Bug 1 Fix: Get validation counts for process objects by plant
+  ipcMain.handle(
+    IPC_CHANNELS.LINES_GET_VALIDATION_COUNTS,
+    async (_event, plantId: string): Promise<ApiResponse<{ complete: number; incomplete: number; total: number }>> => {
+      try {
+        const db = DatabaseConnection.getInstance();
+
+        // Single query with CASE statements for efficiency
+        // A process object is "complete" if it has:
+        // 1. name IS NOT NULL AND name != ''
+        // 2. process_properties with area != '' AND time_available_daily > 0
+        // 3. At least one model assigned (canvas_object_compatibilities)
+        const result = db.prepare(`
+          SELECT
+            COUNT(CASE
+              WHEN co.name IS NOT NULL
+                AND co.name != ''
+                AND pp.area IS NOT NULL
+                AND pp.area != ''
+                AND pp.time_available_daily > 0
+                AND (SELECT COUNT(*) FROM canvas_object_compatibilities WHERE canvas_object_id = co.id) > 0
+              THEN 1
+            END) as complete_count,
+            COUNT(CASE
+              WHEN co.name IS NULL
+                OR co.name = ''
+                OR pp.area IS NULL
+                OR pp.area = ''
+                OR pp.time_available_daily IS NULL
+                OR pp.time_available_daily <= 0
+                OR (SELECT COUNT(*) FROM canvas_object_compatibilities WHERE canvas_object_id = co.id) = 0
+              THEN 1
+            END) as incomplete_count,
+            COUNT(*) as total_count
+          FROM canvas_objects co
+          LEFT JOIN process_properties pp ON co.id = pp.canvas_object_id
+          WHERE co.object_type = 'process'
+            AND co.active = 1
+            AND co.plant_id = ?
+        `).get(plantId) as { complete_count: number; incomplete_count: number; total_count: number };
+
+        return {
+          success: true,
+          data: {
+            complete: result.complete_count,
+            incomplete: result.incomplete_count,
+            total: result.total_count,
+          },
+        };
+      } catch (error) {
+        console.error('[Lines Handler] Error getting validation counts:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
 }
