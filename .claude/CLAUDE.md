@@ -1,6 +1,6 @@
 # Line Optimizer - Project Context
 
-> **Version:** 0.7.3 | **Last Updated:** 2026-02-15 | **Developer:** Aaron Zapata
+> **Version:** 0.7.3 | **Last Updated:** 2026-02-16 | **Developer:** Aaron Zapata
 
 ---
 
@@ -27,15 +27,24 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 **To avoid breaking existing features or duplicating work:**
 
-1. **Use `Explore` agent first** when asked to modify any feature - understand what exists before changing
-2. **Read `docs/CHANGELOG-PHASES.md`** before modifying these areas:
+1. **MANDATORY: Run Bug Prevention Checklist** - `docs/standards/BUG-5-AND-3-4-PREVENTION-CHECKLIST.md`
+   - Prevents regression of Bug 5 (Mac sleep/wake data loss)
+   - Prevents regression of Bug 3-4 (ReactFlow remount/selection clearing)
+   - **Use checklist BEFORE implementing ANY feature**
+
+2. **Use `Explore` agent first** when asked to modify any feature - understand what exists before changing
+
+3. **Read `docs/CHANGELOG-PHASES.md`** before modifying these areas:
    - Changeover (Phases 5.x) - complex toggle hierarchy, capacity reduction logic
    - Routings (Phase 6.5+) - DAG model, cycle detection, predecessor logic
    - Multi-Plant (Phase 7.x) - plant scoping, Excel import with plant detection
    - Canvas nodes - stacked bars, year navigation, toggle states
-3. **Check existing stores** before creating new state: `useAnalysisStore`, `useChangeoverStore`, `useRoutingStore`, `usePlantStore`, `useNavigationStore`
-4. **Check existing IPC channels** in `src/shared/constants/index.ts` before adding new ones
-5. **Check existing repositories** in `src/main/database/repositories/` before writing SQL
+
+4. **Check existing stores** before creating new state: `useAnalysisStore`, `useChangeoverStore`, `useRoutingStore`, `usePlantStore`, `useNavigationStore`
+
+5. **Check existing IPC channels** in `src/shared/constants/index.ts` before adding new ones
+
+6. **Check existing repositories** in `src/main/database/repositories/` before writing SQL
 
 **If unsure, ASK the user** rather than guess. Fixing broken features costs more than asking.
 
