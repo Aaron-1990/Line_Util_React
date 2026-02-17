@@ -152,6 +152,9 @@ const CanvasInner = () => {
     }))
   );
 
+  // Bug 1 Fix: Analysis store - refreshData to update status bar counts
+  const refreshData = useAnalysisStore((state) => state.refreshData);
+
   // Clipboard store - State value
   const copiedObject = useClipboardStore((state) => state.copiedObject);
 
@@ -457,6 +460,9 @@ const CanvasInner = () => {
 
         console.log('[Delete] All deletions completed successfully');
 
+        // Bug 1 Fix: Refresh status bar counts after deleting objects
+        refreshData().catch(err => console.error('[Delete] Failed to refresh status bar:', err));
+
         // Clear selection after deletion
         useToolStore.getState().clearSelection();
         useCanvasStore.getState().setSelectedNode(null);
@@ -496,11 +502,14 @@ const CanvasInner = () => {
         addObject(newObjectWithDetails);
 
         console.log('[Duplicate] Created:', newObjectWithDetails.name);
+
+        // Bug 1 Fix: Refresh status bar counts after duplicating object
+        refreshData().catch(err => console.error('[Duplicate] Failed to refresh status bar:', err));
       }
     } catch (error) {
       console.error('[Duplicate] Error:', error);
     }
-  }, [addNode, addObject, getShapeById]);
+  }, [addNode, addObject, getShapeById, refreshData]);
 
   // Keyboard shortcuts for copy/paste/duplicate
   useEffect(() => {
@@ -819,6 +828,9 @@ const CanvasInner = () => {
 
         console.log('[Placement] ✓ Object successfully added to canvas');
 
+        // Bug 1 Fix: Refresh status bar counts after creating object
+        refreshData().catch(err => console.error('[Placement] Failed to refresh status bar:', err));
+
         // KEEP tool in place mode - user can press ESC or click Select to exit
         // This allows placing multiple objects of the same type quickly
       } catch (error) {
@@ -832,7 +844,7 @@ const CanvasInner = () => {
         console.error('[Placement] Skipped - no currentPlantId!');
       }
     }
-  }, [setSelectedNode, clearSelection, activeTool, copiedObject, getShapeById, createObject, currentPlantId, screenToFlowPosition, addNode, addObject, isConnectMode, connectionSource, clearConnectionSource]);
+  }, [setSelectedNode, clearSelection, activeTool, copiedObject, getShapeById, createObject, currentPlantId, screenToFlowPosition, addNode, addObject, isConnectMode, connectionSource, clearConnectionSource, refreshData]);
 
   // Handle mouse move for ghost preview
   const onMouseMove = useCallback((event: React.MouseEvent) => {
