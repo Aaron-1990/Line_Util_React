@@ -50,6 +50,11 @@ const TimeAvailableInput = ({ value, onChange, disabled }: TimeAvailableInputPro
 
   // Sync with external value when it changes
   useEffect(() => {
+    // value === 0 means unset — show empty field so placeholder is visible
+    if (value === 0) {
+      setLocalValue('');
+      return;
+    }
     const hours = value / 3600;
     // Show clean integer or up to 2 decimal places
     setLocalValue(Number.isInteger(hours) ? hours.toString() : hours.toFixed(2).replace(/\.?0+$/, ''));
@@ -60,9 +65,13 @@ const TimeAvailableInput = ({ value, onChange, disabled }: TimeAvailableInputPro
     if (!isNaN(parsed) && parsed >= 0 && parsed <= 24) {
       onChange(parsed * 3600);
     } else {
-      // Revert to previous valid value
-      const hours = value / 3600;
-      setLocalValue(Number.isInteger(hours) ? hours.toString() : hours.toFixed(2).replace(/\.?0+$/, ''));
+      // Revert to previous valid value (empty if unset)
+      if (value === 0) {
+        setLocalValue('');
+      } else {
+        const hours = value / 3600;
+        setLocalValue(Number.isInteger(hours) ? hours.toString() : hours.toFixed(2).replace(/\.?0+$/, ''));
+      }
     }
   }, [localValue, onChange, value]);
 
@@ -178,7 +187,7 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
       // Area and timeAvailableDaily come from processProperties
       const processProps = object.processProperties;
       setArea(processProps?.area || '');
-      setTimeAvailableDaily(processProps?.timeAvailableDaily || 72000);
+      setTimeAvailableDaily(processProps?.timeAvailableDaily || 0);
       if (areas.length === 0) {
         loadAreas();
       }
@@ -225,7 +234,7 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
   // Phase 7.6: Update process properties for time
   const handleTimeChange = async (seconds: number) => {
     setTimeAvailableDaily(seconds);
-    const currentTime = object.processProperties?.timeAvailableDaily || 72000;
+    const currentTime = object.processProperties?.timeAvailableDaily || 0;
     if (seconds !== currentTime) {
       try {
         await setProcessProps(object.id, { timeAvailableDaily: seconds });
@@ -553,7 +562,7 @@ const ObjectPropertiesContent = ({ objectId }: ObjectPropertiesContentProps) => 
                 Time Available (hours/day)
               </label>
               <TimeAvailableInput
-                value={processProps.timeAvailableDaily ?? 72000}
+                value={processProps.timeAvailableDaily ?? 0}
                 onChange={(seconds) => handleProcessPropChange('timeAvailableDaily', seconds)}
               />
             </div>

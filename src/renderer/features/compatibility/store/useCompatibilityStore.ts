@@ -8,6 +8,8 @@ import { create } from 'zustand';
 import { ILineModelCompatibility } from '@domain/entities';
 import { COMPATIBILITY_CHANNELS } from '@shared/constants';
 import { useProjectStore } from '../../../store/useProjectStore';
+import { useCanvasObjectStore } from '../../canvas/store/useCanvasObjectStore';
+import { useAnalysisStore } from '../../analysis/store/useAnalysisStore';
 
 // ===== Types =====
 
@@ -107,6 +109,15 @@ export const useCompatibilityStore = create<CompatibilityState>((set, get) => ({
         await get().loadForLine(data.lineId);
         set({ isFormOpen: false, editingCompatibility: null, targetLineId: null });
         markProjectUnsaved(); // Track unsaved changes
+        // Phase 7.6: Update objects[] SSoT so badge re-renders immediately
+        const newCount = get().getForLine(data.lineId).length;
+        const currentObjects = useCanvasObjectStore.getState().objects;
+        useCanvasObjectStore.getState().setObjects(
+          currentObjects.map(obj =>
+            obj.id === data.lineId ? { ...obj, compatibilitiesCount: newCount } : obj
+          )
+        );
+        useAnalysisStore.getState().refreshData();
       } else {
         set({ error: response.error || 'Failed to create compatibility' });
       }
@@ -172,6 +183,15 @@ export const useCompatibilityStore = create<CompatibilityState>((set, get) => ({
         // Reload compatibilities for this line
         await get().loadForLine(lineId);
         markProjectUnsaved(); // Track unsaved changes
+        // Phase 7.6: Update objects[] SSoT so badge re-renders immediately
+        const newCount = get().getForLine(lineId).length;
+        const currentObjects = useCanvasObjectStore.getState().objects;
+        useCanvasObjectStore.getState().setObjects(
+          currentObjects.map(obj =>
+            obj.id === lineId ? { ...obj, compatibilitiesCount: newCount } : obj
+          )
+        );
+        useAnalysisStore.getState().refreshData();
       } else {
         set({ error: response.error || 'Failed to delete compatibility' });
       }

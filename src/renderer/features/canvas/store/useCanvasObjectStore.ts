@@ -319,11 +319,23 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
     const existingObject = objects.find((obj) => obj.id === objectId);
     if (!existingObject) return;
 
-    // Optimistic update
+    // Optimistic update — populate processProperties defaults when converting to 'process'
     set({
-      objects: objects.map((obj) =>
-        obj.id === objectId ? { ...obj, objectType: newType } : obj
-      ),
+      objects: objects.map((obj) => {
+        if (obj.id !== objectId) return obj;
+        const updated = { ...obj, objectType: newType };
+        if (newType === 'process' && !obj.processProperties) {
+          updated.processProperties = {
+            id: '',
+            canvasObjectId: obj.id,
+            area: '',
+            timeAvailableDaily: 0,  // 0 = unset, user must explicitly set value
+            lineType: 'shared' as const,
+            changeoverEnabled: true,
+          };
+        }
+        return updated;
+      }),
     });
 
     try {
@@ -446,25 +458,33 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
 
   /**
    * Set process properties for an object
+   * Uses optimistic update pattern (store first, IPC second) for instant UI feedback.
    */
   setProcessProps: async (objectId: string, props: UpdateProcessPropertiesInput) => {
+    const { objects } = get();
+    const existingObject = objects.find((obj) => obj.id === objectId);
+    if (!existingObject) return;
+
+    // Optimistic update — store FIRST so badge and panel re-render instantly
+    set({
+      objects: objects.map(obj =>
+        obj.id === objectId
+          ? { ...obj, processProperties: { ...obj.processProperties, ...props } as typeof obj.processProperties }
+          : obj
+      ),
+    });
+
     try {
       await window.electronAPI.invoke(
         CANVAS_OBJECT_CHANNELS.SET_PROCESS_PROPS,
         objectId,
         props
       );
-      // Bug 1 Fix: Update objects[] so panels and nodes read current data after navigation
-      const { objects } = get();
-      set({
-        objects: objects.map(obj =>
-          obj.id === objectId
-            ? { ...obj, processProperties: { ...obj.processProperties, ...props } as typeof obj.processProperties }
-            : obj
-        ),
-      });
+      markProjectUnsaved();
     } catch (error) {
       console.error('[CanvasObjectStore] Error setting process props:', error);
+      // Revert on error
+      set({ objects });
     }
   },
 

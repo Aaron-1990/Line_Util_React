@@ -317,25 +317,21 @@ export function registerProductionLinesHandlers(): void {
         const db = DatabaseConnection.getInstance();
 
         // Single query with CASE statements for efficiency
-        // A process object is "complete" if it has:
-        // 1. name IS NOT NULL AND name != ''
-        // 2. process_properties with area != '' AND time_available_daily > 0
-        // 3. At least one model assigned (canvas_object_compatibilities)
+        // A process object is "complete" if it has (matches client-side badge in GenericShapeNode):
+        // 1. process_properties with area != '' AND time_available_daily > 0
+        // 2. At least one model assigned (canvas_object_compatibilities)
+        // Note: name is NOT checked — required at creation, UI prevents clearing it
         const result = db.prepare(`
           SELECT
             COUNT(CASE
-              WHEN co.name IS NOT NULL
-                AND co.name != ''
-                AND pp.area IS NOT NULL
+              WHEN pp.area IS NOT NULL
                 AND pp.area != ''
                 AND pp.time_available_daily > 0
                 AND (SELECT COUNT(*) FROM canvas_object_compatibilities WHERE canvas_object_id = co.id) > 0
               THEN 1
             END) as complete_count,
             COUNT(CASE
-              WHEN co.name IS NULL
-                OR co.name = ''
-                OR pp.area IS NULL
+              WHEN pp.area IS NULL
                 OR pp.area = ''
                 OR pp.time_available_daily IS NULL
                 OR pp.time_available_daily <= 0

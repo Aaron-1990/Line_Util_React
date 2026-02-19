@@ -715,7 +715,7 @@ export class SQLiteCanvasObjectRepository {
               line_type, changeover_enabled, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `)
-          .run(nanoid(), id, '', 72000, 'shared', 1, now, now);
+          .run(nanoid(), id, '', 0, 'shared', 1, now, now);
       }
     });
 
@@ -863,7 +863,7 @@ export class SQLiteCanvasObjectRepository {
           id,
           canvasObjectId,
           props.area ?? '',
-          props.timeAvailableDaily ?? 72000,  // 20 hours default
+          props.timeAvailableDaily ?? 0,  // 0 = unset, user must enter value explicitly
           props.lineType ?? 'shared',
           props.changeoverEnabled !== false ? 1 : 0,
           props.changeoverExplicit ? 1 : 0,  // Phase 5.6.1

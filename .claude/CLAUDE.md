@@ -48,6 +48,25 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 6. **Check existing repositories** in `src/main/database/repositories/` before writing SQL
 
+7. **Run Structural Audits** (Framework v2.1 Fase 2b) when your feature:
+
+   - Stores canvas object data in any new location → **SSoT Audit:**
+     ```bash
+     rg "CanvasObject\|objectId\|objects\[" src/renderer/**/store/*.ts --type ts
+     ```
+   - Adds an early return to a node/panel component → **Hook Chain Audit:**
+     ```bash
+     grep -n "use[A-Z]\|useMemo\|useCallback\|useEffect\|useState" src/renderer/features/canvas/components/nodes/GenericShapeNode.tsx
+     # Verify: last hook line < early return line
+     ```
+   - Removes or renames a store method → **Caller Audit:**
+     ```bash
+     rg "nombreMetodoEliminado(" src/ --type ts -l
+     # Expected after migration: 0 results
+     ```
+
+   See `~/.claude/CLAUDE.md` Fase 2b for full protocol and PASS/FAIL criteria.
+
 **If unsure, ASK the user** rather than guess. Fixing broken features costs more than asking.
 
 ---
