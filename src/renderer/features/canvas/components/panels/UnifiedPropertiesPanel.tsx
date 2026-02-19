@@ -19,6 +19,8 @@ import {
   ChevronRight,
   Plus,
   Loader2,
+  Check,
+  Circle,
 } from 'lucide-react';
 import { useSelectionState } from '../../hooks/useSelectionState';
 import { useCanvasStore } from '../../store/useCanvasStore';
@@ -163,8 +165,8 @@ interface LinePropertiesContentProps {
 }
 
 const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
-  const { setSelectedNode, deleteNode } = useCanvasStore();
-  const { deleteObject, updateObject, setProcessProps } = useCanvasObjectStore();
+  const { setSelectedNode } = useCanvasStore();
+  const { updateObject, setProcessProps } = useCanvasObjectStore();
   // Phase 7.6: Get object data from objects[] (single source of truth)
   const objects = useCanvasObjectStore((state) => state.objects);
   const { areas, loadAreas } = useAreaStore();
@@ -173,9 +175,6 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
   const [name, setName] = useState('');
   const [area, setArea] = useState('');
   const [timeAvailableDaily, setTimeAvailableDaily] = useState(0);
-
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Phase 7.6: Get object from objects[] instead of node.data
   const object = objects.find((o) => o.id === lineId);
@@ -248,22 +247,6 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
     }
   };
 
-  // Phase 7.5: Delete using canvas object store
-  const handleConfirmDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await deleteObject(object.id);
-      deleteNode(object.id);
-      setSelectedNode(null);
-    } catch (error) {
-      console.error('Error deleting process object:', error);
-      alert('Failed to delete process object.');
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteModal(false);
-    }
-  };
-
   return (
     <>
       {/* Header */}
@@ -320,26 +303,30 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
           />
         </div>
 
-        {/* Status */}
+        {/* Completeness Checklist */}
         <div>
           <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-            Status
+            Data Completeness
           </label>
-          <div className="mt-1 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="text-sm text-gray-900 dark:text-gray-100">Active</span>
+          <div className="mt-1.5 space-y-1">
+            {[
+              { label: 'Name', done: !!(object.name && object.name.trim() !== '') },
+              { label: 'Area', done: !!(object.processProperties?.area && object.processProperties.area !== '') },
+              { label: 'Time Available', done: (object.processProperties?.timeAvailableDaily ?? 0) > 0 },
+              { label: 'Models Assigned', done: (object.compatibilitiesCount ?? 0) > 0 },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-2">
+                {item.done ? (
+                  <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                ) : (
+                  <Circle className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                )}
+                <span className={`text-xs ${item.done ? 'text-gray-700 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {item.label}
+                </span>
+              </div>
+            ))}
           </div>
-        </div>
-
-        {/* Delete Button */}
-        <div className="pt-2">
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="w-full px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm font-medium border border-red-200 dark:border-red-800"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete Line
-          </button>
         </div>
 
         {/* Assigned Models */}
@@ -348,16 +335,6 @@ const LinePropertiesContent = ({ lineId }: LinePropertiesContentProps) => {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <DeleteConfirmModal
-          itemName={object.name}
-          itemType="line"
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setShowDeleteModal(false)}
-          isDeleting={isDeleting}
-        />
-      )}
     </>
   );
 };
