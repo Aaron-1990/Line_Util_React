@@ -21,7 +21,7 @@ export const AreaList = () => {
 
   if (isLoading && areas.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="w-full flex items-center justify-center min-h-[60vh]">
         <div className="text-gray-500 dark:text-gray-400">Loading areas...</div>
       </div>
     );
@@ -29,10 +29,10 @@ export const AreaList = () => {
 
   if (areas.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="w-full flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <p className="text-gray-500 dark:text-gray-400 mb-2">No areas defined yet</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500">
+          <p className="text-lg font-medium text-gray-500 dark:text-gray-400 mb-2">No areas defined yet</p>
+          <p className="text-base text-gray-400 dark:text-gray-500">
             Click "Add Area" to create your first manufacturing area
           </p>
         </div>
@@ -41,7 +41,7 @@ export const AreaList = () => {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="max-w-4xl px-6 py-6 space-y-2">
       {areas.map(area => (
         <div
           key={area.id}

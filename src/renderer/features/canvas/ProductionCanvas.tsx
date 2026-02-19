@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   Node,
   Edge,
   NodeChange,
@@ -61,6 +60,7 @@ import { UnifiedPropertiesPanel } from './components/panels/UnifiedPropertiesPan
 import { YearNavigator } from './components/YearNavigator';
 import { CanvasEmptyState } from './components/CanvasEmptyState';
 import { ContextMenu } from './components/ContextMenu';
+import { DraggableMiniMap } from './components/DraggableMiniMap';
 import { ConnectionContextMenu } from './components/ConnectionContextMenu';
 import { GhostPreview } from './components/GhostPreview';
 import { AnalysisControlBar, useAnalysisStore } from '../analysis';
@@ -1013,27 +1013,10 @@ const CanvasInner = () => {
             className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm [&>button]:bg-white [&>button]:dark:bg-gray-800 [&>button]:border-gray-200 [&>button]:dark:border-gray-700 [&>button]:text-gray-600 [&>button]:dark:text-gray-400 [&>button:hover]:bg-gray-100 [&>button:hover]:dark:bg-gray-700"
           />
 
-          <MiniMap
-            nodeColor={(node) => {
-              const areaColors: Record<string, string> = {
-                ICT: '#60a5fa',
-                SMT: '#34d399',
-                WAVE: '#fbbf24',
-                ASSEMBLY: '#f472b6',
-                TEST: '#a78bfa',
-              };
-              return areaColors[node.data.area as string] || '#9ca3af';
-            }}
-            maskColor="rgba(0, 0, 0, 0.1)"
-            position="bottom-right"
-            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm transition-all duration-300"
-            style={{
-              // Shift MiniMap left when properties panel is open to avoid overlap
-              // Panel width is 20rem (w-80) + 1rem (right-4) = 21rem
-              right: isPanelOpen ? '22rem' : undefined,
-            }}
-          />
         </ReactFlow>
+
+        {/* Draggable MiniMap — outside ReactFlow, inside ReactFlowProvider so store context is available */}
+        <DraggableMiniMap isPanelOpen={isPanelOpen} />
 
         {/* Year Navigator - Shows when multi-year results available */}
         <YearNavigator />

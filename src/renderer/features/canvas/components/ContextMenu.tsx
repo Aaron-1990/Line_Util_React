@@ -435,6 +435,7 @@ export const ContextMenu = memo<ContextMenuProps>(({ x, y, objectId, onClose }) 
       ref={menuRef}
       className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1 min-w-[180px] z-50"
       style={{ left: x, top: y }}
+      onMouseLeave={onClose}
     >
       {/* Convert to... with submenu - Available for both production lines and canvas objects */}
       <div

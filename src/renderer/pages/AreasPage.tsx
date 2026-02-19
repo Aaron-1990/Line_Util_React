@@ -53,10 +53,8 @@ export const AreasPage = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto px-6 py-6">
-        <div className="max-w-4xl">
-          <AreaList />
-        </div>
+      <div className="flex-1 overflow-auto">
+        <AreaList />
       </div>
 
       {/* Modals */}
