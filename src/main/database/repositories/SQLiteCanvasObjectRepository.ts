@@ -440,6 +440,21 @@ export class SQLiteCanvasObjectRepository {
   }
 
   /**
+   * Soft delete all canvas objects for a plant
+   * @returns Number of objects deleted
+   */
+  async deleteByPlant(plantId: string): Promise<number> {
+    const result = this.db
+      .prepare('UPDATE canvas_objects SET active = 0, updated_at = ? WHERE plant_id = ? AND active = 1')
+      .run(new Date().toISOString(), plantId);
+
+    // Force WAL checkpoint to ensure soft deletes persist across sleep/wake
+    this.db.pragma('wal_checkpoint(PASSIVE)');
+
+    return result.changes;
+  }
+
+  /**
    * Update position of a single object
    */
   async updatePosition(id: string, x: number, y: number): Promise<void> {

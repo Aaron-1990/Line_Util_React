@@ -371,6 +371,7 @@ export const CANVAS_OBJECT_CHANNELS = {
   CREATE: 'canvas-objects:create',
   UPDATE: 'canvas-objects:update',
   DELETE: 'canvas-objects:delete',
+  DELETE_BY_PLANT: 'canvas-objects:delete-by-plant',
   UPDATE_POSITION: 'canvas-objects:update-position',
   UPDATE_POSITIONS_BATCH: 'canvas-objects:update-positions-batch',
 

@@ -6,8 +6,9 @@
 import { Plus, ZoomIn, ZoomOut, Maximize2, Trash2, Upload, Map } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useReactFlow } from 'reactflow';
-import { useCanvasStore } from '../../store/useCanvasStore';
 import { useToolStore } from '../../store/useToolStore';
+import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
+import { useNavigationStore } from '../../../../store/useNavigationStore';
 import { PRODUCTION_LINE_SHAPE_ID } from '../../constants/shapes';
 import { isPlaceTool } from '@shared/types/canvas-tool';
 
@@ -17,9 +18,12 @@ interface CanvasToolbarProps {
 }
 
 export const CanvasToolbar = ({ showMiniMap, onToggleMiniMap }: CanvasToolbarProps) => {
-  const reset = useCanvasStore((state) => state.reset);
   const navigate = useNavigate();
   const { zoomIn, zoomOut, fitView } = useReactFlow();
+
+  // Canvas object store for delete all
+  const deleteAllObjects = useCanvasObjectStore((state) => state.deleteAllObjects);
+  const currentPlantId = useNavigationStore((state) => state.currentPlantId);
 
   // Tool store for place tool activation
   const setPlaceTool = useToolStore((state) => state.setPlaceTool);
@@ -50,9 +54,14 @@ export const CanvasToolbar = ({ showMiniMap, onToggleMiniMap }: CanvasToolbarPro
     });
   };
 
-  const handleClear = () => {
+  const handleClear = async () => {
+    if (!currentPlantId) {
+      console.warn('[CanvasToolbar] Cannot clear canvas: no current plant');
+      return;
+    }
+
     if (confirm('Limpiar todo el canvas? Esta accion no se puede deshacer.')) {
-      reset();
+      await deleteAllObjects(currentPlantId);
     }
   };
 

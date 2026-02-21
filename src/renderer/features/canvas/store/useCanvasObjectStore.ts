@@ -17,6 +17,7 @@ import {
 } from '@shared/types/canvas-object';
 import { CANVAS_OBJECT_CHANNELS } from '@shared/constants';
 import { useCanvasStore } from './useCanvasStore';
+import { useCanvasObjectCompatibilityStore } from './useCanvasObjectCompatibilityStore';
 import { useProjectStore } from '../../../store/useProjectStore';
 
 // ============================================
@@ -39,6 +40,7 @@ interface CanvasObjectStore {
   createObject: (input: CreateCanvasObjectInput) => Promise<string | null>;
   updateObject: (objectId: string, input: UpdateCanvasObjectInput) => Promise<void>;
   deleteObject: (objectId: string) => Promise<void>;
+  deleteAllObjects: (plantId: string) => Promise<void>;
   duplicateObject: (objectId: string) => Promise<string | null>;
   convertObjectType: (objectId: string, newType: CanvasObjectType) => Promise<void>;
   convertType: (objectId: string, newType: CanvasObjectType) => Promise<void>; // Alias
@@ -277,6 +279,43 @@ export const useCanvasObjectStore = create<CanvasObjectStore>((set, get) => ({
 
       // Reload to ensure sync (defensive)
       await get().loadObjectsForPlant(objectToDelete.plantId);
+    }
+  },
+
+  /**
+   * Delete all canvas objects for a plant (Clear Canvas)
+   */
+  deleteAllObjects: async (plantId: string) => {
+    // 1. Clear objects + connections in store
+    set({ objects: [], connections: [] });
+
+    // 2. Clear ReactFlow nodes/edges
+    useCanvasStore.getState().reset();
+
+    // 3. Clear compatibility store
+    useCanvasObjectCompatibilityStore.setState({ compatibilitiesByObject: new Map() });
+
+    try {
+      // 4. IPC call to soft-delete all objects for plant
+      const response = await window.electronAPI.invoke<number>(
+        CANVAS_OBJECT_CHANNELS.DELETE_BY_PLANT,
+        plantId
+      );
+
+      if (!response.success) {
+        console.error('[CanvasObjectStore] Delete all failed:', response.error);
+        // 5. On failure: reload from DB to revert
+        await get().loadObjectsForPlant(plantId);
+        alert(`Failed to clear canvas: ${response.error}`);
+      } else {
+        console.log(`[CanvasObjectStore] Deleted ${response.data} objects for plant ${plantId}`);
+        markProjectUnsaved();
+      }
+    } catch (error) {
+      console.error('[CanvasObjectStore] Error deleting all objects:', error);
+      // Reload from DB to revert
+      await get().loadObjectsForPlant(plantId);
+      alert('Failed to clear canvas. Please try again.');
     }
   },
 

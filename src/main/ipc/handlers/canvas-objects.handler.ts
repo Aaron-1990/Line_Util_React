@@ -187,6 +187,34 @@ export function registerCanvasObjectHandlers(): void {
   );
 
   // ============================================
+  // DELETE ALL OBJECTS BY PLANT
+  // ============================================
+
+  ipcMain.handle(
+    CANVAS_OBJECT_CHANNELS.DELETE_BY_PLANT,
+    async (_event, plantId: string): Promise<ApiResponse<number>> => {
+      try {
+        console.log('[Canvas Object Handler] Deleting all objects for plant:', plantId);
+
+        if (!plantId) {
+          return { success: false, error: 'Missing plant ID' };
+        }
+
+        const repo = new SQLiteCanvasObjectRepository(DatabaseConnection.getInstance());
+        const deletedCount = await repo.deleteByPlant(plantId);
+        console.log(`[Canvas Object Handler] Deleted ${deletedCount} objects for plant ${plantId}`);
+        return { success: true, data: deletedCount };
+      } catch (error) {
+        console.error('[Canvas Object Handler] Delete by plant error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
+  // ============================================
   // UPDATE POSITION
   // ============================================
 
