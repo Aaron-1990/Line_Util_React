@@ -149,8 +149,8 @@ export const DraggableMiniMap = ({ onClose }: DraggableMiniMapProps) => {
         transition: 'none',
       }
     : {
-        top: 60,  // Below CanvasToolbar (top-4 = 16px + ~40px toolbar height + gap)
-        left: 16,
+        bottom: 16,
+        right: 16,
       };
 
   return (

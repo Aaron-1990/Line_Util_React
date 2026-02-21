@@ -137,8 +137,8 @@ export const UnifiedPropertiesPanel = memo(() => {
 
   return (
     <aside
-      className="absolute right-4 top-20 z-30 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden animate-slide-in"
-      style={{ maxHeight: 'calc(100% - 160px)' }}
+      className="absolute right-4 top-4 z-30 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden animate-slide-in"
+      style={{ maxHeight: 'calc(100% - 32px)' }}
       role="complementary"
       aria-label="Properties panel"
     >
