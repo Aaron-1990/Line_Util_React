@@ -283,24 +283,27 @@ export function registerAreaCatalogHandlers(): void {
           };
         }
 
-        // Check if area is in use by any production lines
+        // Check if area is in use by any process objects (post-migration 017)
         const inUse = await repository.isInUse(params.id);
         if (inUse) {
-          // Count how many lines are using this area
+          // Count how many process objects are using this area
           const db = DatabaseConnection.getInstance();
           const count = db
             .prepare(
               `
               SELECT COUNT(*) as count
-              FROM production_lines
-              WHERE area = (SELECT code FROM area_catalog WHERE id = ?)
+              FROM canvas_objects co
+              JOIN process_properties pp ON co.id = pp.canvas_object_id
+              WHERE pp.area = (SELECT code FROM area_catalog WHERE id = ?)
+                AND co.active = 1
+                AND co.object_type = 'process'
             `
             )
             .get(params.id) as { count: number };
 
           return {
             success: false,
-            error: `Cannot delete area: ${count.count} production line(s) are using it`,
+            error: `Cannot delete area: ${count.count} process object(s) are using it`,
           };
         }
 
