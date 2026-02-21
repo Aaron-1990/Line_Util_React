@@ -134,11 +134,14 @@ export class SQLiteAreaCatalogRepository implements IAreaCatalogRepository {
   }
 
   async isInUse(id: string): Promise<boolean> {
-    // Check if any production lines reference this area
+    // Check if any process objects reference this area (post-migration 017)
     const result = this.db
       .prepare(`
-        SELECT 1 FROM production_lines
-        WHERE area = (SELECT code FROM area_catalog WHERE id = ?)
+        SELECT 1 FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE pp.area = (SELECT code FROM area_catalog WHERE id = ?)
+          AND co.active = 1
+          AND co.object_type = 'process'
         LIMIT 1
       `)
       .get(id);
