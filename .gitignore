@@ -65,3 +65,6 @@ build/
 .marketing/
 docs/marketing/
 docs/market-research/
+
+# Screenshots & temporary assets
+screenshots/
