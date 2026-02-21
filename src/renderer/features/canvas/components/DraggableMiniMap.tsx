@@ -6,11 +6,29 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { MiniMap } from 'reactflow';
-import { GripHorizontal } from 'lucide-react';
+import { GripHorizontal, X } from 'lucide-react';
 
 // ===== localStorage helpers =====
 
 const STORAGE_KEY = 'lineOptimizer_minimapPosition';
+const VISIBILITY_KEY = 'lineOptimizer_minimapVisible';
+
+export function loadMinimapVisible(): boolean {
+  try {
+    const stored = localStorage.getItem(VISIBILITY_KEY);
+    return stored !== 'false'; // Default: visible
+  } catch {
+    return true;
+  }
+}
+
+export function saveMinimapVisible(visible: boolean): void {
+  try {
+    localStorage.setItem(VISIBILITY_KEY, String(visible));
+  } catch {
+    console.warn('[DraggableMiniMap] Failed to persist visibility');
+  }
+}
 
 function loadPosition(): { x: number; y: number } | null {
   try {
@@ -61,10 +79,10 @@ const AREA_COLORS: Record<string, string> = {
 // ===== Component =====
 
 interface DraggableMiniMapProps {
-  isPanelOpen: boolean;
+  onClose: () => void;
 }
 
-export const DraggableMiniMap = ({ isPanelOpen }: DraggableMiniMapProps) => {
+export const DraggableMiniMap = ({ onClose }: DraggableMiniMapProps) => {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     () => loadPosition()
   );
@@ -131,9 +149,8 @@ export const DraggableMiniMap = ({ isPanelOpen }: DraggableMiniMapProps) => {
         transition: 'none',
       }
     : {
-        bottom: 15,
-        right: isPanelOpen ? 'calc(22rem + 15px)' : 15,
-        transition: 'right 0.3s ease',
+        top: 60,  // Below CanvasToolbar (top-4 = 16px + ~40px toolbar height + gap)
+        left: 16,
       };
 
   return (
@@ -144,13 +161,23 @@ export const DraggableMiniMap = ({ isPanelOpen }: DraggableMiniMapProps) => {
     >
       {/* Drag handle */}
       <div
-        className="flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-t-lg border border-b-0 border-gray-200 dark:border-gray-700 cursor-grab active:cursor-grabbing select-none"
-        style={{ height: HANDLE_HEIGHT, width: MINIMAP_WIDTH }}
+        className="flex items-center justify-between w-full px-2 bg-gray-100 dark:bg-gray-700 rounded-t-lg border border-b-0 border-gray-200 dark:border-gray-700 cursor-grab active:cursor-grabbing select-none"
+        style={{ height: HANDLE_HEIGHT }}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleReset}
         title="Drag to reposition · Double-click to reset"
       >
         <GripHorizontal className="w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+          title="Hide minimap"
+        >
+          <X className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+        </button>
       </div>
 
       {/* MiniMap — style overrides Panel's position:absolute so our wrapper controls layout */}

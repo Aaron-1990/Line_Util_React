@@ -3,7 +3,7 @@
 // Barra de herramientas superior del canvas
 // ============================================
 
-import { Plus, ZoomIn, ZoomOut, Maximize2, Trash2, Upload } from 'lucide-react';
+import { Plus, ZoomIn, ZoomOut, Maximize2, Trash2, Upload, Map } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useReactFlow } from 'reactflow';
 import { useCanvasStore } from '../../store/useCanvasStore';
@@ -11,7 +11,12 @@ import { useToolStore } from '../../store/useToolStore';
 import { PRODUCTION_LINE_SHAPE_ID } from '../../constants/shapes';
 import { isPlaceTool } from '@shared/types/canvas-tool';
 
-export const CanvasToolbar = () => {
+interface CanvasToolbarProps {
+  showMiniMap: boolean;
+  onToggleMiniMap: () => void;
+}
+
+export const CanvasToolbar = ({ showMiniMap, onToggleMiniMap }: CanvasToolbarProps) => {
   const reset = useCanvasStore((state) => state.reset);
   const navigate = useNavigate();
   const { zoomIn, zoomOut, fitView } = useReactFlow();
@@ -98,6 +103,18 @@ export const CanvasToolbar = () => {
           title="Ajustar vista"
         >
           <Maximize2 className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+        </button>
+
+        <button
+          onClick={onToggleMiniMap}
+          className={`p-2 rounded transition-colors ${
+            showMiniMap
+              ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+          title={showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}
+        >
+          <Map className="w-5 h-5" />
         </button>
 
         <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />

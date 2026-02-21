@@ -52,7 +52,6 @@ import { useShapeCatalogStore } from './store/useShapeCatalogStore';
 import { useCanvasObjectStore } from './store/useCanvasObjectStore';
 import { useClipboardStore } from './store/useClipboardStore';
 import { useLoadLines } from './hooks/useLoadLines';
-import { useSelectionState } from './hooks/useSelectionState';
 import { GenericShapeNode } from './components/nodes/GenericShapeNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { ObjectPalette } from './components/toolbar/ObjectPalette';
@@ -60,7 +59,7 @@ import { UnifiedPropertiesPanel } from './components/panels/UnifiedPropertiesPan
 import { YearNavigator } from './components/YearNavigator';
 import { CanvasEmptyState } from './components/CanvasEmptyState';
 import { ContextMenu } from './components/ContextMenu';
-import { DraggableMiniMap } from './components/DraggableMiniMap';
+import { DraggableMiniMap, loadMinimapVisible, saveMinimapVisible } from './components/DraggableMiniMap';
 import { ConnectionContextMenu } from './components/ConnectionContextMenu';
 import { GhostPreview } from './components/GhostPreview';
 import { AnalysisControlBar, useAnalysisStore } from '../analysis';
@@ -104,9 +103,8 @@ const CanvasInner = () => {
   // Track if user wants to bypass empty state and show canvas
   const [showCanvas, setShowCanvas] = useState(false);
 
-  // Detect if properties panel is open (for MiniMap positioning)
-  const selection = useSelectionState();
-  const isPanelOpen = selection.type === 'line' || selection.type === 'object';
+  // MiniMap visibility state (persisted to localStorage)
+  const [showMiniMap, setShowMiniMap] = useState(() => loadMinimapVisible());
 
   // Get current plant ID for creating objects
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
@@ -953,7 +951,14 @@ const CanvasInner = () => {
 
       {/* Main canvas area - takes available space (min-h-0 needed for grid to work) */}
       <div className="relative w-full min-h-0 h-full overflow-hidden">
-        <CanvasToolbar />
+        <CanvasToolbar
+          showMiniMap={showMiniMap}
+          onToggleMiniMap={() => {
+            const newValue = !showMiniMap;
+            setShowMiniMap(newValue);
+            saveMinimapVisible(newValue);
+          }}
+        />
 
         {/* Object Palette - Phase 7.5 */}
         <ObjectPalette />
@@ -1016,7 +1021,14 @@ const CanvasInner = () => {
         </ReactFlow>
 
         {/* Draggable MiniMap — outside ReactFlow, inside ReactFlowProvider so store context is available */}
-        <DraggableMiniMap isPanelOpen={isPanelOpen} />
+        {showMiniMap && (
+          <DraggableMiniMap
+            onClose={() => {
+              setShowMiniMap(false);
+              saveMinimapVisible(false);
+            }}
+          />
+        )}
 
         {/* Year Navigator - Shows when multi-year results available */}
         <YearNavigator />
