@@ -498,9 +498,14 @@ export class SQLiteChangeoverRepository {
   // ============================================
 
   async getChangeoverMatrix(lineId: string): Promise<ChangeoverMatrix | null> {
-    // Get line info
+    // Get line info from canvas_objects + process_properties (post-migration 017)
     const line = this.db
-      .prepare('SELECT id, name, area FROM production_lines WHERE id = ?')
+      .prepare(`
+        SELECT co.id, co.name, pp.area
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.id = ? AND co.object_type = 'process'
+      `)
       .get(lineId) as LineRow | undefined;
 
     if (!line) return null;
