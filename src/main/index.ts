@@ -7,7 +7,7 @@ import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from 'electron';
 import path from 'path';
 import DatabaseConnection from './database/connection';
 import { registerAllHandlers } from './ipc/handlers';
-import { PROJECT_EVENTS, PROJECT_CHANNELS, POWER_EVENTS } from '@shared/constants';
+import { PROJECT_EVENTS, PROJECT_CHANNELS, POWER_EVENTS, DATA_TABLES_TO_CLEAR } from '@shared/constants';
 import { ApiResponse } from '@shared/types';
 import { SQLitePlantRepository } from './database/repositories/SQLitePlantRepository';
 
@@ -426,55 +426,13 @@ async function clearTempDatabase(): Promise<void> {
   try {
     const db = DatabaseConnection.getInstance();
 
-    // List of data tables to clear, ordered for FK safety (children first)
-    // This order respects foreign key constraints by deleting dependent records first
-    const tablesToClear = [
-      // Canvas system (deepest dependencies first)
-      'canvas_connections',
-      'buffer_properties',
-      'process_properties',
-      'process_line_links',
-      'canvas_object_compatibilities',
-      'canvas_objects',
-
-      // Routing DAG (edges before nodes)
-      'model_area_predecessors',
-      'model_area_routing',
-      'plant_model_routing_predecessors',
-      'plant_model_routing',
-
-      // Volumes (plant-specific then global)
-      'plant_product_volumes',
-      'product_volumes',
-
-      // Changeover (overrides before defaults)
-      'line_changeover_overrides',
-      'family_changeover_defaults',
-
-      // Core entities (models before plants due to FK)
-      'product_models_v2',
-      'plants',
-
-      // Catalogs (user-created + seed data - will be re-seeded on next run via migrations)
-      'area_catalog',
-
-      // Historical/UI data
-      'analysis_runs',
-      'canvas_areas',
-
-      // Settings (can be re-seeded on next run if needed)
-      'user_preferences',
-      'changeover_method_configs',
-      'project_metadata',
-    ];
-
-    // Execute all DELETEs in a transaction for atomicity
+    // Use shared constant for FK-safe table clearing
     const clearAll = db.transaction(() => {
       // Temporarily disable foreign key checks to avoid ordering issues
       // (SQLite only enforces FK at statement level, not transaction level)
       db.pragma('foreign_keys = OFF');
 
-      for (const table of tablesToClear) {
+      for (const table of DATA_TABLES_TO_CLEAR) {
         try {
           db.prepare(`DELETE FROM ${table}`).run();
           console.log(`[Main] Cleared table: ${table}`);

@@ -18,6 +18,53 @@ export const TIME_CONFIG = {
 } as const;
 
 // ============================================
+// DATABASE TABLES TO CLEAR (FK-SAFE ORDER)
+// Used when clearing temp database or creating new project.
+// Ordered to respect foreign key constraints (children before parents).
+// Excludes system tables, migrations, seed data, and VIEWs.
+// ============================================
+
+export const DATA_TABLES_TO_CLEAR = [
+  // Canvas system (deepest dependencies first)
+  'canvas_connections',
+  'buffer_properties',
+  'process_properties',
+  'process_line_links',
+  'canvas_object_compatibilities',
+  'canvas_objects',
+
+  // Routing DAG (edges before nodes)
+  'model_area_predecessors',
+  'model_area_routing',
+  'plant_model_routing_predecessors',
+  'plant_model_routing',
+
+  // Volumes (plant-specific then global)
+  'plant_product_volumes',
+  'product_volumes',
+
+  // Changeover (overrides before defaults)
+  'line_changeover_overrides',
+  'family_changeover_defaults',
+
+  // Core entities (models before plants due to FK)
+  'product_models_v2',
+  'plants',
+
+  // Catalogs (user-created + seed data - will be re-seeded on next run via migrations)
+  'area_catalog',
+
+  // Historical/UI data
+  'analysis_runs',
+  'canvas_areas',
+
+  // Settings (can be re-seeded on next run if needed)
+  'user_preferences',
+  'changeover_method_configs',
+  'project_metadata',
+] as const;
+
+// ============================================
 // AREAS Y PROCESOS DE EJEMPLO (DEFAULT CATALOG)
 // Nota: En produccion estas vendran de la base de datos (area_catalog)
 // Estos son solo valores iniciales para primera instalacion

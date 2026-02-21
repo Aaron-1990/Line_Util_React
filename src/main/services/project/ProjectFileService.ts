@@ -7,7 +7,7 @@ import { ProjectMetadataHelper } from '@main/database/helpers/ProjectMetadataHel
 import { MigrationRunner } from '@main/database/MigrationRunner';
 import { ProjectState } from '@shared/types/project';
 import DatabaseConnection from '@main/database/connection';
-import { DB_CONFIG } from '@shared/constants';
+import { DB_CONFIG, DATA_TABLES_TO_CLEAR } from '@shared/constants';
 import { SQLitePlantRepository } from '@main/database/repositories/SQLitePlantRepository';
 
 /**
@@ -639,27 +639,22 @@ export class ProjectFileService {
     try {
       const tempDb = new Database(tempDbPath, { readonly: false });
 
-      const tablesToClear = [
-        'canvas_objects',
-        'canvas_connections',
-        'product_models_v2',
-        'product_volumes',
-        'model_area_routing',
-        'model_area_predecessors',
-        'family_changeover_defaults',
-        'line_changeover_overrides',
-        'process_properties',
-        'buffer_properties',
-        'process_line_links',
-        'canvas_object_compatibilities',
-        'plants',
-        'area_catalog',
-      ];
-
+      // Use shared constant for FK-safe table clearing
       const clearAll = tempDb.transaction(() => {
-        for (const table of tablesToClear) {
-          tempDb.prepare(`DELETE FROM ${table}`).run();
+        // Temporarily disable FK checks for atomicity
+        tempDb.pragma('foreign_keys = OFF');
+
+        for (const table of DATA_TABLES_TO_CLEAR) {
+          try {
+            tempDb.prepare(`DELETE FROM ${table}`).run();
+          } catch (tableError) {
+            // Table might not exist in older schemas - log and continue
+            console.warn(`[ProjectFileService] Could not clear table ${table}:`, tableError);
+          }
         }
+
+        // Re-enable FK checks
+        tempDb.pragma('foreign_keys = ON');
       });
 
       clearAll();

@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, dialog } from 'electron';
 import * as path from 'path';
-import { PROJECT_CHANNELS, PROJECT_EVENTS } from '@shared/constants';
+import { PROJECT_CHANNELS, PROJECT_EVENTS, DATA_TABLES_TO_CLEAR } from '@shared/constants';
 import { ApiResponse, ProjectState, UntitledProjectState } from '@shared/types';
 import { ProjectFileService } from '@main/services/project/ProjectFileService';
 import DatabaseConnection from '@main/database/connection';
@@ -13,34 +13,6 @@ interface ProjectStateFromRenderer {
   hasUnsavedChanges: boolean;
   projectFilePath: string | null;
 }
-
-// ===== CONSTANTS =====
-// List of all data tables to clear (preserves schema)
-// NOTE: Excludes VIEWs (production_lines, line_model_compatibilities) - only real tables
-const DATA_TABLES = [
-  // Core tables (Phase 7.5+)
-  'canvas_objects',                    // Replaces production_lines (which is now a VIEW)
-  'canvas_object_compatibilities',     // Replaces line_model_compatibilities (which is now a VIEW)
-  'canvas_connections',
-  'buffer_properties',
-  'process_properties',
-  'process_line_links',
-  // Legacy/shared tables
-  'product_models_v2',
-  'product_volumes',
-  'area_catalog',
-  'plants',
-  'plant_product_volumes',
-  'plant_model_routing',
-  'plant_model_routing_predecessors',
-  'family_changeover_defaults',
-  'line_changeover_overrides',
-  'user_preferences',
-  'canvas_areas',
-  'analysis_runs',
-  'project_metadata',
-  'changeover_method_configs',
-] as const;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -138,7 +110,7 @@ async function clearDataTables(): Promise<void> {
   const db = DatabaseConnection.getInstance();
 
   const clearAll = db.transaction(() => {
-    for (const table of DATA_TABLES) {
+    for (const table of DATA_TABLES_TO_CLEAR) {
       try {
         db.prepare(`DELETE FROM ${table}`).run();
       } catch (tableError) {
@@ -499,7 +471,7 @@ export function registerProjectHandlers(window: BrowserWindow): void {
 
         // Use transaction for atomic clear
         const clearAllTables = db.transaction(() => {
-          for (const table of DATA_TABLES) {
+          for (const table of DATA_TABLES_TO_CLEAR) {
             try {
               db.prepare(`DELETE FROM ${table}`).run();
             } catch (tableError) {
@@ -539,7 +511,7 @@ export function registerProjectHandlers(window: BrowserWindow): void {
 
         // Use transaction for atomic clear
         const clearAllTables = db.transaction(() => {
-          for (const table of DATA_TABLES) {
+          for (const table of DATA_TABLES_TO_CLEAR) {
             try {
               db.prepare(`DELETE FROM ${table}`).run();
             } catch (tableError) {
