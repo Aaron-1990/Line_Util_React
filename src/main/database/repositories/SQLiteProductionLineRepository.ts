@@ -48,7 +48,16 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async findAll(): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE active = 1 ORDER BY name')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.active = 1 AND co.object_type = 'process'
+        ORDER BY co.name
+      `)
       .all() as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -56,7 +65,15 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async findById(id: string): Promise<ProductionLine | null> {
     const row = this.db
-      .prepare('SELECT * FROM production_lines WHERE id = ?')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.id = ? AND co.object_type = 'process'
+      `)
       .get(id) as LineRow | undefined;
 
     return row ? this.mapRowToEntity(row) : null;
@@ -64,7 +81,16 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async findByArea(area: string): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE area = ? AND active = 1 ORDER BY name')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE pp.area = ? AND co.active = 1 AND co.object_type = 'process'
+        ORDER BY co.name
+      `)
       .all(area) as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -72,7 +98,16 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async findActive(): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE active = 1 ORDER BY name')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.active = 1 AND co.object_type = 'process'
+        ORDER BY co.name
+      `)
       .all() as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -177,11 +212,14 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
   }
 
   async existsByName(name: string, excludeId?: string): Promise<boolean> {
-    let sql = 'SELECT 1 FROM production_lines WHERE name = ? AND active = 1';
+    let sql = `
+      SELECT 1 FROM canvas_objects co
+      WHERE co.name = ? AND co.active = 1 AND co.object_type = 'process'
+    `;
     const params: unknown[] = [name];
 
     if (excludeId) {
-      sql += ' AND id != ?';
+      sql += ' AND co.id != ?';
       params.push(excludeId);
     }
 
@@ -191,7 +229,15 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
 
   async findByName(name: string): Promise<ProductionLine | null> {
     const row = this.db
-      .prepare('SELECT * FROM production_lines WHERE name = ? AND active = 1')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.name = ? AND co.active = 1 AND co.object_type = 'process'
+      `)
       .get(name) as LineRow | undefined;
 
     return row ? this.mapRowToEntity(row) : null;
@@ -221,7 +267,12 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async getChangeoverToggles(): Promise<{ [lineId: string]: { enabled: boolean; explicit: boolean } }> {
     const rows = this.db
-      .prepare('SELECT id, changeover_enabled, changeover_explicit FROM production_lines WHERE active = 1')
+      .prepare(`
+        SELECT co.id, pp.changeover_enabled, pp.changeover_explicit
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.active = 1 AND co.object_type = 'process'
+      `)
       .all() as { id: string; changeover_enabled: number | null; changeover_explicit: number | null }[];
 
     const toggles: { [lineId: string]: { enabled: boolean; explicit: boolean } } = {};
@@ -281,7 +332,16 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async findActiveByPlant(plantId: string): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE active = 1 AND plant_id = ? ORDER BY name')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.active = 1 AND co.plant_id = ? AND co.object_type = 'process'
+        ORDER BY co.name
+      `)
       .all(plantId) as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -292,7 +352,16 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async findAllByPlant(plantId: string): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE plant_id = ? AND active = 1 ORDER BY name')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.plant_id = ? AND co.active = 1 AND co.object_type = 'process'
+        ORDER BY co.name
+      `)
       .all(plantId) as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -303,7 +372,16 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async findByAreaAndPlant(area: string, plantId: string): Promise<ProductionLine[]> {
     const rows = this.db
-      .prepare('SELECT * FROM production_lines WHERE area = ? AND plant_id = ? AND active = 1 ORDER BY name')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE pp.area = ? AND co.plant_id = ? AND co.active = 1 AND co.object_type = 'process'
+        ORDER BY co.name
+      `)
       .all(area, plantId) as LineRow[];
 
     return rows.map(row => this.mapRowToEntity(row));
@@ -313,11 +391,14 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    * Phase 7: Check if name exists within a plant (for validation)
    */
   async existsByNameInPlant(name: string, plantId: string, excludeId?: string): Promise<boolean> {
-    let sql = 'SELECT 1 FROM production_lines WHERE name = ? AND plant_id = ? AND active = 1';
+    let sql = `
+      SELECT 1 FROM canvas_objects co
+      WHERE co.name = ? AND co.plant_id = ? AND co.active = 1 AND co.object_type = 'process'
+    `;
     const params: unknown[] = [name, plantId];
 
     if (excludeId) {
-      sql += ' AND id != ?';
+      sql += ' AND co.id != ?';
       params.push(excludeId);
     }
 
@@ -330,7 +411,15 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async findByNameInPlant(name: string, plantId: string): Promise<ProductionLine | null> {
     const row = this.db
-      .prepare('SELECT * FROM production_lines WHERE name = ? AND plant_id = ? AND active = 1')
+      .prepare(`
+        SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+               pp.time_available_daily, co.x_position, co.y_position,
+               pp.changeover_enabled, pp.changeover_explicit,
+               co.active, co.created_at, co.updated_at
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.name = ? AND co.plant_id = ? AND co.active = 1 AND co.object_type = 'process'
+      `)
       .get(name, plantId) as LineRow | undefined;
 
     return row ? this.mapRowToEntity(row) : null;
@@ -341,7 +430,12 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async getChangeoverTogglesByPlant(plantId: string): Promise<{ [lineId: string]: { enabled: boolean; explicit: boolean } }> {
     const rows = this.db
-      .prepare('SELECT id, changeover_enabled, changeover_explicit FROM production_lines WHERE active = 1 AND plant_id = ?')
+      .prepare(`
+        SELECT co.id, pp.changeover_enabled, pp.changeover_explicit
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.active = 1 AND co.plant_id = ? AND co.object_type = 'process'
+      `)
       .all(plantId) as { id: string; changeover_enabled: number | null; changeover_explicit: number | null }[];
 
     const toggles: { [lineId: string]: { enabled: boolean; explicit: boolean } } = {};
@@ -376,7 +470,10 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async countByPlant(plantId: string): Promise<number> {
     const result = this.db
-      .prepare('SELECT COUNT(*) as count FROM production_lines WHERE active = 1 AND plant_id = ?')
+      .prepare(`
+        SELECT COUNT(*) as count FROM canvas_objects co
+        WHERE co.active = 1 AND co.plant_id = ? AND co.object_type = 'process'
+      `)
       .get(plantId) as { count: number };
     return result.count;
   }
@@ -386,7 +483,13 @@ export class SQLiteProductionLineRepository implements IProductionLineRepository
    */
   async getAreasByPlant(plantId: string): Promise<string[]> {
     const rows = this.db
-      .prepare('SELECT DISTINCT area FROM production_lines WHERE active = 1 AND plant_id = ? ORDER BY area')
+      .prepare(`
+        SELECT DISTINCT pp.area
+        FROM canvas_objects co
+        JOIN process_properties pp ON co.id = pp.canvas_object_id
+        WHERE co.active = 1 AND co.plant_id = ? AND co.object_type = 'process'
+        ORDER BY pp.area
+      `)
       .all(plantId) as { area: string }[];
     return rows.map(row => row.area);
   }
