@@ -642,10 +642,8 @@ export class ProjectFileService {
       const tablesToClear = [
         'canvas_objects',
         'canvas_connections',
-        'production_lines',
         'product_models_v2',
         'product_volumes',
-        'line_model_compatibilities',
         'model_area_routing',
         'model_area_predecessors',
         'family_changeover_defaults',
