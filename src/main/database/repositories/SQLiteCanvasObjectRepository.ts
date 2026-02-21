@@ -237,33 +237,11 @@ export class SQLiteCanvasObjectRepository {
         .prepare('SELECT * FROM process_line_links WHERE canvas_object_id = ?')
         .get(id) as ProcessLineLinkRow | undefined;
 
+      // Phase 7.5: process_line_links is deprecated post-migration 017
+      // All data lives in process_properties directly - no need to fetch linked line
       if (linkRow) {
         result.processLink = this.mapProcessLinkRowToEntity(linkRow);
-
-        // Get linked production line if linked
-        if (linkRow.production_line_id) {
-          const lineRow = this.db
-            .prepare('SELECT * FROM production_lines WHERE id = ?')
-            .get(linkRow.production_line_id);
-
-          if (lineRow) {
-            result.linkedLine = {
-              id: (lineRow as any).id,
-              plantId: (lineRow as any).plant_id,
-              name: (lineRow as any).name,
-              area: (lineRow as any).area,
-              lineType: (lineRow as any).line_type ?? 'manual',
-              timeAvailableDaily: (lineRow as any).time_available_daily ?? (lineRow as any).time_available ?? 0,
-              xPosition: (lineRow as any).x_position ?? 0,
-              yPosition: (lineRow as any).y_position ?? 0,
-              changeoverEnabled: Boolean((lineRow as any).changeover_enabled),
-              changeoverExplicit: Boolean((lineRow as any).changeover_explicit),
-              active: Boolean((lineRow as any).active),
-              createdAt: new Date((lineRow as any).created_at),
-              updatedAt: new Date((lineRow as any).updated_at),
-            } as ProductionLine;
-          }
-        }
+        // linkedLine is deprecated - leave undefined
       }
 
       // Bug 1 Fix: Include compatibility count so node can determine completeness
@@ -998,39 +976,12 @@ export class SQLiteCanvasObjectRepository {
 
   /**
    * Get linked production line for a canvas object
+   * @deprecated Phase 7.5 - process_line_links is legacy from pre-migration 017
+   * All production lines are now canvas objects with process_properties directly
    */
-  async getLinkedLine(canvasObjectId: string): Promise<ProductionLine | null> {
-    const link = this.db
-      .prepare('SELECT * FROM process_line_links WHERE canvas_object_id = ?')
-      .get(canvasObjectId) as ProcessLineLinkRow | undefined;
-
-    if (!link || !link.production_line_id) {
-      return null;
-    }
-
-    const lineRow = this.db
-      .prepare('SELECT * FROM production_lines WHERE id = ?')
-      .get(link.production_line_id);
-
-    if (!lineRow) {
-      return null;
-    }
-
-    return {
-      id: (lineRow as any).id,
-      plantId: (lineRow as any).plant_id,
-      name: (lineRow as any).name,
-      area: (lineRow as any).area,
-      lineType: (lineRow as any).line_type ?? 'manual',
-      timeAvailableDaily: (lineRow as any).time_available_daily ?? (lineRow as any).time_available ?? 0,
-      xPosition: (lineRow as any).x_position ?? 0,
-      yPosition: (lineRow as any).y_position ?? 0,
-      changeoverEnabled: Boolean((lineRow as any).changeover_enabled),
-      changeoverExplicit: Boolean((lineRow as any).changeover_explicit),
-      active: Boolean((lineRow as any).active),
-      createdAt: new Date((lineRow as any).created_at),
-      updatedAt: new Date((lineRow as any).updated_at),
-    } as ProductionLine;
+  async getLinkedLine(_canvasObjectId: string): Promise<ProductionLine | null> {
+    // Phase 7.5: Deprecated - all data lives in process_properties
+    return null;
   }
 
   // ============================================
