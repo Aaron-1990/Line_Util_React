@@ -495,6 +495,12 @@ export function registerMultiSheetExcelHandlers(): void {
               areaSequenceMap
             );
 
+            // Collect unique plant IDs from Excel data to query correct plants
+            const uniquePlantIds = new Set<string>();
+            for (const vl of validationResult.lines.validLines) {
+              uniquePlantIds.add(resolvePlantId(vl.plantCode));
+            }
+
             // Build name-to-object map for existing objects with process properties (for smart update)
             interface ExistingObjectInfo {
               id: string;
@@ -504,12 +510,18 @@ export function registerMultiSheetExcelHandlers(): void {
               timeAvailableDaily?: number;
             }
             const existingObjectsMap = new Map<string, ExistingObjectInfo>();
-            const existingProcessObjects = await canvasObjectRepository.findByPlantAndType(defaultPlantId, 'process');
 
-            // Fetch process properties for each existing object
+            // Query existing objects for ALL plants referenced in Excel (not just default)
+            const existingProcessObjects: Array<{ id: string; name: string; plantId: string }> = [];
+            for (const pid of uniquePlantIds) {
+              const objs = await canvasObjectRepository.findByPlantAndType(pid, 'process');
+              existingProcessObjects.push(...objs.map(o => ({ ...o, plantId: pid })));
+            }
+
+            // Fetch process properties for each existing object and build map with plantId:name key
             for (const obj of existingProcessObjects) {
               const props = await canvasObjectRepository.getProcessProperties(obj.id);
-              existingObjectsMap.set(obj.name.toLowerCase(), {
+              existingObjectsMap.set(`${obj.plantId}:${obj.name.toLowerCase()}`, {
                 id: obj.id,
                 name: obj.name,
                 area: props?.area,
@@ -527,7 +539,7 @@ export function registerMultiSheetExcelHandlers(): void {
               totalLinesInExcel: validationResult.lines.validLines.length,
               uniqueNamesInExcel: uniqueNames.size,
               duplicateRowsInExcel: duplicateCount,
-              plantId: defaultPlantId,
+              plantIds: Array.from(uniquePlantIds),
             });
 
             for (const validLine of validationResult.lines.validLines) {
@@ -535,7 +547,10 @@ export function registerMultiSheetExcelHandlers(): void {
                 // Get the correct area code from DB (case-insensitive match)
                 const areaCode = areaCodeMap.get(validLine.area.toUpperCase()) || validLine.area;
 
-                const existingObj = existingObjectsMap.get(validLine.name.toLowerCase());
+                // Phase 7.2: Resolve plant ID from Excel column (or default) - needed for lookup
+                const plantId = resolvePlantId(validLine.plantCode);
+
+                const existingObj = existingObjectsMap.get(`${plantId}:${validLine.name.toLowerCase()}`);
                 const exists = existingObj !== undefined;
 
                 if (mode === 'create' && exists) {
@@ -545,9 +560,6 @@ export function registerMultiSheetExcelHandlers(): void {
                 if (mode === 'update' && !exists) {
                   continue; // Skip new in update mode
                 }
-
-                // Phase 7.2: Use plant code from Excel if present, otherwise default
-                const plantId = resolvePlantId(validLine.plantCode);
 
                 if (exists && existingObj) {
                   // Smart update: compare values to detect actual changes
@@ -566,7 +578,7 @@ export function registerMultiSheetExcelHandlers(): void {
                     updated++;
 
                     // Update map with new values for duplicate handling within same batch
-                    existingObjectsMap.set(validLine.name.toLowerCase(), {
+                    existingObjectsMap.set(`${plantId}:${validLine.name.toLowerCase()}`, {
                       ...existingObj,
                       area: areaCode,
                       lineType: validLine.lineType,
@@ -593,7 +605,7 @@ export function registerMultiSheetExcelHandlers(): void {
                   });
 
                   // Add to map so duplicate names in same import batch are handled as updates
-                  existingObjectsMap.set(validLine.name.toLowerCase(), {
+                  existingObjectsMap.set(`${plantId}:${validLine.name.toLowerCase()}`, {
                     id: canvasObject.id,
                     name: canvasObject.name,
                     area: areaCode,
