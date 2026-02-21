@@ -709,10 +709,21 @@ export function registerCanvasObjectHandlers(): void {
           return { success: false, error: 'Missing required fields: lineId, newType, or shapeId' };
         }
 
-        // Get the production line data
+        // Get the production line data from canvas_objects + process_properties
+        // (post-migration 017, all lines are canvas objects, but VIEW provides backward compat)
         const lineRow = db
-          .prepare('SELECT * FROM production_lines WHERE id = ? AND active = 1')
-          .get(payload.lineId) as {
+          .prepare(`
+            SELECT co.id, co.plant_id, co.name, pp.area, pp.line_type,
+                   pp.time_available_daily, co.x_position, co.y_position,
+                   pp.changeover_enabled
+            FROM canvas_objects co
+            JOIN process_properties pp ON co.id = pp.canvas_object_id
+            LEFT JOIN _production_line_id_mapping m ON co.id = m.canvas_object_id
+            WHERE (m.production_line_id = ? OR co.id = ?)
+              AND co.active = 1
+              AND co.object_type = 'process'
+          `)
+          .get(payload.lineId, payload.lineId) as {
             id: string;
             plant_id: string;
             name: string;
@@ -753,9 +764,16 @@ export function registerCanvasObjectHandlers(): void {
         const compatRepo = new SQLiteCanvasObjectCompatibilityRepository(db);
         await compatRepo.copyFromLine(payload.lineId, canvasObject.id);
 
-        // Soft-delete the production line
-        db.prepare('UPDATE production_lines SET active = 0, updated_at = ? WHERE id = ?')
-          .run(new Date().toISOString(), payload.lineId);
+        // Soft-delete the original canvas object (or mapped production line)
+        // Post-migration 017: production_lines is a VIEW, must UPDATE canvas_objects directly
+        db.prepare(`
+          UPDATE canvas_objects SET active = 0, updated_at = ?
+          WHERE id = (
+            SELECT canvas_object_id FROM _production_line_id_mapping WHERE production_line_id = ?
+            UNION
+            SELECT ? WHERE ? NOT IN (SELECT production_line_id FROM _production_line_id_mapping)
+          )
+        `).run(new Date().toISOString(), payload.lineId, payload.lineId, payload.lineId);
 
         // Force WAL checkpoint for persistence
         db.pragma('wal_checkpoint(PASSIVE)');
