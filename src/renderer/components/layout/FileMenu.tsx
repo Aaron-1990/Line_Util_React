@@ -2,6 +2,10 @@ import { useCallback } from 'react';
 import { FileIcon, FolderOpenIcon, SaveIcon, FileTextIcon } from 'lucide-react';
 import { useProjectStore } from '@renderer/store/useProjectStore';
 
+// Platform-aware shortcut hint: ⌘ on macOS, Ctrl+ elsewhere
+const isMac = navigator.platform.toUpperCase().includes('MAC');
+const mod = isMac ? '⌘' : 'Ctrl+';
+
 export const FileMenu = () => {
   const { newProject, openProject, saveProject, saveProjectAs, projectInfo } = useProjectStore();
 
@@ -38,7 +42,7 @@ export const FileMenu = () => {
             >
               <FileTextIcon className="w-4 h-4" />
               <span>New Project</span>
-              <span className="ml-auto text-xs text-gray-400">Ctrl+N</span>
+              <span className="ml-auto text-xs text-gray-400">{mod}N</span>
             </button>
 
             {/* Open Project */}
@@ -48,7 +52,7 @@ export const FileMenu = () => {
             >
               <FolderOpenIcon className="w-4 h-4" />
               <span>Open Project...</span>
-              <span className="ml-auto text-xs text-gray-400">Ctrl+O</span>
+              <span className="ml-auto text-xs text-gray-400">{mod}O</span>
             </button>
 
             <div className="border-t border-gray-200 my-1" />
@@ -60,7 +64,7 @@ export const FileMenu = () => {
             >
               <SaveIcon className="w-4 h-4" />
               <span>Save Project</span>
-              <span className="ml-auto text-xs text-gray-400">Ctrl+S</span>
+              <span className="ml-auto text-xs text-gray-400">{mod}S</span>
             </button>
 
             {/* Save Project As */}
@@ -70,7 +74,7 @@ export const FileMenu = () => {
             >
               <FileIcon className="w-4 h-4" />
               <span>Save Project As...</span>
-              <span className="ml-auto text-xs text-gray-400">Ctrl+Shift+S</span>
+              <span className="ml-auto text-xs text-gray-400">{mod}⇧S</span>
             </button>
           </div>
         </div>

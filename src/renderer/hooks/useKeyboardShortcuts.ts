@@ -13,26 +13,29 @@ export function useKeyboardShortcuts() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+N: New Project
-      if (e.ctrlKey && e.key === 'n') {
+      // Support both Ctrl (Windows/Linux) and Cmd (macOS)
+      const mod = e.ctrlKey || e.metaKey;
+
+      // Ctrl/Cmd+N: New Project
+      if (mod && !e.shiftKey && e.key === 'n') {
         e.preventDefault();
         newProject();
       }
 
-      // Ctrl+O: Open Project
-      if (e.ctrlKey && e.key === 'o') {
+      // Ctrl/Cmd+O: Open Project
+      if (mod && !e.shiftKey && e.key === 'o') {
         e.preventDefault();
         openProject();
       }
 
-      // Ctrl+S: Save Project
-      if (e.ctrlKey && !e.shiftKey && e.key === 's') {
+      // Ctrl/Cmd+S: Save Project
+      if (mod && !e.shiftKey && e.key === 's') {
         e.preventDefault();
         saveProject();
       }
 
-      // Ctrl+Shift+S: Save Project As
-      if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+      // Ctrl/Cmd+Shift+S: Save Project As
+      if (mod && e.shiftKey && e.key === 's') {
         e.preventDefault();
         saveProjectAs();
       }
