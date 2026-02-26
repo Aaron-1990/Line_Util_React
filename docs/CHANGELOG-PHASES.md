@@ -408,6 +408,125 @@ npm run type-check  # 0 errors
 
 ---
 
+## Phase 8.5: Canvas Background Layout Images (2026-02-25)
+
+**Status:** ✅ Completed and tested
+**Commits:** `2f432c6`, `17b5b6b`
+
+### What Was Implemented
+
+Import factory floor plan images (PNG, JPG, BMP, WebP, SVG) as background layers on the ReactFlow canvas. Layout images render behind process objects and support drag, resize, opacity control, lock, visibility toggle, name edit, and delete.
+
+### Architecture
+
+- **SSoT pattern**: `LayoutNodeData = { layoutId: string }` — ReactFlow nodes hold only a reference ID. All layout data lives in `useLayoutStore.layouts[]`.
+- **Hook Chain rule enforced**: All hooks declared before `if (!layout) return null` in both `LayoutImageNode` and `LayoutPropertiesPanel`.
+- **Optimistic updates**: Store applies changes locally before IPC round-trip to avoid drag-end jitter.
+
+### New Files
+
+| File | Purpose |
+|------|---------|
+| `migrations/019_project_layouts.sql` | `project_layouts` table with all layout fields |
+| `SQLiteLayoutRepository.ts` | CRUD repository for layout images |
+| `layout.handler.ts` | IPC handlers: IMPORT (file dialog), GET_BY_PLANT, UPDATE, DELETE |
+| `LayoutImageNode.tsx` | ReactFlow node with NodeResizer, lock/visibility overlay |
+| `LayoutPropertiesPanel.tsx` | Properties sidebar panel |
+| `useLayoutStore.ts` | Zustand store with optimistic update pattern |
+| `layout.ts` | Shared types: `LayoutImage`, `CreateLayoutInput`, `UpdateLayoutInput`, `LayoutImageRow` |
+| `useWindowTitle.ts` | Window title reflects unsaved changes (`*`) |
+
+### Modified Files
+
+- `src/main/index.ts` — register layout handlers
+- `src/main/ipc/handlers/index.ts` — import `registerLayoutHandlers`
+- `src/preload.ts` — expose `LAYOUT_CHANNELS`
+- `src/shared/constants/index.ts` — added `LAYOUT_CHANNELS` IPC constants
+- `src/shared/types/index.ts` — re-export layout types
+- `src/renderer/components/layout/AppLayout.tsx` — load layouts on plant switch
+- `src/renderer/components/layout/FileMenu.tsx` — "Import Layout Image" menu item
+- `src/renderer/features/canvas/ProductionCanvas.tsx` — render layout nodes behind process nodes
+- `src/renderer/features/canvas/components/panels/UnifiedPropertiesPanel.tsx` — route to LayoutPropertiesPanel when layout selected
+- `src/renderer/features/canvas/hooks/useSelectionState.ts` — detect layout node selection
+
+### Supported Formats
+
+| Format | Stored as | Rendered as |
+|--------|-----------|-------------|
+| PNG | base64 data URI | `<img>` |
+| JPG/JPEG | base64 data URI | `<img>` |
+| BMP | base64 data URI | `<img>` |
+| WebP | base64 data URI | `<img>` |
+| SVG | Raw SVG string | `dangerouslySetInnerHTML` |
+
+### Structural Audits (Fase 2b)
+
+- **SSoT Audit: PASS** — layout data lives exclusively in `useLayoutStore`
+- **Hook Chain Audit: PASS** — all hooks before early returns in both node and panel
+- **Caller Audit: N/A** — no methods removed
+
+---
+
+## Phase 8.5b: Layout Image Enhanced Controls (2026-02-25)
+
+**Status:** ✅ Completed and tested
+**Commit:** `17b5b6b`
+
+### What Was Implemented
+
+Enhanced the layout image properties panel with PowerPoint/Visio-style controls for precise factory floor plan positioning.
+
+### New Features
+
+| Feature | Details |
+|---------|---------|
+| **W/H numeric inputs** | Edit width/height directly; commit on blur or Enter; clamped to [50, 10000] |
+| **Aspect ratio lock** | Chain-link toggle, ON by default; W/H auto-calculate paired value using original aspect ratio |
+| **NodeResizer aspect ratio** | `keepAspectRatio={layout.aspectRatioLocked}` wires drag-resize to the same toggle |
+| **Rotation: numeric input** | 0–359°; negative values normalized (e.g., `-90` → `270`) |
+| **Rotation: preset pills** | 0°, 90°, 180°, 270° buttons; active preset highlighted in blue |
+| **Reset Dimensions** | Restores to original import size; disabled when already at original |
+| **Reset Rotation** | Restores to 0°; disabled when already 0° |
+| **Original size display** | Shows `Original: 800 x 600` below inputs for reference |
+| **sourceFormat fix** | BMP and WebP were incorrectly labeled as `png`; now correctly stored as `bmp`/`webp` |
+
+### Key Design Decision: Rotation via CSS on inner wrapper
+
+`transform: rotate()` applied to the image content div **inside** `LayoutImageNode`, NOT to the outer ReactFlow node wrapper. This keeps NodeResizer handles axis-aligned and drag behavior normal — standard approach for ReactFlow v11 (no native node rotation).
+
+### Migration
+
+`020_layout_enhancements.sql` — adds 4 columns to `project_layouts`:
+
+```sql
+rotation              REAL    NOT NULL DEFAULT 0
+original_width        REAL    -- immutable after creation
+original_height       REAL    -- immutable after creation
+aspect_ratio_locked   INTEGER NOT NULL DEFAULT 1
+```
+
+Existing rows backfilled: `original_width = width, original_height = height`.
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `migrations/020_layout_enhancements.sql` | NEW — 4 new columns |
+| `src/shared/types/layout.ts` | Added `rotation`, `originalWidth`, `originalHeight`, `aspectRatioLocked` to all 4 interfaces; added `bmp`/`webp` to `LayoutSourceFormat` |
+| `SQLiteLayoutRepository.ts` | `mapRowToEntity` maps new cols; `create` includes them; `update` handles rotation + aspectRatioLocked (originalWidth/Height immutable) |
+| `layout.handler.ts` | Passes `originalWidth/Height = DEFAULT_WIDTH/HEIGHT` at import; fixed BMP/WebP format labels |
+| `LayoutImageNode.tsx` | Rotation CSS on inner wrapper; `keepAspectRatio` on NodeResizer; min size 50px |
+| `useLayoutStore.ts` | Added `toggleAspectRatioLock` method |
+| `LayoutPropertiesPanel.tsx` | Major rewrite — 5 sections: Identity, Dimensions, Rotation, Appearance, Controls |
+
+### Structural Audits (Fase 2b)
+
+- **SSoT Audit: PASS** — new fields added to existing `useLayoutStore` pattern only
+- **Hook Chain Audit: PASS** — all new `useState`/`useEffect`/`useCallback` hooks added before early return
+- **Caller Audit: N/A** — no methods removed
+
+---
+
 ## Phase 4.2: Multi-Window Results
 
 - [x] Dedicated line bottleneck detection (constraintType, constrainedLines)
