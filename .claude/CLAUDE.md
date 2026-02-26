@@ -1,6 +1,6 @@
 # Line Optimizer - Project Context
 
-> **Version:** 0.7.6 | **Last Updated:** 2026-02-17 | **Developer:** Aaron Zapata
+> **Version:** 0.8.5 | **Last Updated:** 2026-02-25 | **Developer:** Aaron Zapata
 
 ---
 
@@ -41,8 +41,9 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
    - Multi-Plant (Phase 7.x) - plant scoping, Excel import with plant detection
    - Canvas nodes - stacked bars, year navigation, toggle states
    - **Canvas architecture (Phase 7.6)** - Single Source of Truth, node data pattern
+   - **Layout images (Phase 8.5/8.5b)** - `useLayoutStore`, `LayoutImageNode`, rotation/aspect ratio logic
 
-4. **Check existing stores** before creating new state: `useAnalysisStore`, `useChangeoverStore`, `useRoutingStore`, `usePlantStore`, `useNavigationStore`
+4. **Check existing stores** before creating new state: `useAnalysisStore`, `useChangeoverStore`, `useRoutingStore`, `usePlantStore`, `useNavigationStore`, `useLayoutStore`
 
 5. **Check existing IPC channels** in `src/shared/constants/index.ts` before adding new ones
 
@@ -123,6 +124,28 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 1. Read `docs/phases/phase-7.6-canvas-single-source-of-truth.md`
 2. Use `GenericShapeNode` as the template
 3. Verify: all hooks before early return, no hook count mismatch possible
+
+### 4. Canvas Layout Images — SSoT & Hook Chain (2026-02-25)
+
+**Documentation:** `docs/CHANGELOG-PHASES.md` → Phase 8.5 / 8.5b
+
+**Architecture:** `LayoutNodeData = { layoutId: string }` (reference only). All layout data lives in `useLayoutStore.layouts[]`. Mirrors the canvas object SSoT pattern.
+
+**Critical Files & Rules:**
+
+| Rule | Why Critical |
+|------|-------------|
+| `LayoutImageNode.tsx` — ALL hooks before `if (!layout) return null` | Same hook-after-early-return crash risk as GenericShapeNode |
+| `LayoutPropertiesPanel.tsx` — ALL hooks before `if (!layout) return null` | Panel has many hooks; adding one after the guard causes runtime crash |
+| Only use `updateLayout(id, input)` to change layout data | `nodes[].data` holds only `{ layoutId }` — updating node data directly does nothing |
+| `rotation` applied via CSS on inner wrapper, NOT the outer node | Keeps NodeResizer handles axis-aligned; do NOT move rotation to the ReactFlow node wrapper |
+| `original_width` / `original_height` are immutable after creation | Never write these in `update()` — they are the "Reset to Original" baseline |
+
+**If you need to add a property to layout images:**
+1. Add column to a new migration (next: `021_...`)
+2. Add field to all 4 interfaces in `src/shared/types/layout.ts`
+3. Update `mapRowToEntity`, `create`, `update` in `SQLiteLayoutRepository.ts`
+4. Add new hook/handler in `LayoutPropertiesPanel.tsx` BEFORE the early return
 
 ---
 
@@ -290,6 +313,12 @@ RENDERER (React)              MAIN (Node.js)
 | Routing types | `src/shared/types/routing.ts` |
 | Routing repo | `src/main/database/repositories/SQLiteModelAreaRoutingRepository.ts` |
 | Shape Catalog Plan | `docs/phases/phase-7.5-shape-catalog.md` |
+| Layout image types | `src/shared/types/layout.ts` |
+| Layout store | `src/renderer/features/canvas/store/useLayoutStore.ts` |
+| Layout repo | `src/main/database/repositories/SQLiteLayoutRepository.ts` |
+| Layout IPC handler | `src/main/ipc/handlers/layout.handler.ts` |
+| Layout node | `src/renderer/features/canvas/components/nodes/LayoutImageNode.tsx` |
+| Layout panel | `src/renderer/features/canvas/components/panels/LayoutPropertiesPanel.tsx` |
 
 **Phase history:** See `docs/CHANGELOG-PHASES.md` for detailed implementation history.
 
@@ -313,6 +342,11 @@ v_resolved_changeover_times   -- VIEW: Three-tier resolution
 -- Routing (DAG)
 model_area_routing            -- Areas in model's process flow
 model_area_predecessors       -- DAG edges (predecessors)
+
+-- Layout Images (Phase 8.5/8.5b)
+project_layouts               -- Background layout images (plant_id, image_data base64/svg,
+                              --   x/y/width/height, opacity, locked, visible, z_index,
+                              --   rotation, original_width, original_height, aspect_ratio_locked)
 ```
 
 **DB location:** `~/Library/Application Support/Line Optimizer/line-optimizer.db`
@@ -355,6 +389,7 @@ estimated_changeovers = N_eff - 1
 5. **Changeover**: Three-tier matrix, per-line toggles, stacked bar visualization
 6. **Routings**: DAG-based parallel process flows
 7. **Multi-Plant**: Plant-scoped data, global analysis view
+8. **Layout Images**: Import PNG/JPG/BMP/WebP/SVG as background floor plans; rotation, aspect ratio lock, W/H inputs, opacity, lock, visibility (Phase 8.5/8.5b)
 
 ---
 
@@ -377,6 +412,10 @@ python3 Optimizer/test_priority_distribution.py
 |-------|-------------|
 | 7.5 | Shape Catalog & Polymorphic Objects - see `docs/phases/phase-7.5-shape-catalog.md` |
 | 8 | Project files (.lineopt), scenarios |
+| ~~8.5~~ | ~~Canvas background layout images~~ ✅ Done |
+| ~~8.5b~~ | ~~Layout enhanced controls (rotation, aspect ratio, W/H inputs)~~ ✅ Done |
+| 8.6 | DXF import (AutoCAD floor plans — requires DXF→SVG conversion library) |
+| 8.7 | Scale reference tool (set known distance to calibrate pixel-to-meter) |
 | 9 | PDF/Excel reports |
 | 10 | Progress streaming, TSP sequencing |
 | 11 | Simulation export (ProModel) |
