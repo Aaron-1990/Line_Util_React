@@ -142,6 +142,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         await get().refreshProjectInfo();
         const info = get().projectInfo;
         console.log('[ProjectStore] Project saved as, name:', info?.metadata.projectName);
+        if (info?.currentFilePath) {
+          get().setProjectType('saved', info.currentFilePath);
+        }
       } else {
         // Show error to user
         alert(`Failed to save project:\n\n${response.error || 'Unknown error'}`);
@@ -206,9 +209,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 // NOTE: PROJECT_OPENED and PROJECT_RESET are handled in AppLayout.tsx via refreshAllStores()
 // to avoid duplicate event handling. Only listen to PROJECT_SAVED here.
 if (window.electronAPI) {
-  window.electronAPI.on(PROJECT_EVENTS.PROJECT_SAVED, () => {
-    useProjectStore.getState().refreshProjectInfo();
-    useProjectStore.getState().clearUnsavedChanges();
+  window.electronAPI.on(PROJECT_EVENTS.PROJECT_SAVED, async () => {
+    await useProjectStore.getState().refreshProjectInfo();
+    const info = useProjectStore.getState().projectInfo;
+    if (info?.currentFilePath) {
+      useProjectStore.getState().setProjectType('saved', info.currentFilePath);
+    } else {
+      useProjectStore.getState().clearUnsavedChanges();
+    }
   });
 
   window.electronAPI.on(PROJECT_EVENTS.PROJECT_CLOSED, () => {

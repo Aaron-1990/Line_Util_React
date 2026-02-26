@@ -914,3 +914,6 @@ export * from './validation';
 
 // Re-export all project types from dedicated module (Phase 8.0: Project Files Foundation)
 export * from './project';
+
+// Re-export all layout types from dedicated module (Phase 8.5: Canvas Background Layouts)
+export * from './layout';

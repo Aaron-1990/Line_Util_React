@@ -7,7 +7,7 @@ import { app, BrowserWindow, dialog, ipcMain, powerMonitor } from 'electron';
 import path from 'path';
 import DatabaseConnection from './database/connection';
 import { registerAllHandlers } from './ipc/handlers';
-import { PROJECT_EVENTS, PROJECT_CHANNELS, POWER_EVENTS, DATA_TABLES_TO_CLEAR } from '@shared/constants';
+import { PROJECT_EVENTS, PROJECT_CHANNELS, POWER_EVENTS, DATA_TABLES_TO_CLEAR, WINDOW_CHANNELS } from '@shared/constants';
 import { ApiResponse } from '@shared/types';
 import { SQLitePlantRepository } from './database/repositories/SQLitePlantRepository';
 
@@ -243,6 +243,21 @@ ipcMain.handle(
     console.log('[Main] Quit after save requested - proceeding to quit');
     isQuitting = true;
     app.quit();
+    return { success: true };
+  }
+);
+
+// ============================================
+// WINDOW TITLE - Unsaved/Saved State Indicator
+// Updates native window title + macOS indicators
+// ============================================
+ipcMain.handle(
+  WINDOW_CHANNELS.UPDATE_WINDOW_TITLE,
+  (_event, title: string, hasUnsavedChanges: boolean, filePath: string): ApiResponse<void> => {
+    if (!mainWindow) return { success: false, error: 'No main window' };
+    mainWindow.setTitle(title);
+    mainWindow.setDocumentEdited(hasUnsavedChanges);
+    mainWindow.setRepresentedFilename(filePath);
     return { success: true };
   }
 );

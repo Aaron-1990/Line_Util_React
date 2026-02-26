@@ -51,8 +51,10 @@ import { useToolStore } from './store/useToolStore';
 import { useShapeCatalogStore } from './store/useShapeCatalogStore';
 import { useCanvasObjectStore } from './store/useCanvasObjectStore';
 import { useClipboardStore } from './store/useClipboardStore';
+import { useLayoutStore } from './store/useLayoutStore';
 import { useLoadLines } from './hooks/useLoadLines';
 import { GenericShapeNode } from './components/nodes/GenericShapeNode';
+import { LayoutImageNode } from './components/nodes/LayoutImageNode';
 import { CanvasToolbar } from './components/toolbar/CanvasToolbar';
 import { ObjectPalette } from './components/toolbar/ObjectPalette';
 import { UnifiedPropertiesPanel } from './components/panels/UnifiedPropertiesPanel';
@@ -64,16 +66,17 @@ import { ConnectionContextMenu } from './components/ConnectionContextMenu';
 import { GhostPreview } from './components/GhostPreview';
 import { AnalysisControlBar, useAnalysisStore } from '../analysis';
 import { ChangeoverMatrixModal } from '../changeover';
-import { TIMELINE_EVENTS, WINDOW_CHANNELS, CANVAS_OBJECT_CHANNELS } from '@shared/constants';
+import { TIMELINE_EVENTS, WINDOW_CHANNELS, CANVAS_OBJECT_CHANNELS, LAYOUT_CHANNELS } from '@shared/constants';
 import { ExternalLink, CheckCircle } from 'lucide-react';
 import { isPlaceTool, isPasteTool, CanvasConnection, ConnectionType, CanvasObjectWithDetails } from '@shared/types';
 import { useNavigationStore } from '../../store/useNavigationStore';
 
 // Phase 7.5: All nodes now use GenericShapeNode (unified)
-// Keep productionLine key for backward compatibility with any cached state
+// Phase 8.5: Added layoutImage node type for background layout images
 const nodeTypes = {
   productionLine: GenericShapeNode,  // Deprecated - uses same component
   genericShape: GenericShapeNode,
+  layoutImage: LayoutImageNode,
 };
 
 // Inner component that has access to ReactFlow context
@@ -82,6 +85,8 @@ const CanvasInner = () => {
   // State values: Individual selectors (subscribe to specific fields only)
   const nodes = useCanvasStore((state) => state.nodes);
   const edges = useCanvasStore((state) => state.edges);
+  // Phase 8.5: selectedNode needed to drive `selected` prop on layout nodes
+  const selectedNode = useCanvasStore((state) => state.selectedNode);
 
   // Function refs: useShallow for stable references (Zustand 4.5+ best practice)
   // This prevents callback recreation on every render
@@ -108,6 +113,52 @@ const CanvasInner = () => {
 
   // Get current plant ID for creating objects
   const currentPlantId = useNavigationStore((state) => state.currentPlantId);
+
+  // Phase 8.5: Layout store - subscribe to layouts and actions
+  const layouts = useLayoutStore((state) => state.layouts);
+  const { loadLayoutsForPlant, updateLayout: updateLayoutStore } = useLayoutStore(
+    useShallow((state) => ({
+      loadLayoutsForPlant: state.loadLayoutsForPlant,
+      updateLayout: state.updateLayout,
+    }))
+  );
+
+  // Load layouts when plant changes (plant-scoped, same pattern as useLoadLines)
+  useEffect(() => {
+    if (currentPlantId) {
+      loadLayoutsForPlant(currentPlantId);
+    } else {
+      // Clear layouts when no plant selected
+      useLayoutStore.setState({ layouts: [] });
+    }
+  }, [currentPlantId, loadLayoutsForPlant]);
+
+  // Phase 8.5: Build ReactFlow nodes for layout images
+  // layoutImage nodes use very low zIndex so they render BEHIND process objects
+  const layoutNodes = useMemo((): Node[] => {
+    return layouts
+      .filter((l) => l.active)
+      .map((l) => ({
+        id: l.id,
+        type: 'layoutImage',
+        position: { x: l.xPosition, y: l.yPosition },
+        data: { layoutId: l.id },
+        // Drive ReactFlow's `selected` prop from the canvas store so NodeResizer renders
+        selected: selectedNode === l.id,
+        // Layout images are NOT selectable/draggable when locked
+        selectable: true,
+        draggable: !l.locked,
+        // Very low zIndex: renders behind all process objects
+        // Layout nodes render BEHIND process nodes via DOM order (allNodes = [...layoutNodes, ...nodes])
+        // Do NOT use negative zIndex: it hides nodes behind the ReactFlow pane layer
+        zIndex: 0,
+        // Prevent connections from being created to/from layout nodes
+        connectable: false,
+        // ReactFlow needs explicit width/height for NodeResizer to work correctly
+        width: l.width,
+        height: l.height,
+      }));
+  }, [layouts, selectedNode]);
 
   // State for context menu (Phase 7.5)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
@@ -231,6 +282,12 @@ const CanvasInner = () => {
   const allEdges = useMemo(() => {
     return [...edges, ...connectionEdges];
   }, [edges, connectionEdges]);
+
+  // Phase 8.5: Merge layout nodes (background) with process nodes (foreground)
+  // Layout nodes use lower zIndex so they render BEHIND process objects
+  const allNodes = useMemo(() => {
+    return [...layoutNodes, ...nodes];
+  }, [layoutNodes, nodes]);
 
   // Load lines for current plant
   const { isLoading, isEmpty } = useLoadLines();
@@ -416,38 +473,61 @@ const CanvasInner = () => {
         console.log('[Delete] Node details:', reactFlowNodes.map(n => ({ id: n.id, selected: n.selected, selectable: n.selectable })));
 
         const selectedNodes = reactFlowNodes.filter((node) => node.selected);
-        const objectsToDelete = selectedNodes.map((node) => node.id);
+        const allSelectedIds = selectedNodes.map((node) => node.id);
 
-        if (objectsToDelete.length === 0) {
+        if (allSelectedIds.length === 0) {
           return; // Early return if nothing selected
         }
 
         event.preventDefault();
 
-        console.log('[Delete] About to batch delete', objectsToDelete.length, 'objects:', objectsToDelete);
+        // Phase 8.5: Separate layout node IDs from canvas object IDs
+        // Layout nodes live in useLayoutStore and use LAYOUT_CHANNELS.DELETE
+        const layoutIds = new Set(useLayoutStore.getState().layouts.map((l) => l.id));
+        const layoutsToDelete = allSelectedIds.filter((id) => layoutIds.has(id));
+        const objectsToDelete = allSelectedIds.filter((id) => !layoutIds.has(id));
 
-        // BATCH DELETE: Update both stores atomically (single React render cycle)
-        // This prevents intermediate renders that trigger remounting
-        useCanvasStore.setState(state => ({
-          nodes: state.nodes.filter(n => !objectsToDelete.includes(n.id)),
-          selectedNode: objectsToDelete.includes(state.selectedNode || '') ? null : state.selectedNode,
-        }));
+        console.log('[Delete] layouts:', layoutsToDelete.length, 'canvas objects:', objectsToDelete.length);
 
-        useCanvasObjectStore.setState(state => ({
-          objects: state.objects.filter(obj => !objectsToDelete.includes(obj.id)),
-        }));
+        // BATCH DELETE stores atomically (single React render cycle)
+        if (objectsToDelete.length > 0) {
+          useCanvasStore.setState(state => ({
+            nodes: state.nodes.filter(n => !objectsToDelete.includes(n.id)),
+            selectedNode: objectsToDelete.includes(state.selectedNode || '') ? null : state.selectedNode,
+          }));
+          useCanvasObjectStore.setState(state => ({
+            objects: state.objects.filter(obj => !objectsToDelete.includes(obj.id)),
+          }));
+        }
+
+        if (layoutsToDelete.length > 0) {
+          useLayoutStore.setState(state => ({
+            layouts: state.layouts.filter(l => !layoutsToDelete.includes(l.id)),
+          }));
+          // Clear selectedNode if a layout was the active selection
+          const currentSelected = useCanvasStore.getState().selectedNode;
+          if (currentSelected && layoutsToDelete.includes(currentSelected)) {
+            useCanvasStore.getState().setSelectedNode(null);
+          }
+        }
 
         console.log('[Delete] UI updated, now persisting to backend...');
 
-        // BACKEND DELETES: Parallel execution (after UI already updated)
-        const deleteResults = await Promise.all(
-          objectsToDelete.map(id =>
+        // BACKEND DELETES: Route each ID to the correct channel
+        const deleteResults = await Promise.all([
+          ...objectsToDelete.map(id =>
             window.electronAPI
               .invoke(CANVAS_OBJECT_CHANNELS.DELETE, id)
               .then(result => ({ id, success: result.success, error: null }))
               .catch(error => ({ id, success: false, error: error.message }))
-          )
-        );
+          ),
+          ...layoutsToDelete.map(id =>
+            window.electronAPI
+              .invoke(LAYOUT_CHANNELS.DELETE, id)
+              .then(result => ({ id, success: result.success, error: null }))
+              .catch(error => ({ id, success: false, error: error.message }))
+          ),
+        ]);
 
         // Check for failures
         const failures = deleteResults.filter(r => !r.success);
@@ -459,7 +539,9 @@ const CanvasInner = () => {
         console.log('[Delete] All deletions completed successfully');
 
         // Bug 1 Fix: Refresh status bar counts after deleting objects
-        refreshData().catch(err => console.error('[Delete] Failed to refresh status bar:', err));
+        if (objectsToDelete.length > 0) {
+          refreshData().catch(err => console.error('[Delete] Failed to refresh status bar:', err));
+        }
 
         // Clear selection after deletion
         useToolStore.getState().clearSelection();
@@ -573,29 +655,54 @@ const CanvasInner = () => {
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       // STANDARD PATTERN: Read current nodes from store to avoid stale closure
-      // This prevents callback recreation on every nodes change (Zustand best practice)
       const currentNodes = useCanvasStore.getState().nodes;
       const updatedNodes = applyNodeChanges(changes, currentNodes);
       setNodes(updatedNodes);
 
+      // Phase 8.5: Layout nodes live in useLayoutStore (not useCanvasStore.nodes).
+      // We must handle their position changes separately and optimistically so drag works.
+      const currentLayouts = useLayoutStore.getState().layouts;
+      const layoutNodeIds = new Set(currentLayouts.map((l) => l.id));
+
       changes.forEach((change) => {
-        if (change.type === 'position' && !change.dragging && change.id) {
-          const updatedNode = updatedNodes.find(n => n.id === change.id);
+        if (change.type === 'position' && change.id && change.position) {
+          const isLayoutNode = layoutNodeIds.has(change.id);
 
-          if (updatedNode) {
-            updateNodePosition(change.id, updatedNode.position.x, updatedNode.position.y);
+          if (isLayoutNode) {
+            // Optimistic in-memory update so layoutNodes memo recomputes on EVERY drag tick.
+            // This keeps the node following the cursor (equivalent to applyNodeChanges for useCanvasStore).
+            useLayoutStore.setState((state) => ({
+              layouts: state.layouts.map((l) =>
+                l.id === change.id
+                  ? { ...l, xPosition: change.position!.x, yPosition: change.position!.y }
+                  : l
+              ),
+            }));
 
-            // Phase 7.5: Use unified canvas object position update
-            window.electronAPI
-              .invoke(CANVAS_OBJECT_CHANNELS.UPDATE_POSITION, change.id, updatedNode.position.x, updatedNode.position.y)
-              .catch((error) => {
-                console.error('[ProductionCanvas] Error updating object position:', error);
+            // Persist to DB only on drag end (dragging === false or undefined)
+            if (!change.dragging) {
+              updateLayoutStore(change.id, {
+                xPosition: change.position.x,
+                yPosition: change.position.y,
               });
+            }
+          } else if (!change.dragging) {
+            // Process/generic canvas object: persist via existing mechanism (drag end only)
+            const updatedNode = updatedNodes.find(n => n.id === change.id);
+            if (updatedNode) {
+              updateNodePosition(change.id, updatedNode.position.x, updatedNode.position.y);
+
+              window.electronAPI
+                .invoke(CANVAS_OBJECT_CHANNELS.UPDATE_POSITION, change.id, updatedNode.position.x, updatedNode.position.y)
+                .catch((error) => {
+                  console.error('[ProductionCanvas] Error updating object position:', error);
+                });
+            }
           }
         }
       });
     },
-    [setNodes, updateNodePosition] // Stable Zustand refs only - NO `nodes` (prevents ReactFlow effect remount)
+    [setNodes, updateNodePosition, updateLayoutStore]
   );
 
   const onEdgesChange = useCallback(
@@ -964,7 +1071,7 @@ const CanvasInner = () => {
         <ObjectPalette />
 
         <ReactFlow
-          nodes={nodes}
+          nodes={allNodes}
           edges={allEdges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useSelectionState } from '../../hooks/useSelectionState';
 import { useCanvasStore } from '../../store/useCanvasStore';
+import { LayoutPropertiesPanel } from './LayoutPropertiesPanel';
 import { useCanvasObjectStore } from '../../store/useCanvasObjectStore';
 import { useCanvasObjectCompatibilityStore } from '../../store/useCanvasObjectCompatibilityStore';
 import { useToolStore } from '../../store/useToolStore';
@@ -133,6 +134,11 @@ export const UnifiedPropertiesPanel = memo(() => {
   // Don't render if nothing selected or multi-select
   if (selection.type === 'none' || selection.type === 'multi') {
     return null;
+  }
+
+  // Phase 8.5: Layout images render their own standalone panel
+  if (selection.type === 'layout' && selection.selectedId) {
+    return <LayoutPropertiesPanel layoutId={selection.selectedId} />;
   }
 
   return (

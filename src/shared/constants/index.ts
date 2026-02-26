@@ -54,6 +54,9 @@ export const DATA_TABLES_TO_CLEAR = [
   // Catalogs (user-created + seed data - will be re-seeded on next run via migrations)
   'area_catalog',
 
+  // Layout images (Phase 8.5)
+  'project_layouts',
+
   // Historical/UI data
   'analysis_runs',
   'canvas_areas',
@@ -306,6 +309,7 @@ export const WINDOW_CHANNELS = {
   GET_RESULTS_DATA: 'window:get-results-data',
   CLOSE_RESULTS_WINDOW: 'window:close-results',
   IS_RESULTS_OPEN: 'window:is-results-open',
+  UPDATE_WINDOW_TITLE: 'window:update-title',
 } as const;
 
 // Timeline Window Events (Phase 4.2)
@@ -533,6 +537,14 @@ export const PROJECT_EVENTS = {
 export const POWER_EVENTS = {
   /** System resumed from sleep/suspension */
   SYSTEM_RESUMED: 'power:system-resumed',
+} as const;
+
+// Layout Images (Phase 8.5: Canvas Background Layouts)
+export const LAYOUT_CHANNELS = {
+  IMPORT: 'layout:import',
+  GET_BY_PLANT: 'layout:get-by-plant',
+  UPDATE: 'layout:update',
+  DELETE: 'layout:delete',
 } as const;
 
 // ============================================

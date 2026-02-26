@@ -12,6 +12,7 @@ import { FileMenu } from './FileMenu';
 import { useNavigationStore } from '../../store/useNavigationStore';
 import { useApplyTheme } from '../../hooks/useApplyTheme';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useWindowTitle } from '../../hooks/useWindowTitle';
 import { usePlantStore } from '../../features/plants';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ProductionCanvas } from '../../features/canvas';
@@ -28,6 +29,7 @@ import { useAnalysisStore } from '../../features/analysis';
 import { useChangeoverStore } from '../../features/changeover';
 import { useRoutingStore } from '../../features/routings';
 import { useShapeCatalogStore } from '../../features/canvas/store/useShapeCatalogStore';
+import { useLayoutStore } from '../../features/canvas/store/useLayoutStore';
 
 // ===== Helpers =====
 
@@ -63,6 +65,12 @@ async function refreshAllStores(): Promise<void> {
       // useCanvasStore.getState().refreshNodes(), // REMOVED: Legacy method loads from production_lines table (Phase 7.5 deprecated). useLoadLines hook handles canvas objects correctly.
       useShapeCatalogStore.getState().refreshCatalog(),
     ]);
+
+    // Load layouts for the newly active plant (plant-scoped, loaded after plants resolve)
+    const newPlantId = useNavigationStore.getState().currentPlantId;
+    if (newPlantId) {
+      await useLayoutStore.getState().loadLayoutsForPlant(newPlantId);
+    }
 
     console.log('[AppLayout] All stores refreshed successfully');
   } catch (error) {
@@ -107,6 +115,9 @@ export const AppLayout = () => {
 
   // Enable keyboard shortcuts
   useKeyboardShortcuts();
+
+  // Sync native window title + macOS doc-edited indicator with project state
+  useWindowTitle();
 
   // Initialize plant store on app startup
   useEffect(() => {

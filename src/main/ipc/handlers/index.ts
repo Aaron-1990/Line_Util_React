@@ -22,6 +22,7 @@ import { registerShapeCatalogHandlers } from './shape-catalog.handler';
 import { registerCanvasObjectHandlers } from './canvas-objects.handler';
 import { registerCanvasObjectCompatibilityHandlers } from './canvas-object-compatibility.handler';
 import { registerProjectHandlers } from './project.handler';
+import { registerLayoutHandlers } from './layout.handler';
 import { BrowserWindow } from 'electron';
 
 export function registerAllHandlers(mainWindow?: BrowserWindow): void {
@@ -45,6 +46,8 @@ export function registerAllHandlers(mainWindow?: BrowserWindow): void {
   registerShapeCatalogHandlers();
   registerCanvasObjectHandlers();
   registerCanvasObjectCompatibilityHandlers();
+
+  registerLayoutHandlers();
 
   // Project handlers require main window for dialogs
   if (mainWindow) {
