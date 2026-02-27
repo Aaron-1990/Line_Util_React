@@ -138,26 +138,36 @@ const CanvasInner = () => {
   const layoutNodes = useMemo((): Node[] => {
     return layouts
       .filter((l) => l.active)
-      .map((l) => ({
-        id: l.id,
-        type: 'layoutImage',
-        position: { x: l.xPosition, y: l.yPosition },
-        data: { layoutId: l.id },
-        // Drive ReactFlow's `selected` prop from the canvas store so NodeResizer renders
-        selected: selectedNode === l.id,
-        // Layout images are NOT selectable/draggable when locked
-        selectable: true,
-        draggable: !l.locked,
-        // Very low zIndex: renders behind all process objects
-        // Layout nodes render BEHIND process nodes via DOM order (allNodes = [...layoutNodes, ...nodes])
-        // Do NOT use negative zIndex: it hides nodes behind the ReactFlow pane layer
-        zIndex: 0,
-        // Prevent connections from being created to/from layout nodes
-        connectable: false,
-        // ReactFlow needs explicit width/height for NodeResizer to work correctly
-        width: l.width,
-        height: l.height,
-      }));
+      .map((l) => {
+        // Pass-through: when locked and not currently selected, set pointerEvents: 'none'
+        // so mousedown on the node area reaches the pane layer and starts box selection.
+        // When selected (user clicked the lock badge), remove pass-through so overlay
+        // buttons (unlock, visibility) become interactive.
+        const isPassThrough = l.locked && selectedNode !== l.id;
+        return {
+          id: l.id,
+          type: 'layoutImage',
+          position: { x: l.xPosition, y: l.yPosition },
+          data: { layoutId: l.id },
+          // Drive ReactFlow's `selected` prop from the canvas store so NodeResizer renders
+          selected: selectedNode === l.id,
+          // Pass-through nodes are not selectable via normal RF interaction
+          selectable: !isPassThrough,
+          focusable: !isPassThrough,
+          draggable: !l.locked,
+          // Very low zIndex: renders behind all process objects
+          // Layout nodes render BEHIND process nodes via DOM order (allNodes = [...layoutNodes, ...nodes])
+          // Do NOT use negative zIndex: it hides nodes behind the ReactFlow pane layer
+          zIndex: 0,
+          // Prevent connections from being created to/from layout nodes
+          connectable: false,
+          // ReactFlow needs explicit width/height for NodeResizer to work correctly
+          width: l.width,
+          height: l.height,
+          // pointerEvents: 'none' lets mousedown pass through to the pane (box selection)
+          style: isPassThrough ? { pointerEvents: 'none' as const } : undefined,
+        };
+      });
   }, [layouts, selectedNode]);
 
   // State for context menu (Phase 7.5)
@@ -792,8 +802,30 @@ const CanvasInner = () => {
     const isClickOnPane = target.classList.contains('react-flow__pane');
 
     if (isClickOnPane) {
-      setSelectedNode(null);
-      clearSelection();
+      // When a locked layout image has pointerEvents: none, clicks on it pass through
+      // to the pane. Use position-based hit detection to select it instead of clearing.
+      // Only applies in default select mode — paste/place/connect modes behave as before.
+      if (!isPasteTool(activeTool) && !isPlaceTool(activeTool) && !isConnectMode) {
+        const clickPosition = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+        const lockedLayouts = useLayoutStore.getState().layouts.filter((l) => l.active && l.locked);
+        const clickedLayout = lockedLayouts.find(
+          (l) =>
+            clickPosition.x >= l.xPosition &&
+            clickPosition.x <= l.xPosition + l.width &&
+            clickPosition.y >= l.yPosition &&
+            clickPosition.y <= l.yPosition + l.height
+        );
+        if (clickedLayout) {
+          // Select the locked layout — do NOT clear selection, but still close context menus below
+          setSelectedNode(clickedLayout.id);
+        } else {
+          setSelectedNode(null);
+          clearSelection();
+        }
+      } else {
+        setSelectedNode(null);
+        clearSelection();
+      }
     }
 
     // Context menus should always close on any click
