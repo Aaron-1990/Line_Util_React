@@ -116,6 +116,7 @@ const CanvasInner = () => {
 
   // Phase 8.5: Layout store - subscribe to layouts and actions
   const layouts = useLayoutStore((state) => state.layouts);
+  const cropModeLayoutId = useLayoutStore((state) => state.cropModeLayoutId);
   const { loadLayoutsForPlant, updateLayout: updateLayoutStore } = useLayoutStore(
     useShallow((state) => ({
       loadLayoutsForPlant: state.loadLayoutsForPlant,
@@ -154,7 +155,8 @@ const CanvasInner = () => {
           // Pass-through nodes are not selectable via normal RF interaction
           selectable: !isPassThrough,
           focusable: !isPassThrough,
-          draggable: !l.locked,
+          // Phase 8.5c: Disable dragging while in crop mode for this node
+          draggable: !l.locked && cropModeLayoutId !== l.id,
           // Very low zIndex: renders behind all process objects
           // Layout nodes render BEHIND process nodes via DOM order (allNodes = [...layoutNodes, ...nodes])
           // Do NOT use negative zIndex: it hides nodes behind the ReactFlow pane layer
@@ -168,7 +170,7 @@ const CanvasInner = () => {
           style: isPassThrough ? { pointerEvents: 'none' as const } : undefined,
         };
       });
-  }, [layouts, selectedNode]);
+  }, [layouts, selectedNode, cropModeLayoutId]);
 
   // State for context menu (Phase 7.5)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; objectId: string } | null>(null);
@@ -457,9 +459,14 @@ const CanvasInner = () => {
         return;
       }
 
-      // Escape key - clear selection (AutoCAD-style)
+      // Escape key - exit crop mode if active, otherwise clear selection (AutoCAD-style)
       if (event.key === 'Escape') {
         event.preventDefault();
+        // Phase 8.5c: If crop mode is active, exit it (keep layout selected)
+        if (useLayoutStore.getState().cropModeLayoutId !== null) {
+          useLayoutStore.getState().setCropMode(null);
+          return;
+        }
         // Clear our stores
         useToolStore.getState().clearSelection();
         useCanvasStore.getState().setSelectedNode(null);
@@ -765,6 +772,11 @@ const CanvasInner = () => {
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       console.log('[onNodeClick] Clicked node:', node.id, 'selectable:', node.selectable);
+      // Phase 8.5c: Exit crop mode if user clicks a different node
+      const currentCropId = useLayoutStore.getState().cropModeLayoutId;
+      if (currentCropId !== null && currentCropId !== node.id) {
+        useLayoutStore.getState().setCropMode(null);
+      }
       setSelectedNode(node.id);
     },
     [setSelectedNode]
@@ -802,6 +814,12 @@ const CanvasInner = () => {
     const isClickOnPane = target.classList.contains('react-flow__pane');
 
     if (isClickOnPane) {
+      // Phase 8.5c: Exit crop mode on pane click (keep layout selected)
+      if (useLayoutStore.getState().cropModeLayoutId !== null) {
+        useLayoutStore.getState().setCropMode(null);
+        // Do NOT clear selectedNode — keep the layout selected so panel stays open
+      }
+
       // When a locked layout image has pointerEvents: none, clicks on it pass through
       // to the pane. Use position-based hit detection to select it instead of clearing.
       // Only applies in default select mode — paste/place/connect modes behave as before.

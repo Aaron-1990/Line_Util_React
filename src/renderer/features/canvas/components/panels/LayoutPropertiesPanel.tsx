@@ -8,7 +8,7 @@
 import { memo, useState, useCallback, useEffect } from 'react';
 import {
   X, Lock, Unlock, Eye, EyeOff, Trash2, Image,
-  Link, Unlink, RotateCcw,
+  Link, Unlink, RotateCcw, Crop, Check,
 } from 'lucide-react';
 import { useLayoutStore } from '../../store/useLayoutStore';
 import { useCanvasStore } from '../../store/useCanvasStore';
@@ -47,6 +47,9 @@ export const LayoutPropertiesPanel = memo(({ layoutId }: LayoutPropertiesPanelPr
   const toggleAspectRatioLock = useLayoutStore((state) => state.toggleAspectRatioLock);
   const deleteLayout = useLayoutStore((state) => state.deleteLayout);
   const setSelectedNode = useCanvasStore((state) => state.setSelectedNode);
+  const cropModeLayoutId = useLayoutStore((state) => state.cropModeLayoutId);
+  const setCropMode = useLayoutStore((state) => state.setCropMode);
+  const resetCrop = useLayoutStore((state) => state.resetCrop);
 
   // Local string state for editable inputs (avoids fighting with store on each keystroke)
   const [nameValue, setNameValue] = useState(layout?.name ?? '');
@@ -325,6 +328,51 @@ export const LayoutPropertiesPanel = memo(({ layoutId }: LayoutPropertiesPanelPr
           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 text-right">
             Original: {Math.round(layout.originalWidth)} x {Math.round(layout.originalHeight)}
           </p>
+        </div>
+
+        {/* ---- Section: Crop ---- */}
+        <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+          <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">
+            Crop
+          </p>
+
+          {cropModeLayoutId === layoutId ? (
+            // Active crop mode: show "Done Cropping" button
+            <button
+              onClick={() => setCropMode(null)}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
+            >
+              <Check className="w-3.5 h-3.5" />
+              Done Cropping
+            </button>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={() => setCropMode(layoutId)}
+                disabled={layout.locked}
+                title={layout.locked ? 'Unlock to crop' : 'Crop image'}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-gray-200 dark:border-gray-600"
+              >
+                <Crop className="w-3.5 h-3.5" />
+                Crop Image
+              </button>
+
+              {layout.cropX !== null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    {Math.round(layout.cropW ?? 0)} x {Math.round(layout.cropH ?? 0)} of{' '}
+                    {Math.round(layout.originalWidth)} x {Math.round(layout.originalHeight)}
+                  </span>
+                  <button
+                    onClick={() => resetCrop(layoutId)}
+                    className="text-xs text-blue-500 hover:text-blue-700 transition-colors"
+                  >
+                    Reset
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ---- Section: Rotation ---- */}

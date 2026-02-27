@@ -40,6 +40,10 @@ export class SQLiteLayoutRepository {
       originalWidth: row.original_width ?? row.width,
       originalHeight: row.original_height ?? row.height,
       aspectRatioLocked: Boolean(row.aspect_ratio_locked ?? 1),
+      cropX: row.crop_x ?? null,
+      cropY: row.crop_y ?? null,
+      cropW: row.crop_w ?? null,
+      cropH: row.crop_h ?? null,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
@@ -147,6 +151,10 @@ export class SQLiteLayoutRepository {
            z_index           = ?,
            rotation          = ?,
            aspect_ratio_locked = ?,
+           crop_x            = ?,
+           crop_y            = ?,
+           crop_w            = ?,
+           crop_h            = ?,
            updated_at        = ?
          WHERE id = ?`
       )
@@ -162,6 +170,11 @@ export class SQLiteLayoutRepository {
         input.zIndex          ?? existing.zIndex,
         input.rotation        !== undefined ? input.rotation                  : existing.rotation,
         input.aspectRatioLocked !== undefined ? (input.aspectRatioLocked ? 1 : 0) : (existing.aspectRatioLocked ? 1 : 0),
+        // null is valid (= reset crop), so use !== undefined, not ??
+        input.cropX           !== undefined ? input.cropX                     : existing.cropX,
+        input.cropY           !== undefined ? input.cropY                     : existing.cropY,
+        input.cropW           !== undefined ? input.cropW                     : existing.cropW,
+        input.cropH           !== undefined ? input.cropH                     : existing.cropH,
         now,
         id
       );

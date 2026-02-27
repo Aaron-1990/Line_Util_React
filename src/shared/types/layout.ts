@@ -37,6 +37,14 @@ export interface LayoutImage {
   originalHeight: number;
   /** When true, NodeResizer and W/H inputs maintain aspect ratio. Defaults to true. */
   aspectRatioLocked: boolean;
+  /** Non-destructive crop: X offset in original image pixels. null = no crop. */
+  cropX: number | null;
+  /** Non-destructive crop: Y offset in original image pixels. null = no crop. */
+  cropY: number | null;
+  /** Non-destructive crop: width in original image pixels. null = no crop. */
+  cropW: number | null;
+  /** Non-destructive crop: height in original image pixels. null = no crop. */
+  cropH: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,6 +85,14 @@ export interface UpdateLayoutInput {
   rotation?: number;
   /** Toggle aspect ratio lock */
   aspectRatioLocked?: boolean;
+  /** Crop offset X in original image pixels. null = reset crop. */
+  cropX?: number | null;
+  /** Crop offset Y in original image pixels. null = reset crop. */
+  cropY?: number | null;
+  /** Crop width in original image pixels. null = reset crop. */
+  cropW?: number | null;
+  /** Crop height in original image pixels. null = reset crop. */
+  cropH?: number | null;
 }
 
 /**
@@ -109,6 +125,10 @@ export interface LayoutImageRow {
   original_width: number;
   original_height: number;
   aspect_ratio_locked: number;
+  crop_x: number | null;
+  crop_y: number | null;
+  crop_w: number | null;
+  crop_h: number | null;
   created_at: string;
   updated_at: string;
 }

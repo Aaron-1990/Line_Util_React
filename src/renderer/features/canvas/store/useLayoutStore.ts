@@ -18,6 +18,8 @@ interface LayoutStore {
   layouts: LayoutImage[];
   isLoading: boolean;
   error: string | null;
+  /** ID of the layout currently in crop mode (ephemeral UI state, not persisted). */
+  cropModeLayoutId: string | null;
 
   // Actions
   loadLayoutsForPlant: (plantId: string) => Promise<void>;
@@ -28,6 +30,8 @@ interface LayoutStore {
   setOpacity: (id: string, opacity: number) => Promise<void>;
   toggleLock: (id: string) => Promise<void>;
   toggleAspectRatioLock: (id: string) => Promise<void>;
+  setCropMode: (layoutId: string | null) => void;
+  resetCrop: (id: string) => Promise<void>;
 
   // Helpers
   getLayoutById: (id: string) => LayoutImage | undefined;
@@ -53,6 +57,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   layouts: [],
   isLoading: false,
   error: null,
+  cropModeLayoutId: null,
 
   // ============================================
   // LOAD LAYOUTS FOR PLANT
@@ -215,6 +220,20 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
     if (!layout) return;
 
     await get().updateLayout(id, { aspectRatioLocked: !layout.aspectRatioLocked });
+  },
+
+  // ============================================
+  // CROP MODE
+  // ============================================
+
+  setCropMode: (layoutId: string | null) => {
+    set({ cropModeLayoutId: layoutId });
+  },
+
+  resetCrop: async (id: string) => {
+    // Clear all 4 crop fields (null = no crop) and exit crop mode
+    await get().updateLayout(id, { cropX: null, cropY: null, cropW: null, cropH: null });
+    set({ cropModeLayoutId: null });
   },
 
   // ============================================
