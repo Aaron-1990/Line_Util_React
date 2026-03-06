@@ -93,6 +93,10 @@ export interface UpdateLayoutInput {
   cropW?: number | null;
   /** Crop height in original image pixels. null = reset crop. */
   cropH?: number | null;
+  /** Original pixel width — only for auto-heal of legacy imports with wrong dimensions. */
+  originalWidth?: number;
+  /** Original pixel height — only for auto-heal of legacy imports with wrong dimensions. */
+  originalHeight?: number;
 }
 
 /**

@@ -129,7 +129,8 @@ export class SQLiteLayoutRepository {
 
   /**
    * Update layout properties.
-   * originalWidth/originalHeight are intentionally NOT updatable (immutable).
+   * originalWidth/originalHeight are normally immutable, but can be updated
+   * via auto-heal when legacy imports stored wrong 800x600 defaults.
    */
   update(id: string, input: UpdateLayoutInput): LayoutImage | null {
     const existing = this.findById(id);
@@ -151,6 +152,8 @@ export class SQLiteLayoutRepository {
            z_index           = ?,
            rotation          = ?,
            aspect_ratio_locked = ?,
+           original_width    = ?,
+           original_height   = ?,
            crop_x            = ?,
            crop_y            = ?,
            crop_w            = ?,
@@ -170,6 +173,8 @@ export class SQLiteLayoutRepository {
         input.zIndex          ?? existing.zIndex,
         input.rotation        !== undefined ? input.rotation                  : existing.rotation,
         input.aspectRatioLocked !== undefined ? (input.aspectRatioLocked ? 1 : 0) : (existing.aspectRatioLocked ? 1 : 0),
+        input.originalWidth   ?? existing.originalWidth,
+        input.originalHeight  ?? existing.originalHeight,
         // null is valid (= reset crop), so use !== undefined, not ??
         input.cropX           !== undefined ? input.cropX                     : existing.cropX,
         input.cropY           !== undefined ? input.cropY                     : existing.cropY,

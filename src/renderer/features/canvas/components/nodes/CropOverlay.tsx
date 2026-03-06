@@ -2,10 +2,14 @@
 // CROP OVERLAY
 // PowerPoint-style 8-handle crop UI for layout images
 // Phase 8.5c: Non-destructive image crop
+// Phase 8.5c-patch: "Handles on Current View" — no visual jump on entry
 //
 // Coordinate system:
 //   All crop values are in ORIGINAL IMAGE pixel space.
-//   Conversion: displayPx = imagePx * (nodeSize / originalSize)
+//   activeArea: where the image actually renders within the node (display px)
+//   imageRange: which portion of the original image activeArea represents
+//   Conversion: displayPx = activeArea.origin + (imgPx - imageRange.origin) * scale
+//   where scale = activeArea.size / imageRange.size
 //
 // Rules:
 //   - All mouse events call e.stopPropagation() to prevent RF drag/selection
@@ -40,12 +44,10 @@ interface HandleDef {
 interface CropOverlayProps {
   /** Current crop rect in image pixel coordinates */
   crop: CropRect;
-  /** Node display dimensions (px on screen, pre-zoom) */
-  nodeWidth: number;
-  nodeHeight: number;
-  /** Original image dimensions in pixels */
-  originalWidth: number;
-  originalHeight: number;
+  /** Bounds of the visible image area within the node (display px, pre-zoom) */
+  activeArea: { x: number; y: number; width: number; height: number };
+  /** Image pixel range that activeArea represents */
+  imageRange: { x: number; y: number; width: number; height: number };
   /** Called on every drag tick (live preview) */
   onCropChange: (crop: CropRect) => void;
   /** Called on mouseup (persist to store) */
@@ -79,10 +81,8 @@ const HANDLES: HandleDef[] = [
 
 export const CropOverlay: React.FC<CropOverlayProps> = ({
   crop,
-  nodeWidth,
-  nodeHeight,
-  originalWidth,
-  originalHeight,
+  activeArea,
+  imageRange,
   onCropChange,
   onCropEnd,
   onExit,
@@ -102,30 +102,34 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
 
   // ---- Conversion helpers ----
 
-  const scaleX = nodeWidth / originalWidth;   // display px per image px (X)
-  const scaleY = nodeHeight / originalHeight; // display px per image px (Y)
+  // Scale: display px per image px
+  const scaleX = activeArea.width / imageRange.width;
+  const scaleY = activeArea.height / imageRange.height;
 
-  // Convert image pixels -> display pixels
-  const toDisplayX = (imgPx: number) => imgPx * scaleX;
-  const toDisplayY = (imgPx: number) => imgPx * scaleY;
+  // Convert image pixels -> display pixels, offset by activeArea origin
+  const toDisplayX = (imgPx: number) => activeArea.x + (imgPx - imageRange.x) * scaleX;
+  const toDisplayY = (imgPx: number) => activeArea.y + (imgPx - imageRange.y) * scaleY;
 
   // ---- Constraint helper ----
+  // Crop must stay within imageRange bounds
 
   const constrainCrop = useCallback((c: CropRect): CropRect => {
+    const maxX = imageRange.x + imageRange.width;
+    const maxY = imageRange.y + imageRange.height;
     let { cropX, cropY, cropW, cropH } = c;
 
-    cropX = Math.max(0, cropX);
-    cropY = Math.max(0, cropY);
+    cropX = Math.max(imageRange.x, cropX);
+    cropY = Math.max(imageRange.y, cropY);
     cropW = Math.max(MIN_CROP_PX, cropW);
     cropH = Math.max(MIN_CROP_PX, cropH);
 
-    if (cropX + cropW > originalWidth)  cropW = originalWidth - cropX;
-    if (cropY + cropH > originalHeight) cropH = originalHeight - cropY;
-    if (cropW < MIN_CROP_PX) { cropX = Math.max(0, originalWidth - MIN_CROP_PX); cropW = MIN_CROP_PX; }
-    if (cropH < MIN_CROP_PX) { cropY = Math.max(0, originalHeight - MIN_CROP_PX); cropH = MIN_CROP_PX; }
+    if (cropX + cropW > maxX) cropW = maxX - cropX;
+    if (cropY + cropH > maxY) cropH = maxY - cropY;
+    if (cropW < MIN_CROP_PX) { cropX = Math.max(imageRange.x, maxX - MIN_CROP_PX); cropW = MIN_CROP_PX; }
+    if (cropH < MIN_CROP_PX) { cropY = Math.max(imageRange.y, maxY - MIN_CROP_PX); cropH = MIN_CROP_PX; }
 
     return { cropX, cropY, cropW, cropH };
-  }, [originalWidth, originalHeight]);
+  }, [imageRange.x, imageRange.y, imageRange.width, imageRange.height]);
 
   // ---- Mouse down on a handle ----
 
@@ -150,7 +154,7 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
       const { handle, startMouseX, startMouseY, startCrop } = dragRef.current;
       const zoom = getViewport().zoom;
 
-      // Delta in screen pixels → convert to image pixels
+      // Delta in screen pixels -> convert to image pixels
       const dxScreen = e.clientX - startMouseX;
       const dyScreen = e.clientY - startMouseY;
       const dxImg = dxScreen / (scaleX * zoom);
@@ -190,6 +194,7 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
       }
 
       const next = constrainCrop({ cropX, cropY, cropW, cropH });
+      cropRef.current = next;   // Keep ref in sync for mouseup reader
       onCropChange(next);
     };
 
@@ -225,8 +230,8 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
 
   const dispX = toDisplayX(crop.cropX);
   const dispY = toDisplayY(crop.cropY);
-  const dispW = toDisplayX(crop.cropW);
-  const dispH = toDisplayY(crop.cropH);
+  const dispW = crop.cropW * scaleX;
+  const dispH = crop.cropH * scaleY;
 
   // ---- Render ----
 
@@ -240,7 +245,7 @@ export const CropOverlay: React.FC<CropOverlayProps> = ({
       }}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {/* Dark mask: top */}
+      {/* Dark mask: top — covers from node top to crop rect top (includes letterbox) */}
       <div
         style={{
           position: 'absolute',

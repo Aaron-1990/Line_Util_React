@@ -3,7 +3,7 @@
 // Phase 8.5: Canvas Background Layouts
 // ============================================
 
-import { ipcMain, dialog } from 'electron';
+import { ipcMain, dialog, nativeImage } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { LAYOUT_CHANNELS } from '@shared/constants';
@@ -12,9 +12,58 @@ import type { LayoutImage, ImportLayoutResult, UpdateLayoutInput } from '@shared
 import DatabaseConnection from '../../database/connection';
 import { SQLiteLayoutRepository } from '../../database/repositories/SQLiteLayoutRepository';
 
-// Default dimensions for layout images (canvas units)
-const DEFAULT_WIDTH = 800;
-const DEFAULT_HEIGHT = 600;
+// Max initial node dimension (longest side) in canvas units
+const MAX_INITIAL_DIMENSION = 800;
+
+/**
+ * Detect real pixel dimensions of a raster image.
+ * Uses Electron's nativeImage (synchronous, no browser required).
+ */
+function getRasterDimensions(filePath: string): { width: number; height: number } {
+  try {
+    const img = nativeImage.createFromPath(filePath);
+    const size = img.getSize();
+    if (size.width > 0 && size.height > 0) return size;
+  } catch (_e) {
+    // fall through to default
+  }
+  return { width: 800, height: 600 };
+}
+
+/**
+ * Parse SVG dimensions from viewBox or width/height attributes.
+ * Falls back to 800x600 if neither is parseable.
+ */
+function getSvgDimensions(svgString: string): { width: number; height: number } {
+  // Try viewBox="x y w h"
+  const vbMatch = svgString.match(/viewBox\s*=\s*["'][\d.+-]+\s+[\d.+-]+\s+([\d.]+)\s+([\d.]+)["']/);
+  if (vbMatch && vbMatch[1] && vbMatch[2]) {
+    const w = parseFloat(vbMatch[1]);
+    const h = parseFloat(vbMatch[2]);
+    if (w > 0 && h > 0) return { width: w, height: h };
+  }
+  // Try width/height attributes
+  const wMatch = svgString.match(/\bwidth\s*=\s*["']([\d.]+)/);
+  const hMatch = svgString.match(/\bheight\s*=\s*["']([\d.]+)/);
+  if (wMatch && hMatch && wMatch[1] && hMatch[1]) {
+    const w = parseFloat(wMatch[1]);
+    const h = parseFloat(hMatch[1]);
+    if (w > 0 && h > 0) return { width: w, height: h };
+  }
+  return { width: 800, height: 600 };
+}
+
+/**
+ * Scale real image dimensions so the longest side = MAX_INITIAL_DIMENSION.
+ * Never upscales (if both dims are already <= MAX_INITIAL_DIMENSION, keep as-is).
+ */
+function computeInitialNodeSize(realW: number, realH: number): { width: number; height: number } {
+  const scale = Math.min(MAX_INITIAL_DIMENSION / Math.max(realW, realH), 1);
+  return {
+    width: Math.round(realW * scale),
+    height: Math.round(realH * scale),
+  };
+}
 
 export function registerLayoutHandlers(): void {
   // ============================================
@@ -81,9 +130,17 @@ export function registerLayoutHandlers(): void {
           imageData = `data:${mimeType};base64,${buffer.toString('base64')}`;
         }
 
+        // Detect real image dimensions
+        const realDims = ext === 'svg'
+          ? getSvgDimensions(imageData)
+          : getRasterDimensions(filePath);
+        const { width: nodeW, height: nodeH } = computeInitialNodeSize(realDims.width, realDims.height);
+
+        console.log(`[Layout Handler] Detected dimensions: ${realDims.width}x${realDims.height} -> node ${nodeW}x${nodeH}`);
+
         // Calculate position: center of current viewport or origin
-        const xPosition = viewportCenter ? viewportCenter.x - DEFAULT_WIDTH / 2 : 0;
-        const yPosition = viewportCenter ? viewportCenter.y - DEFAULT_HEIGHT / 2 : 0;
+        const xPosition = viewportCenter ? viewportCenter.x - nodeW / 2 : 0;
+        const yPosition = viewportCenter ? viewportCenter.y - nodeH / 2 : 0;
 
         const repo = new SQLiteLayoutRepository(DatabaseConnection.getInstance());
         const layout = repo.create({
@@ -93,11 +150,11 @@ export function registerLayoutHandlers(): void {
           sourceFormat: format as LayoutImage['sourceFormat'],
           xPosition,
           yPosition,
-          width: DEFAULT_WIDTH,
-          height: DEFAULT_HEIGHT,
+          width: nodeW,
+          height: nodeH,
           opacity: 0.5,
-          originalWidth: DEFAULT_WIDTH,
-          originalHeight: DEFAULT_HEIGHT,
+          originalWidth: realDims.width,
+          originalHeight: realDims.height,
         });
 
         console.log(`[Layout Handler] Imported layout "${layout.name}" (${fileSizeBytes} bytes)`);
