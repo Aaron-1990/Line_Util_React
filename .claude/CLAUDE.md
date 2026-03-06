@@ -68,6 +68,8 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
    See `~/.claude/CLAUDE.md` Fase 2b for full protocol and PASS/FAIL criteria.
 
+8. **Canonical rules registry:** `docs/rules/ARCHITECTURE-RULES.md` — 7 mandatory rules with audit commands, rationale, and origin. This is the single source of truth for all architectural rules.
+
 **If unsure, ASK the user** rather than guess. Fixing broken features costs more than asking.
 
 ---
@@ -146,6 +148,38 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 2. Add field to all 4 interfaces in `src/shared/types/layout.ts`
 3. Update `mapRowToEntity`, `create`, `update` in `SQLiteLayoutRepository.ts`
 4. Add new hook/handler in `LayoutPropertiesPanel.tsx` BEFORE the early return
+
+**See also:** `docs/rules/ARCHITECTURE-RULES.md` Rules 1, 6, 7
+
+---
+
+### 5. Dynamic `getInstance()` in IPC Handlers (2026-02-07)
+
+**Documentation:** `docs/rules/ARCHITECTURE-RULES.md` Rule 4
+
+**All 15 database handlers MUST obtain a fresh `DatabaseConnection.getInstance()` inside the handler callback, never at registration time.**
+
+| Why Critical |
+|-------------|
+| `DatabaseConnection.replaceInstance()` is called when opening `.lop` files. Handlers that capture the instance at registration use a closed/stale connection after file open. |
+
+```typescript
+// WRONG — captured at registration:
+export function registerHandler(): void {
+  const repo = new SomeRepository(DatabaseConnection.getInstance());
+  ipcMain.handle('channel', async () => repo.findAll()); // stale after file open
+}
+
+// CORRECT — fresh on every call:
+export function registerHandler(): void {
+  ipcMain.handle('channel', async () => {
+    const repo = new SomeRepository(DatabaseConnection.getInstance());
+    return repo.findAll();
+  });
+}
+```
+
+**All 15 handlers audited and fixed as of Phase 8.2.** If adding a new handler, always use the CORRECT pattern.
 
 ---
 
@@ -251,21 +285,15 @@ Objects stay exactly as user left them ✅
 
 ---
 
-## Documentation Structure
+## Documentation Structure (3-Tier)
 
-Understanding where to find project documentation:
+| Tier | Files | When loaded |
+|------|-------|-------------|
+| **1 — Auto** | `~/.claude/CLAUDE.md`, `.claude/CLAUDE.md`, `MEMORY.md` | Every session |
+| **2 — BLOQUE 0** | `docs/CHANGELOG-PHASES.md` (lean index), `docs/rules/ARCHITECTURE-RULES.md` | When investigating existing features |
+| **3 — On-demand** | `docs/phases/`, `docs/fixes/`, `docs/specs/`, `docs/testing/` | When investigating specific areas |
 
-| Purpose | Location | Description |
-|---------|----------|-------------|
-| **Phase Index** | `docs/CHANGELOG-PHASES.md` | Brief summary of completed phases + references |
-| **Phase Details** | `docs/phases/phase-X.md` | Full implementation docs for completed phases |
-| **Feature Specs** | `docs/specs/` | Specifications for features TO BE implemented |
-| **Testing Guides** | `docs/testing/` | Manual test procedures and validation |
-
-**Navigation Pattern**:
-1. Need context on existing feature? → Read `CHANGELOG-PHASES.md` (index) → Follow reference to `docs/phases/phase-X.md` (details)
-2. Implementing new feature? → Read spec from `docs/specs/feature-name.md`
-3. Testing feature? → Read guide from `docs/testing/feature-test.md`
+**Quick nav:** Phase history → `docs/CHANGELOG-PHASES.md` → links to `docs/phases/` | Specs → `docs/specs/` | Rules → `docs/rules/ARCHITECTURE-RULES.md`
 
 ---
 
@@ -390,19 +418,6 @@ estimated_changeovers = N_eff - 1
 6. **Routings**: DAG-based parallel process flows
 7. **Multi-Plant**: Plant-scoped data, global analysis view
 8. **Layout Images**: Import PNG/JPG/BMP/WebP/SVG as background floor plans; rotation, aspect ratio lock, W/H inputs, opacity, lock, visibility (Phase 8.5/8.5b)
-
----
-
-## Common Commands
-
-```bash
-npm start              # Start app with HMR
-npm run type-check     # TypeScript validation
-npm run db:reset       # Delete database (only when needed)
-
-# Test optimizer
-python3 Optimizer/test_priority_distribution.py
-```
 
 ---
 

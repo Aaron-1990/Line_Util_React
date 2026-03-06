@@ -2,6 +2,9 @@
 
 **Purpose:** Prevent regression of critical bugs when implementing new features
 
+**Canonical architectural rules:** `docs/rules/ARCHITECTURE-RULES.md` (Rules 1-7 with audit commands)
+This checklist covers the *operational* checks. The rules registry covers the *definitions*.
+
 **Use this checklist BEFORE implementing any feature that touches:**
 - Data loading/reloading
 - Store management (Zustand)
@@ -225,5 +228,6 @@ powerMonitorApi.onResume(async () => {
 
 ---
 
-**Last Updated:** 2026-02-17
+**Last Updated:** 2026-03-05
 **Mandatory for all agents implementing features**
+**Canonical rules:** `docs/rules/ARCHITECTURE-RULES.md`
