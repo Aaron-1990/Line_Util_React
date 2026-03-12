@@ -14,6 +14,7 @@ import type { LayoutNodeData } from '@shared/types/layout';
 import type { CropRect } from './CropOverlay';
 import { CropOverlay } from './CropOverlay';
 import { useLayoutStore } from '../../store/useLayoutStore';
+import { useCanvasStore } from '../../store/useCanvasStore';
 
 /**
  * LayoutImageNode renders a background layout image (PNG, JPG, or SVG)
@@ -59,8 +60,13 @@ export const LayoutImageNode = memo(({ data, selected, id }: NodeProps<LayoutNod
     (e: React.MouseEvent) => {
       e.stopPropagation();
       toggleLock(id);
+      // When locking (not unlocking), deselect the node so isPassThrough becomes true
+      // and the canvas can pan freely over the locked image.
+      if (!layout?.locked) {
+        useCanvasStore.getState().setSelectedNode(null);
+      }
     },
-    [id, toggleLock]
+    [id, toggleLock, layout?.locked]
   );
 
   const handleToggleVisibility = useCallback(

@@ -474,7 +474,12 @@ export const LayoutPropertiesPanel = memo(({ layoutId }: LayoutPropertiesPanelPr
 
             {/* Lock toggle */}
             <button
-              onClick={() => toggleLock(layoutId)}
+              onClick={() => {
+                toggleLock(layoutId);
+                // When locking (not unlocking), deselect so isPassThrough becomes true
+                // and the canvas can pan freely over the locked image.
+                if (!layout.locked) setSelectedNode(null);
+              }}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 layout.locked
                   ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
