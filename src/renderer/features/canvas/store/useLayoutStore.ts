@@ -29,9 +29,17 @@ interface LayoutStore {
    *  Used by commitCrop as the authoritative source when the user clicks "Done Cropping"
    *  without releasing the mouse (no mouseup → no handleCropEnd → store still null). */
   pendingCrop: { layoutId: string; crop: CropRect } | null;
+  /** Plant ID for which layouts are currently loaded. Used by loadLayoutsForPlant to skip
+   *  unnecessary DB reloads when ProductionCanvas re-mounts on tab navigation (same plant).
+   *  Reset to null by refreshAllStores() so project open/new always forces a fresh load. */
+  loadedForPlantId: string | null;
 
   // Actions
   loadLayoutsForPlant: (plantId: string) => Promise<void>;
+  /** Reset the loadedForPlantId guard so the next loadLayoutsForPlant call always
+   *  hits the DB regardless of which plant is currently loaded. Call from
+   *  refreshAllStores() before switching databases (project open / new project). */
+  resetLoadedPlant: () => void;
   importLayout: (plantId: string, viewportCenter?: { x: number; y: number }) => Promise<LayoutImage | null>;
   updateLayout: (id: string, input: UpdateLayoutInput) => Promise<void>;
   deleteLayout: (id: string) => Promise<void>;
@@ -73,12 +81,22 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   error: null,
   cropModeLayoutId: null,
   pendingCrop: null,
+  loadedForPlantId: null,
 
   // ============================================
   // LOAD LAYOUTS FOR PLANT
   // ============================================
 
   loadLayoutsForPlant: async (plantId: string) => {
+    // Guard: skip DB reload if this plant is already loaded in memory.
+    // Prevents position revert when ProductionCanvas re-mounts on tab navigation.
+    // refreshAllStores() calls resetLoadedPlant() first to bypass this guard on
+    // project open / new project (where a fresh DB read is required).
+    if (get().loadedForPlantId === plantId) {
+      console.log('[LayoutStore] Skipping reload — layouts already loaded for plant:', plantId);
+      return;
+    }
+
     set({ isLoading: true, error: null });
 
     try {
@@ -88,7 +106,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
       );
 
       if (response.success && response.data) {
-        set({ layouts: response.data, isLoading: false });
+        set({ layouts: response.data, isLoading: false, loadedForPlantId: plantId });
       } else {
         set({ error: response.error ?? 'Failed to load layouts', isLoading: false });
       }
@@ -99,6 +117,10 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
         isLoading: false,
       });
     }
+  },
+
+  resetLoadedPlant: () => {
+    set({ loadedForPlantId: null });
   },
 
   // ============================================
@@ -157,9 +179,11 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
         markProjectUnsaved();
       } else {
         console.error('[LayoutStore] Update failed:', response.error);
-        // On failure, reload from DB to restore consistent state
+        // On failure, reload from DB to restore consistent state.
+        // Reset the guard first so the reload is not skipped.
         const layout = get().layouts.find((l) => l.id === id);
         if (layout?.plantId) {
+          set({ loadedForPlantId: null });
           get().loadLayoutsForPlant(layout.plantId);
         }
       }

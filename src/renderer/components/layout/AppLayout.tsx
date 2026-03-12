@@ -66,7 +66,10 @@ async function refreshAllStores(): Promise<void> {
       useShapeCatalogStore.getState().refreshCatalog(),
     ]);
 
-    // Load layouts for the newly active plant (plant-scoped, loaded after plants resolve)
+    // Load layouts for the newly active plant (plant-scoped, loaded after plants resolve).
+    // Reset the loadedForPlantId guard first so the DB is always read fresh after a
+    // database switch (project open / new project), bypassing the tab-navigation guard.
+    useLayoutStore.getState().resetLoadedPlant();
     const newPlantId = useNavigationStore.getState().currentPlantId;
     if (newPlantId) {
       await useLayoutStore.getState().loadLayoutsForPlant(newPlantId);
