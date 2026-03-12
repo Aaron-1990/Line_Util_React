@@ -2,18 +2,48 @@
 // EXCEL EXPORTER SERVICE
 // Phase 9: Export Optimization Results to Excel
 //
-// Produces a workbook with 4 sheet types:
-//   1. "Capacity Analysis"  — Multi-Year matrix (mirrors ConstraintTimeline)
-//   2. "Results_{AREA}"     — Full model breakdown per line (mirrors Resultados tab)
-//   3. "Summary_{AREA}"     — Totals + utilization + C/O impact (mirrors Tabla de Resumen)
-//   4. "Overall Summary"    — Aggregate stats across all years
+// Workbook sheet order:
+//   1. "Capacity Analysis"    — Multi-Year matrix (mirrors ConstraintTimeline)
+//   2. "Results_{AREA}" × N   — Line breakdown + validation rows (mirrors Resultados tab)
+//   3. "Summary_{AREA}" × N   — Totals + utilization + C/O impact
+//   4. "Unfulfilled Demand"   — Unfulfilled demand detail by model/area/year
+//   5. "Overall Summary"      — Aggregate stats across all years
 //
-// operationsDays: taken from YearSummary.operationsDays (set by optimizer).
-// Falls back to 240 if not present (consistent with ResultsPanel UI).
+// Validation rows (Σ DISTRIBUIDO / VOLUMEN / COBERTURA / ESTADO) are computed
+// from ModelAssignment.demandUnitsDaily + allocatedUnitsDaily — no DB query needed.
+// operationsDays: from YearSummary.operationsDays, falls back to 240.
 // ============================================
 
 import * as XLSX from 'xlsx';
 import type { OptimizationResult, ExportResultsRequest } from '@shared/types';
+
+// Validation thresholds — mirrors DEFAULT_VALIDATION_THRESHOLDS in shared/constants/validation
+const VALIDATION_THRESHOLDS = {
+  ok:       { min: 0.99, max: 1.01 },
+  over:     { min: 1.01 },
+  under:    { min: 0.85, max: 0.95 },
+  alert:    { min: 0.70, max: 0.85 },
+  critical: { max: 0.70 },
+} as const;
+
+type ValidationStatus = 'ok' | 'over' | 'under' | 'alert' | 'critical';
+
+const VALIDATION_LABELS: Record<ValidationStatus, string> = {
+  ok:       'OK',
+  over:     'OVER',
+  under:    'UNDER',
+  alert:    'ALERT',
+  critical: 'CRITICAL',
+};
+
+interface ModelValidation {
+  modelName: string;
+  distributedUnits: number;  // annual
+  volumeUnitsAnnual: number; // annual
+  coveragePercent: number;
+  status: ValidationStatus;
+  deltaUnits: number;
+}
 
 export class ExcelExporter {
   /**
@@ -35,6 +65,7 @@ export class ExcelExporter {
       this.addSummarySheet(wb, results, area, years);
     }
 
+    this.addUnfulfilledDemandSheet(wb, results, sortedAreas);
     this.addOverallSummarySheet(wb, results);
 
     return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
@@ -107,7 +138,6 @@ export class ExcelExporter {
     const header1: unknown[] = ['Linea'];
     for (const year of years) {
       header1.push(year);
-      // +1 for Util%, +sortedModels.length for pieces, +sortedModels.length for seconds
       header1.push(...Array(1 + sortedModels.length * 2).fill(''));
     }
     rows.push(header1);
@@ -122,7 +152,7 @@ export class ExcelExporter {
     }
     rows.push(header2);
 
-    // Data rows
+    // Data rows — one per line
     for (const lineName of sortedLines) {
       const yearMap = linesByName.get(lineName)!;
       const row: unknown[] = [lineName];
@@ -142,6 +172,49 @@ export class ExcelExporter {
           const a = byModel.get(m);
           row.push(a ? Math.round(a.timeRequiredSeconds * opsdays) : 0);
         });
+      }
+      rows.push(row);
+    }
+
+    // ---- Validation rows (mirrors ValidationRows UI component) ----
+    // Separator
+    rows.push([]);
+
+    const validationByYear = new Map<number, ModelValidation[]>();
+    for (const year of years) {
+      validationByYear.set(year, this.computeValidation(results, area, year));
+    }
+
+    const validationRowDefs: { label: string; field: keyof ModelValidation | 'status' }[] = [
+      { label: 'Sigma DISTRIBUIDO', field: 'distributedUnits' },
+      { label: 'VOLUMEN (BD)',       field: 'volumeUnitsAnnual' },
+      { label: 'COBERTURA',         field: 'coveragePercent' },
+      { label: 'ESTADO',            field: 'status' },
+    ];
+
+    for (const { label, field } of validationRowDefs) {
+      const row: unknown[] = [label];
+      for (const year of years) {
+        const validations = validationByYear.get(year) ?? [];
+        const byModel = new Map(validations.map((v) => [v.modelName, v]));
+
+        row.push('-');  // Tiempo Util. — N/A
+        row.push('-');  // Util. %      — N/A
+
+        sortedModels.forEach((m) => {
+          const v = byModel.get(m);
+          if (!v) { row.push('-'); return; }
+          switch (field) {
+            case 'distributedUnits':  row.push(Math.round(v.distributedUnits)); break;
+            case 'volumeUnitsAnnual': row.push(Math.round(v.volumeUnitsAnnual)); break;
+            case 'coveragePercent':   row.push(`${v.coveragePercent.toFixed(1)}%`); break;
+            case 'status':            row.push(VALIDATION_LABELS[v.status]); break;
+            default: row.push('-');
+          }
+        });
+
+        // Seg columns — N/A for validation rows
+        sortedModels.forEach(() => row.push('-'));
       }
       rows.push(row);
     }
@@ -202,6 +275,66 @@ export class ExcelExporter {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), sheetName);
   }
 
+  private addUnfulfilledDemandSheet(
+    wb: XLSX.WorkBook,
+    results: OptimizationResult,
+    sortedAreas: string[]
+  ): void {
+    const rows: unknown[][] = [];
+
+    rows.push(['Unfulfilled Demand — Detail by Model']);
+    rows.push([`Generated: ${new Date().toISOString().replace('T', ' ').slice(0, 19)}`]);
+    rows.push([]);
+    rows.push([
+      'Area', 'Model', 'Year',
+      'Demand/Day', 'Allocated/Day', 'Unfulfilled/Day',
+      'Unfulfilled/Year', 'Fulfillment %', 'Status',
+    ]);
+
+    for (const area of sortedAreas) {
+      for (const yr of results.yearResults.slice().sort((a, b) => a.year - b.year)) {
+        const opsdays = yr.summary.operationsDays ?? 240;
+
+        // unfulfilledDemand contains only models with unmet demand; use it as the detail source
+        const areaUnfulfilled = yr.unfulfilledDemand.filter((u) => u.area === area);
+
+        if (!areaUnfulfilled.length) {
+          // All models fully satisfied — emit a summary row
+          const areaSummary = yr.areaSummary.find((s) => s.area === area);
+          rows.push([
+            area,
+            '(all models)',
+            yr.year,
+            '-', '-', 0, 0,
+            parseFloat((areaSummary?.fulfillmentPercent ?? 100).toFixed(1)),
+            'OK',
+          ]);
+          continue;
+        }
+
+        // Sort worst fulfillment first
+        const sorted = areaUnfulfilled.slice().sort((a, b) => a.fulfillmentPercent - b.fulfillmentPercent);
+
+        for (const u of sorted) {
+          const status = this.getValidationStatus(u.fulfillmentPercent / 100);
+          rows.push([
+            area,
+            u.modelName,
+            yr.year,
+            parseFloat(u.demandUnitsDaily.toFixed(1)),
+            parseFloat((u.demandUnitsDaily - u.unfulfilledUnitsDaily).toFixed(1)),
+            parseFloat(u.unfulfilledUnitsDaily.toFixed(1)),
+            Math.round(u.unfulfilledUnitsYearly ?? u.unfulfilledUnitsDaily * opsdays),
+            parseFloat(u.fulfillmentPercent.toFixed(1)),
+            VALIDATION_LABELS[status],
+          ]);
+        }
+      }
+    }
+
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Unfulfilled Demand');
+  }
+
   private addOverallSummarySheet(
     wb: XLSX.WorkBook,
     results: OptimizationResult
@@ -230,9 +363,7 @@ export class ExcelExporter {
       ]);
     }
 
-    if (!results.yearResults.length) {
-      rows.push(['No data']);
-    } else {
+    if (results.yearResults.length) {
       rows.push([]);
       rows.push([
         'ALL YEARS',
@@ -242,6 +373,61 @@ export class ExcelExporter {
     }
 
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Overall Summary');
+  }
+
+  // ---- Validation computation ----
+
+  /**
+   * Compute per-model validation data for a given area + year.
+   * Uses ModelAssignment.demandUnitsDaily and allocatedUnitsDaily — no DB required.
+   * Sums allocated across all lines for each model (matching useValidationCalculator logic).
+   */
+  private computeValidation(
+    results: OptimizationResult,
+    area: string,
+    year: number
+  ): ModelValidation[] {
+    const yr = results.yearResults.find((r) => r.year === year);
+    if (!yr) return [];
+
+    const opsdays = yr.summary.operationsDays ?? 240;
+    const linesInArea = yr.lines.filter((l) => l.area === area);
+
+    // Aggregate per model: sum allocated, take demand from first occurrence
+    const modelMap = new Map<string, { name: string; allocatedDaily: number; demandDaily: number }>();
+
+    for (const line of linesInArea) {
+      for (const a of line.assignments) {
+        const existing = modelMap.get(a.modelId);
+        if (existing) {
+          existing.allocatedDaily += a.allocatedUnitsDaily;
+        } else {
+          modelMap.set(a.modelId, {
+            name: a.modelName,
+            allocatedDaily: a.allocatedUnitsDaily,
+            demandDaily: a.demandUnitsDaily,
+          });
+        }
+      }
+    }
+
+    const result: ModelValidation[] = [];
+    for (const [, m] of modelMap) {
+      const distributedUnits = m.allocatedDaily * opsdays;
+      const volumeUnitsAnnual = m.demandDaily * opsdays;
+      const ratio = volumeUnitsAnnual > 0 ? distributedUnits / volumeUnitsAnnual : 0;
+      const coveragePercent = ratio * 100;
+      result.push({
+        modelName: m.name,
+        distributedUnits,
+        volumeUnitsAnnual,
+        coveragePercent,
+        status: this.getValidationStatus(ratio),
+        deltaUnits: distributedUnits - volumeUnitsAnnual,
+      });
+    }
+
+    return result.sort((a, b) => a.modelName.localeCompare(b.modelName));
   }
 
   // ---- Helpers ----
@@ -306,5 +492,14 @@ export class ExcelExporter {
     if (percent >= 90) return 'Action Req.';
     if (percent >= 80) return 'Monitor';
     return 'Healthy';
+  }
+
+  private getValidationStatus(ratio: number): ValidationStatus {
+    const t = VALIDATION_THRESHOLDS;
+    if (ratio >= t.ok.min && ratio <= t.ok.max) return 'ok';
+    if (ratio > t.over.min) return 'over';
+    if (ratio >= t.under.min && ratio < t.under.max) return 'under';
+    if (ratio >= t.alert.min && ratio < t.alert.max) return 'alert';
+    return 'critical';
   }
 }
