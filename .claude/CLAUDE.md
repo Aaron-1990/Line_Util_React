@@ -158,23 +158,15 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 ---
 
-### 4b. Crop Image: Rendering Bug Fix + Architecture Migration (2026-03-09)
+### 4b. Crop Image: Rendering Bug Fix + Architecture Migration — COMPLETE (2026-03-11)
 
-**Specification:** `docs/specs/crop-image-fix-and-migration.md`
-**Status:** Ready for implementation
-**Agent:** frontend-developer
-**Estimated complexity:** Complex
+**Status:** COMPLETE — Verified 2026-03-11. All scenarios pass.
+**Detail:** `docs/fixes/crop-image-offset-after-done.md` | `docs/fixes/phase-8.5c-phase2-crop-position-bugs.md`
 
-**Context:** Phase 8.5c non-destructive crop has a visual offset bug on first crop despite correct math. Two-phase fix:
-
-- **Phase 1:** Diagnose CSS rendering bug (ReactFlow wrapper vs inner div, transform chain)
-- **Phase 2:** Migrate to "permanent image origin" architecture (`imageOriginX/Y`, `imageScale` as primary fields)
-
-**Implementation:**
-
-```bash
-claude "Implement crop image fix and architecture migration according to docs/specs/crop-image-fix-and-migration.md. PHASE 1 FIRST: diagnose the rendering bug using the 4 investigations in BLOQUE 0, then apply the fix. DO NOT proceed to PHASE 2 until PHASE 1 first-crop works visually. Apply contracts-first methodology with checkpoints after each block."
-```
+**Summary of fixes applied:**
+- Phase 1: `maxWidth:'none', maxHeight:'none'` on `<img>` in `renderImage()` — overrides Tailwind Preflight global reset
+- Phase 2: `imageOriginX/Y`, `imageScale` as primary fields; `xPosition/yPosition/width/height` derived via `deriveBounds()`
+- Locked image panning: conditional `isPassThrough` + `pointerEvents:none` on image content div when locked
 
 ### 5. Dynamic `getInstance()` in IPC Handlers (2026-02-07)
 

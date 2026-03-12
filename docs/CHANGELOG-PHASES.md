@@ -7,18 +7,11 @@
 
 ---
 
-## Fix: Locked image pan pass-through (2026-03-11)
-**Status:** Complete | **Commits:** (will be filled)
-**Summary:** Fixed locked layout image blocking canvas pan. Reverted `isPassThrough` to conditional (`locked && !selected`) and added `pointerEvents:none` to image content wrapper when locked, so drag over locked+selected image pans the canvas while control buttons remain clickable.
-**Key files:** `ProductionCanvas.tsx`, `LayoutImageNode.tsx`
-
----
-
-## Phase 8.5c Phase 2: Primary-field crop architecture + position bug fixes (2026-03-11)
-**Status:** Complete | **Commits:** (will be filled by git)
-**Summary:** Migrated crop geometry to primary fields (imageOriginX/Y, imageScale). Fixed 5 position bugs: origin not updated on drag, floating-point echo corruption, re-crop without handle movement, click-outside/Escape behavior, locked image blocking canvas pan.
-**Key files:** `useLayoutStore.ts`, `ProductionCanvas.tsx`, `LayoutImageNode.tsx`, `CropOverlay.tsx`, `deriveBounds.ts`, `SQLiteLayoutRepository.ts`, migration `022_layout_image_origin.sql`
-**Detail:** `docs/fixes/phase-8.5c-phase2-crop-position-bugs.md`
+## Phase 8.5c: Non-Destructive Image Crop — COMPLETE (2026-03-11)
+**Status:** Complete | **Commits:** af25643, 2d6ba49
+**Summary:** PowerPoint-style non-destructive crop with 8-handle CropOverlay. Phase 1 fixed Tailwind Preflight CSS override (`maxWidth:'none'` on img). Phase 2 migrated to primary-field architecture (`imageOriginX/Y`, `imageScale`). SQLite migration 022. Click-outside commits (PowerPoint behavior). Locked image panning via conditional `isPassThrough` + `pointerEvents:none` on image content div.
+**Key files:** `useLayoutStore.ts`, `LayoutImageNode.tsx`, `CropOverlay.tsx`, `ProductionCanvas.tsx`, `deriveBounds.ts`, `SQLiteLayoutRepository.ts`, migration `022_layout_image_origin.sql`
+**Detail:** `docs/fixes/crop-image-offset-after-done.md` | `docs/fixes/phase-8.5c-phase2-crop-position-bugs.md`
 
 ---
 
