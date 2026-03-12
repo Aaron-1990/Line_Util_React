@@ -7,6 +7,13 @@
 
 ---
 
+## Fix: Locked image pan pass-through (2026-03-11)
+**Status:** Complete | **Commits:** (will be filled)
+**Summary:** Fixed locked layout image blocking canvas pan. Reverted `isPassThrough` to conditional (`locked && !selected`) and added `pointerEvents:none` to image content wrapper when locked, so drag over locked+selected image pans the canvas while control buttons remain clickable.
+**Key files:** `ProductionCanvas.tsx`, `LayoutImageNode.tsx`
+
+---
+
 ## Phase 8.5c Phase 2: Primary-field crop architecture + position bug fixes (2026-03-11)
 **Status:** Complete | **Commits:** (will be filled by git)
 **Summary:** Migrated crop geometry to primary fields (imageOriginX/Y, imageScale). Fixed 5 position bugs: origin not updated on drag, floating-point echo corruption, re-crop without handle movement, click-outside/Escape behavior, locked image blocking canvas pan.

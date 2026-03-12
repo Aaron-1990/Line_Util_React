@@ -140,11 +140,12 @@ const CanvasInner = () => {
     return layouts
       .filter((l) => l.active)
       .map((l) => {
-        // Pass-through: locked images are ALWAYS transparent to pointer events so the
+        // Pass-through: locked+unselected images are transparent to pointer events so the
         // canvas can pan/select even when the mouse is over a locked image.
-        // The control buttons (lock/visibility) override this with pointerEvents:'auto'
-        // directly in LayoutImageNode, so they remain clickable when selected.
-        const isPassThrough = l.locked;
+        // When locked+selected, the wrapper keeps events (so selection stays), but the
+        // image content div inside LayoutImageNode is pointer-events:none — drag passes
+        // through to canvas panning while the control buttons (pointer-events:auto) stay clickable.
+        const isPassThrough = l.locked && selectedNode !== l.id;
         const node = {
           id: l.id,
           type: 'layoutImage',

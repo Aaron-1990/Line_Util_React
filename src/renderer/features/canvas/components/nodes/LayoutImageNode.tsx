@@ -310,7 +310,9 @@ export const LayoutImageNode = memo(({ data, selected, id }: NodeProps<LayoutNod
       )}
 
       {/* Image content wrapper — rotation applied HERE (not on outer node)
-          so ReactFlow drag/resize handles remain axis-aligned */}
+          so ReactFlow drag/resize handles remain axis-aligned.
+          When locked, pointer-events:none lets drag pass through to canvas panning.
+          Only the control buttons overlay (pointer-events:auto) stays clickable. */}
       <div
         style={{
           width: '100%',
@@ -318,6 +320,7 @@ export const LayoutImageNode = memo(({ data, selected, id }: NodeProps<LayoutNod
           transform: layout.rotation !== 0 ? `rotate(${layout.rotation}deg)` : undefined,
           transformOrigin: 'center center',
           overflow: 'hidden',
+          pointerEvents: layout.locked ? 'none' : undefined,
         }}
       >
         {isSvg ? renderSvg() : renderImage()}
