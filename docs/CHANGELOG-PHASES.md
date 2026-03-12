@@ -3,15 +3,22 @@
 > **Lean index of completed phases.** Each entry is 3-5 lines.
 > For implementation detail, follow the `docs/phases/` links.
 > For architectural rules introduced, see `docs/rules/ARCHITECTURE-RULES.md`.
-> Last updated: 2026-03-05
+> Last updated: 2026-03-12
 
 ---
 
-## Phase 8.5c: Non-Destructive Image Crop — COMPLETE (2026-03-11)
-**Status:** Complete | **Commits:** af25643, 2d6ba49
-**Summary:** PowerPoint-style non-destructive crop with 8-handle CropOverlay. Phase 1 fixed Tailwind Preflight CSS override (`maxWidth:'none'` on img). Phase 2 migrated to primary-field architecture (`imageOriginX/Y`, `imageScale`). SQLite migration 022. Click-outside commits (PowerPoint behavior). Locked image panning via conditional `isPassThrough` + `pointerEvents:none` on image content div.
-**Key files:** `useLayoutStore.ts`, `LayoutImageNode.tsx`, `CropOverlay.tsx`, `ProductionCanvas.tsx`, `deriveBounds.ts`, `SQLiteLayoutRepository.ts`, migration `022_layout_image_origin.sql`
-**Detail:** `docs/fixes/crop-image-offset-after-done.md` | `docs/fixes/phase-8.5c-phase2-crop-position-bugs.md`
+## Phase 9: Export Optimization Results to Excel (2026-03-12)
+**Status:** Complete | **Commits:** ee0e577, bddfb36
+**Summary:** Export analysis results to `.xlsx` from the Results panel. Sheets: Resumen, Utilizacion, Cuellos de Botella, Demanda No Cubierta. Validation rows (DISTRIBUIDO, VOLUMEN BD, COBERTURA, ESTADO) per area. `dialog.showSaveDialog` for file picker.
+**Key files:** `ExcelExporter.ts`, `export.handler.ts`, `ExportResultsButton.tsx`, `src/shared/constants/index.ts` (EXPORT_CHANNELS)
+
+---
+
+## Phase 8.5c: Non-Destructive Image Crop — COMPLETE (2026-03-12)
+**Status:** Complete | **Commits:** cdd580f, 7e1ee09, af25643, 2d6ba49, ae015bd
+**Summary:** PowerPoint-style 8-handle crop with live preview. Phase 1: Tailwind Preflight `maxWidth:'none'` fix. Phase 2: primary-field architecture (`imageOriginX/Y`, `imageScale` primary; position/size derived). Click-outside commits. Panning fix: `isPassThrough = l.locked` unconditional — RF wrapper always pointer-events:none on locked images; selection via position-based onPaneClick hit detection.
+**Key files:** `CropOverlay.tsx`, `LayoutImageNode.tsx`, `useLayoutStore.ts`, `ProductionCanvas.tsx`, `deriveBounds.ts`, migration `022_layout_image_origin.sql`
+**Detail:** `docs/fixes/crop-image-offset-after-done.md` | `docs/fixes/phase-8.5c-phase2-crop-position-bugs.md` | **Rules introduced:** Rule 8
 
 ---
 
@@ -188,22 +195,13 @@
 
 ---
 
-## Phase 8.5c: Non-Destructive Image Crop (2026-03-08)
-
-**Status:** Complete | **Commits:** `cdd580f`, `7e1ee09`
-**Summary:** PowerPoint-style 8-handle crop UI with live preview. Node border shrinks to crop region on Done. CropOverlay with mask and handles. Bug fix: atomic `commitCrop`/`resetCrop` + `onNodesChange` SSoT guard eliminate image offset after Done Cropping.
-**Key files:** `CropOverlay.tsx`, `LayoutImageNode.tsx`, `useLayoutStore.ts` (commitCrop/resetCrop), `ProductionCanvas.tsx` (onNodesChange guard)
-**Detail:** `docs/fixes/crop-image-offset-after-done.md` | **Principle:** One user action = one Zustand `set()` transaction
-
----
-
 ## Future Phases
 
 | Phase | Description |
 |-------|-------------|
 | 8.6 | DXF import (AutoCAD floor plans — requires DXF→SVG library) |
 | 8.7 | Scale reference tool (pixel-to-meter calibration) |
-| 9 | PDF/Excel reports |
+| ~~9~~ | ~~PDF/Excel reports~~ Done |
 | 10 | Progress streaming, TSP sequencing |
 | 11 | Simulation export (ProModel) |
 

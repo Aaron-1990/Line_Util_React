@@ -166,6 +166,33 @@ ipcRenderer.on('app:resume', () => {
 
 ---
 
+## Rule 8: `isPassThrough` Must Be Unconditional for Locked Layout Images
+
+**Status:** MANDATORY since Phase 8.5c fix (2026-03-12)
+**Applies to:** `src/renderer/features/canvas/ProductionCanvas.tsx` — `layoutNodes` useMemo
+
+**Required pattern:**
+```typescript
+// CORRECT — unconditional: locked images are always transparent to pointer events
+const isPassThrough = l.locked;
+
+// WRONG — locked+selected still blocks panning (RF wrapper captures mousedown)
+const isPassThrough = l.locked && selectedNode !== l.id;
+```
+
+**Rationale:** CSS `pointer-events: none` on a child only passes events to the immediate parent — not through the entire ancestor chain. With the conditional formula, the RF wrapper had no `pointer-events: none` when locked+selected, so it swallowed mousedown events and blocked canvas panning. The unconditional formula always makes the RF wrapper transparent. Selection is handled by `onPaneClick` position-based hit detection, and the buttons overlay uses `pointer-events: auto` to override the ancestor `none`.
+
+**Audit:**
+```bash
+grep "isPassThrough" src/renderer/features/canvas/ProductionCanvas.tsx
+# Expected: const isPassThrough = l.locked;
+# FAIL if: l.locked && selectedNode !== l.id
+```
+
+**Origin:** Phase 8.5c — multiple fix attempts with the conditional formula all failed; root cause traced to CSS pointer-events inheritance through the RF wrapper.
+
+---
+
 ## Adding New Rules
 
 When a new mandatory architectural rule is established during a phase:

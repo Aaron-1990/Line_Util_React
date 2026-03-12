@@ -1,6 +1,6 @@
 # Line Optimizer - Project Context
 
-> **Version:** 0.8.5 | **Last Updated:** 2026-02-25 | **Developer:** Aaron Zapata
+> **Version:** 0.9.0 | **Last Updated:** 2026-03-12 | **Developer:** Aaron Zapata
 
 ---
 
@@ -158,15 +158,17 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 ---
 
-### 4b. Crop Image: Rendering Bug Fix + Architecture Migration — COMPLETE (2026-03-11)
+### 4b. Crop Image: Rendering Bug Fix + Architecture Migration — COMPLETE (2026-03-12)
 
-**Status:** COMPLETE — Verified 2026-03-11. All scenarios pass.
+**Status:** COMPLETE — Verified 2026-03-12. All scenarios pass including locked image panning.
 **Detail:** `docs/fixes/crop-image-offset-after-done.md` | `docs/fixes/phase-8.5c-phase2-crop-position-bugs.md`
 
 **Summary of fixes applied:**
 - Phase 1: `maxWidth:'none', maxHeight:'none'` on `<img>` in `renderImage()` — overrides Tailwind Preflight global reset
 - Phase 2: `imageOriginX/Y`, `imageScale` as primary fields; `xPosition/yPosition/width/height` derived via `deriveBounds()`
-- Locked image panning: conditional `isPassThrough` + `pointerEvents:none` on image content div when locked
+- Locked image panning: `isPassThrough = l.locked` unconditional (Rule 8) — RF wrapper always pointer-events:none; selection via position-based hit detection in `onPaneClick`
+
+**See also:** `docs/rules/ARCHITECTURE-RULES.md` Rules 1, 6, 7, 8
 
 ### 5. Dynamic `getInstance()` in IPC Handlers (2026-02-07)
 
@@ -439,7 +441,8 @@ estimated_changeovers = N_eff - 1
 5. **Changeover**: Three-tier matrix, per-line toggles, stacked bar visualization
 6. **Routings**: DAG-based parallel process flows
 7. **Multi-Plant**: Plant-scoped data, global analysis view
-8. **Layout Images**: Import PNG/JPG/BMP/WebP/SVG as background floor plans; rotation, aspect ratio lock, W/H inputs, opacity, lock, visibility (Phase 8.5/8.5b)
+8. **Layout Images**: Import PNG/JPG/BMP/WebP/SVG as background floor plans; rotation, aspect ratio lock, W/H inputs, opacity, lock, visibility, non-destructive crop (Phase 8.5/8.5b/8.5c)
+9. **Excel Export**: Export optimization results to .xlsx with 4 sheets and validation rows (Phase 9)
 
 ---
 
@@ -451,9 +454,10 @@ estimated_changeovers = N_eff - 1
 | 8        | Project files (.lineopt), scenarios                                                |
 | ~~8.5~~  | ~~Canvas background layout images~~ ✅ Done                                        |
 | ~~8.5b~~ | ~~Layout enhanced controls (rotation, aspect ratio, W/H inputs)~~ ✅ Done          |
+| ~~8.5c~~ | ~~Non-destructive image crop~~ ✅ Done                                             |
 | 8.6      | DXF import (AutoCAD floor plans — requires DXF→SVG conversion library)             |
 | 8.7      | Scale reference tool (set known distance to calibrate pixel-to-meter)              |
-| 9        | PDF/Excel reports                                                                  |
+| ~~9~~    | ~~Excel export (optimization results)~~ ✅ Done                                    |
 | 10       | Progress streaming, TSP sequencing                                                 |
 | 11       | Simulation export (ProModel)                                                       |
 
