@@ -142,12 +142,18 @@ export function registerLayoutHandlers(): void {
         const xPosition = viewportCenter ? viewportCenter.x - nodeW / 2 : 0;
         const yPosition = viewportCenter ? viewportCenter.y - nodeH / 2 : 0;
 
+        // imageScale = CSS px per image px at import (no crop yet, so derived from nodeW / originalW)
+        const imageScale = nodeW / realDims.width;
+
         const repo = new SQLiteLayoutRepository(DatabaseConnection.getInstance());
         const layout = repo.create({
           plantId,
           name: fileName,
           imageData,
           sourceFormat: format as LayoutImage['sourceFormat'],
+          imageOriginX: xPosition,  // no crop on import → origin === node position
+          imageOriginY: yPosition,
+          imageScale,
           xPosition,
           yPosition,
           width: nodeW,

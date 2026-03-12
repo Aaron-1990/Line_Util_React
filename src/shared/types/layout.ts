@@ -19,10 +19,39 @@ export interface LayoutImage {
   /** base64 data URI for raster formats, SVG string for vector formats */
   imageData: string;
   sourceFormat: LayoutSourceFormat;
+
+  // === PRIMARY FIELDS — source of truth for image geometry ===
+
+  /**
+   * Canvas X coordinate of the TOP-LEFT of the FULL UNCROPPED image.
+   * Set on import. Changes ONLY when the user drags the node.
+   * NEVER changes on crop or resize.
+   */
+  imageOriginX: number;
+  /**
+   * Canvas Y coordinate of the TOP-LEFT of the FULL UNCROPPED image.
+   * Set on import. Changes ONLY when the user drags the node.
+   * NEVER changes on crop or resize.
+   */
+  imageOriginY: number;
+  /**
+   * CSS pixels per original image pixel.
+   * Set on import. Changes ONLY when the user resizes the node.
+   * NEVER changes on crop or drag.
+   */
+  imageScale: number;
+
+  // === DERIVED FIELDS — computed by deriveBounds(), stored for ReactFlow compatibility ===
+  // xPosition = imageOriginX + (cropX ?? 0) * imageScale
+  // yPosition = imageOriginY + (cropY ?? 0) * imageScale
+  // width     = (cropW ?? originalWidth)  * imageScale
+  // height    = (cropH ?? originalHeight) * imageScale
+
   xPosition: number;
   yPosition: number;
   width: number;
   height: number;
+
   /** 0.0 - 1.0 */
   opacity: number;
   locked: boolean;
@@ -57,6 +86,12 @@ export interface CreateLayoutInput {
   name: string;
   imageData: string;
   sourceFormat: LayoutSourceFormat;
+  /** Canvas X of full uncropped image top-left (primary field). */
+  imageOriginX: number;
+  /** Canvas Y of full uncropped image top-left (primary field). */
+  imageOriginY: number;
+  /** CSS px per image px (primary field). */
+  imageScale: number;
   xPosition: number;
   yPosition: number;
   width: number;
@@ -73,6 +108,12 @@ export interface CreateLayoutInput {
  */
 export interface UpdateLayoutInput {
   name?: string;
+  /** Canvas X of full uncropped image top-left. Changes ONLY on drag. */
+  imageOriginX?: number;
+  /** Canvas Y of full uncropped image top-left. Changes ONLY on drag. */
+  imageOriginY?: number;
+  /** CSS px per image px. Changes ONLY on resize. */
+  imageScale?: number;
   xPosition?: number;
   yPosition?: number;
   width?: number;
@@ -116,6 +157,12 @@ export interface LayoutImageRow {
   name: string;
   image_data: string;
   source_format: string;
+  /** null for rows created before migration 022 — mapRowToEntity auto-computes from x_position/width */
+  image_origin_x: number | null;
+  /** null for rows created before migration 022 — mapRowToEntity auto-computes from y_position/height */
+  image_origin_y: number | null;
+  /** null for rows created before migration 022 — mapRowToEntity auto-computes from width/original_width */
+  image_scale: number | null;
   x_position: number;
   y_position: number;
   width: number;

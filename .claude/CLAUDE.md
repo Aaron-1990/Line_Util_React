@@ -9,6 +9,7 @@
 **Read and follow:** `~/.claude/CLAUDE.md` - Framework de Desarrollo Hibrido v2.0 (Global)
 
 This project follows the global development framework. Key principles:
+
 - **CONTRACTS-FIRST**: Define interfaces in `@shared/types/` BEFORE implementing
 - **NO WORKAROUNDS**: If solution requires a "trick", STOP and find the standard way
 - **BLOQUE 0**: Always investigate documentation and define contracts first
@@ -50,7 +51,6 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 6. **Check existing repositories** in `src/main/database/repositories/` before writing SQL
 
 7. **Run Structural Audits** (Framework v2.1 Fase 2b) when your feature:
-
    - Stores canvas object data in any new location → **SSoT Audit:**
      ```bash
      rg "CanvasObject\|objectId\|objects\[" src/renderer/**/store/*.ts --type ts
@@ -84,20 +84,22 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 **Critical Files & Sections:**
 
-| File | Section | Why Critical |
-|------|---------|--------------|
-| `AppLayout.tsx:44-48` | `refreshAllStores()` sequence | localStorage must be cleared BEFORE loading stores |
-| `usePlantStore.ts:175-188` | Plant ID validation in `loadPlants()` | Prevents stale plant IDs from breaking canvas |
-| `ProjectFileService.ts:405-410` | System tables exclusion list | Prevents deleting built-in shapes on "New Project" |
-| `ProjectFileService.ts:537-595` | `ensureShapesSeeded()` function | Auto-seeds shapes if empty (idempotent) |
-| `main/index.ts:74-130` | `ensureShapesSeeded()` function | App startup shape validation |
+| File                            | Section                               | Why Critical                                       |
+| ------------------------------- | ------------------------------------- | -------------------------------------------------- |
+| `AppLayout.tsx:44-48`           | `refreshAllStores()` sequence         | localStorage must be cleared BEFORE loading stores |
+| `usePlantStore.ts:175-188`      | Plant ID validation in `loadPlants()` | Prevents stale plant IDs from breaking canvas      |
+| `ProjectFileService.ts:405-410` | System tables exclusion list          | Prevents deleting built-in shapes on "New Project" |
+| `ProjectFileService.ts:537-595` | `ensureShapesSeeded()` function       | Auto-seeds shapes if empty (idempotent)            |
+| `main/index.ts:74-130`          | `ensureShapesSeeded()` function       | App startup shape validation                       |
 
 **What happens if modified:**
+
 - Canvas objects won't load after save/reopen
 - Object Palette will be empty (no shapes)
 - Plant IDs will mismatch across database switches
 
 **If you need to modify these areas:**
+
 1. Read `docs/fixes/fix-canvas-save-load-and-shapes.md` FIRST
 2. Run full regression test suite (4 scenarios in doc)
 3. Consult with user before proceeding
@@ -110,19 +112,21 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 **Critical Files & Rules:**
 
-| Rule | Why Critical |
-|------|-------------|
-| `GenericShapeNode.tsx` — ALL hooks before `if (!object) return null` | `useMemo` after early return causes crash on deletion (TypeScript cannot detect this) |
-| `ProductionCanvas.tsx` — `deleteKeyCode={null}` on `<ReactFlow>` | Without it, RF's internal handler fires first, empties selection, custom handler is a NOOP, `objects[]` never updated → objects reappear |
-| Only use `updateObject()` to change canvas object data | `nodes[].data` is now `{ objectId }` only — updating `node.data` does nothing |
-| `deleteObject(id)` handles both stores | Calls `deleteNode(id)` internally — do not call them separately |
+| Rule                                                                 | Why Critical                                                                                                                             |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `GenericShapeNode.tsx` — ALL hooks before `if (!object) return null` | `useMemo` after early return causes crash on deletion (TypeScript cannot detect this)                                                    |
+| `ProductionCanvas.tsx` — `deleteKeyCode={null}` on `<ReactFlow>`     | Without it, RF's internal handler fires first, empties selection, custom handler is a NOOP, `objects[]` never updated → objects reappear |
+| Only use `updateObject()` to change canvas object data               | `nodes[].data` is now `{ objectId }` only — updating `node.data` does nothing                                                            |
+| `deleteObject(id)` handles both stores                               | Calls `deleteNode(id)` internally — do not call them separately                                                                          |
 
 **What happens if Rules are violated:**
+
 - Missing `deleteKeyCode={null}` → deleted objects reappear after tab navigation (Bug 5-like symptom)
 - Hook after early return → `Rendered fewer hooks than expected` crash when any object is deleted
 - Updating `node.data` directly → changes are ignored (node reads from `objects[]`, not `node.data`)
 
 **If you need to add a new node component:**
+
 1. Read `docs/phases/phase-7.6-canvas-single-source-of-truth.md`
 2. Use `GenericShapeNode` as the template
 3. Verify: all hooks before early return, no hook count mismatch possible
@@ -135,15 +139,16 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 **Critical Files & Rules:**
 
-| Rule | Why Critical |
-|------|-------------|
-| `LayoutImageNode.tsx` — ALL hooks before `if (!layout) return null` | Same hook-after-early-return crash risk as GenericShapeNode |
-| `LayoutPropertiesPanel.tsx` — ALL hooks before `if (!layout) return null` | Panel has many hooks; adding one after the guard causes runtime crash |
-| Only use `updateLayout(id, input)` to change layout data | `nodes[].data` holds only `{ layoutId }` — updating node data directly does nothing |
-| `rotation` applied via CSS on inner wrapper, NOT the outer node | Keeps NodeResizer handles axis-aligned; do NOT move rotation to the ReactFlow node wrapper |
-| `original_width` / `original_height` are immutable after creation | Never write these in `update()` — they are the "Reset to Original" baseline |
+| Rule                                                                      | Why Critical                                                                               |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `LayoutImageNode.tsx` — ALL hooks before `if (!layout) return null`       | Same hook-after-early-return crash risk as GenericShapeNode                                |
+| `LayoutPropertiesPanel.tsx` — ALL hooks before `if (!layout) return null` | Panel has many hooks; adding one after the guard causes runtime crash                      |
+| Only use `updateLayout(id, input)` to change layout data                  | `nodes[].data` holds only `{ layoutId }` — updating node data directly does nothing        |
+| `rotation` applied via CSS on inner wrapper, NOT the outer node           | Keeps NodeResizer handles axis-aligned; do NOT move rotation to the ReactFlow node wrapper |
+| `original_width` / `original_height` are immutable after creation         | Never write these in `update()` — they are the "Reset to Original" baseline                |
 
 **If you need to add a property to layout images:**
+
 1. Add column to a new migration (next: `021_...`)
 2. Add field to all 4 interfaces in `src/shared/types/layout.ts`
 3. Update `mapRowToEntity`, `create`, `update` in `SQLiteLayoutRepository.ts`
@@ -153,14 +158,32 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 ---
 
+### 4b. Crop Image: Rendering Bug Fix + Architecture Migration (2026-03-09)
+
+**Specification:** `docs/specs/crop-image-fix-and-migration.md`
+**Status:** Ready for implementation
+**Agent:** frontend-developer
+**Estimated complexity:** Complex
+
+**Context:** Phase 8.5c non-destructive crop has a visual offset bug on first crop despite correct math. Two-phase fix:
+
+- **Phase 1:** Diagnose CSS rendering bug (ReactFlow wrapper vs inner div, transform chain)
+- **Phase 2:** Migrate to "permanent image origin" architecture (`imageOriginX/Y`, `imageScale` as primary fields)
+
+**Implementation:**
+
+```bash
+claude "Implement crop image fix and architecture migration according to docs/specs/crop-image-fix-and-migration.md. PHASE 1 FIRST: diagnose the rendering bug using the 4 investigations in BLOQUE 0, then apply the fix. DO NOT proceed to PHASE 2 until PHASE 1 first-crop works visually. Apply contracts-first methodology with checkpoints after each block."
+```
+
 ### 5. Dynamic `getInstance()` in IPC Handlers (2026-02-07)
 
 **Documentation:** `docs/rules/ARCHITECTURE-RULES.md` Rule 4
 
 **All 15 database handlers MUST obtain a fresh `DatabaseConnection.getInstance()` inside the handler callback, never at registration time.**
 
-| Why Critical |
-|-------------|
+| Why Critical                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DatabaseConnection.replaceInstance()` is called when opening `.lop` files. Handlers that capture the instance at registration use a closed/stale connection after file open. |
 
 ```typescript
@@ -191,15 +214,16 @@ export function registerHandler(): void {
 
 **Critical Files & Sections:**
 
-| File | Section | Why Critical |
-|------|---------|--------------|
-| `index.tsx:21-42` | `beforeunload` handler | Blocks Vite's page reload on Mac wake - MUST preserve |
-| `AppLayout.tsx:371-380` | Resume handler | Log-only, NO `refreshAllStores()` - prevents DB overwrite |
-| `main/index.ts` | powerMonitor handlers | WAL checkpoints on suspend/shutdown - ensures DB writes persist |
-| `connection.ts` | `checkpoint()` method | PASSIVE/TRUNCATE modes - critical for data durability |
-| `SQLiteCanvasObjectRepository.ts` | WAL checkpoint after delete | Ensures deletes survive Mac sleep |
+| File                              | Section                     | Why Critical                                                    |
+| --------------------------------- | --------------------------- | --------------------------------------------------------------- |
+| `index.tsx:21-42`                 | `beforeunload` handler      | Blocks Vite's page reload on Mac wake - MUST preserve           |
+| `AppLayout.tsx:371-380`           | Resume handler              | Log-only, NO `refreshAllStores()` - prevents DB overwrite       |
+| `main/index.ts`                   | powerMonitor handlers       | WAL checkpoints on suspend/shutdown - ensures DB writes persist |
+| `connection.ts`                   | `checkpoint()` method       | PASSIVE/TRUNCATE modes - critical for data durability           |
+| `SQLiteCanvasObjectRepository.ts` | WAL checkpoint after delete | Ensures deletes survive Mac sleep                               |
 
 **What happens if modified:**
+
 - Deleted canvas objects reappear after Mac sleep/wake
 - User changes lost (stores destroyed by page reload)
 - Data corruption (writes not persisted to DB)
@@ -251,6 +275,7 @@ Objects stay exactly as user left them ✅
    - Verify Save/Don't Save dialog still works
 
 **Related bugs:**
+
 - Bug 3/4: `commitHookEffectListMount` clears ReactFlow selection (separate issue)
 - Legacy `production_lines` VIEW causes "Area cannot be empty" (30+ files to migrate)
 
@@ -260,17 +285,17 @@ Objects stay exactly as user left them ✅
 
 **ALL agents MUST follow `~/.claude/CLAUDE.md`**
 
-| Task Type | Agent Type | BLOQUE 0 Focus |
-|-----------|------------|----------------|
-| React, UI, modals, windows | `frontend-developer` | React/ReactFlow APIs |
-| UX/UI design, wireframes | `ux-ui-designer` | Standard UX patterns |
-| Optimizer algorithm, manufacturing | `Industrial Engineer` | Algorithm correctness |
-| Electron main process, IPC | `backend-architect` | IPC contracts, Electron APIs |
-| Database schema, migrations | `database-architect` | Schema design, indexes |
-| After writing code | `code-reviewer` | **Detect workarounds** |
-| Tests, coverage | `test-engineer` | Test contracts |
-| Performance issues | `performance-profiler` | Profiling APIs |
-| Finding code | `Explore` | Existing patterns |
+| Task Type                          | Agent Type             | BLOQUE 0 Focus               |
+| ---------------------------------- | ---------------------- | ---------------------------- |
+| React, UI, modals, windows         | `frontend-developer`   | React/ReactFlow APIs         |
+| UX/UI design, wireframes           | `ux-ui-designer`       | Standard UX patterns         |
+| Optimizer algorithm, manufacturing | `Industrial Engineer`  | Algorithm correctness        |
+| Electron main process, IPC         | `backend-architect`    | IPC contracts, Electron APIs |
+| Database schema, migrations        | `database-architect`   | Schema design, indexes       |
+| After writing code                 | `code-reviewer`        | **Detect workarounds**       |
+| Tests, coverage                    | `test-engineer`        | Test contracts               |
+| Performance issues                 | `performance-profiler` | Profiling APIs               |
+| Finding code                       | `Explore`              | Existing patterns            |
 
 **Marketing/Sales Agents:** `product-marketing-manager`, `b2b-sales-strategist`, `content-marketing-specialist`, `market-research-analyst`
 
@@ -287,11 +312,11 @@ Objects stay exactly as user left them ✅
 
 ## Documentation Structure (3-Tier)
 
-| Tier | Files | When loaded |
-|------|-------|-------------|
-| **1 — Auto** | `~/.claude/CLAUDE.md`, `.claude/CLAUDE.md`, `MEMORY.md` | Every session |
-| **2 — BLOQUE 0** | `docs/CHANGELOG-PHASES.md` (lean index), `docs/rules/ARCHITECTURE-RULES.md` | When investigating existing features |
-| **3 — On-demand** | `docs/phases/`, `docs/fixes/`, `docs/specs/`, `docs/testing/` | When investigating specific areas |
+| Tier              | Files                                                                       | When loaded                          |
+| ----------------- | --------------------------------------------------------------------------- | ------------------------------------ |
+| **1 — Auto**      | `~/.claude/CLAUDE.md`, `.claude/CLAUDE.md`, `MEMORY.md`                     | Every session                        |
+| **2 — BLOQUE 0**  | `docs/CHANGELOG-PHASES.md` (lean index), `docs/rules/ARCHITECTURE-RULES.md` | When investigating existing features |
+| **3 — On-demand** | `docs/phases/`, `docs/fixes/`, `docs/specs/`, `docs/testing/`               | When investigating specific areas    |
 
 **Quick nav:** Phase history → `docs/CHANGELOG-PHASES.md` → links to `docs/phases/` | Specs → `docs/specs/` | Rules → `docs/rules/ARCHITECTURE-RULES.md`
 
@@ -327,26 +352,26 @@ RENDERER (React)              MAIN (Node.js)
 
 ## Key Files
 
-| Purpose | Location |
-|---------|----------|
-| Python optimizer | `Optimizer/optimizer.py` |
-| Algorithm changelog | `Optimizer/CHANGELOG.md` |
-| Analysis store | `src/renderer/features/analysis/store/useAnalysisStore.ts` |
-| Python bridge | `src/main/services/python/PythonBridge.ts` |
-| Data exporter | `src/main/services/analysis/DataExporter.ts` |
-| Changeover types | `src/shared/types/changeover.ts` |
-| Changeover repo | `src/main/database/repositories/SQLiteChangeoverRepository.ts` |
-| Plant types | `src/shared/types/plant.ts` |
-| Plant repo | `src/main/database/repositories/SQLitePlantRepository.ts` |
-| Routing types | `src/shared/types/routing.ts` |
-| Routing repo | `src/main/database/repositories/SQLiteModelAreaRoutingRepository.ts` |
-| Shape Catalog Plan | `docs/phases/phase-7.5-shape-catalog.md` |
-| Layout image types | `src/shared/types/layout.ts` |
-| Layout store | `src/renderer/features/canvas/store/useLayoutStore.ts` |
-| Layout repo | `src/main/database/repositories/SQLiteLayoutRepository.ts` |
-| Layout IPC handler | `src/main/ipc/handlers/layout.handler.ts` |
-| Layout node | `src/renderer/features/canvas/components/nodes/LayoutImageNode.tsx` |
-| Layout panel | `src/renderer/features/canvas/components/panels/LayoutPropertiesPanel.tsx` |
+| Purpose             | Location                                                                   |
+| ------------------- | -------------------------------------------------------------------------- |
+| Python optimizer    | `Optimizer/optimizer.py`                                                   |
+| Algorithm changelog | `Optimizer/CHANGELOG.md`                                                   |
+| Analysis store      | `src/renderer/features/analysis/store/useAnalysisStore.ts`                 |
+| Python bridge       | `src/main/services/python/PythonBridge.ts`                                 |
+| Data exporter       | `src/main/services/analysis/DataExporter.ts`                               |
+| Changeover types    | `src/shared/types/changeover.ts`                                           |
+| Changeover repo     | `src/main/database/repositories/SQLiteChangeoverRepository.ts`             |
+| Plant types         | `src/shared/types/plant.ts`                                                |
+| Plant repo          | `src/main/database/repositories/SQLitePlantRepository.ts`                  |
+| Routing types       | `src/shared/types/routing.ts`                                              |
+| Routing repo        | `src/main/database/repositories/SQLiteModelAreaRoutingRepository.ts`       |
+| Shape Catalog Plan  | `docs/phases/phase-7.5-shape-catalog.md`                                   |
+| Layout image types  | `src/shared/types/layout.ts`                                               |
+| Layout store        | `src/renderer/features/canvas/store/useLayoutStore.ts`                     |
+| Layout repo         | `src/main/database/repositories/SQLiteLayoutRepository.ts`                 |
+| Layout IPC handler  | `src/main/ipc/handlers/layout.handler.ts`                                  |
+| Layout node         | `src/renderer/features/canvas/components/nodes/LayoutImageNode.tsx`        |
+| Layout panel        | `src/renderer/features/canvas/components/panels/LayoutPropertiesPanel.tsx` |
 
 **Phase history:** See `docs/CHANGELOG-PHASES.md` for detailed implementation history.
 
@@ -384,13 +409,16 @@ project_layouts               -- Background layout images (plant_id, image_data 
 ## Algorithm Key Concepts
 
 ### Per-Area Processing
+
 Each area processes FULL demand independently (products flow through ALL areas sequentially).
 
 ### Sequential Operations = Separate Areas
+
 **Wrong:** `Area: SUBASSEMBLY` with lines HVDC, HVAC, GDB, FSW (optimizer picks fastest only)
 **Correct:** Separate areas: `SUB-HVDC`, `SUB-HVAC`, `SUB-GDB`, `SUB-FSW`
 
 ### Core Formula
+
 ```python
 adjusted_cycle_time = cycle_time / (efficiency / 100)
 max_units = available_time / adjusted_cycle_time
@@ -398,9 +426,11 @@ allocated_units = min(max_units, daily_demand)
 ```
 
 ### Changeover (Three-Tier Resolution)
+
 1. **Line Override** → 2. **Family Default** → 3. **Global Default** (30 min)
 
 Changeover reduces capacity. Formula uses HHI (demand concentration) to estimate changeovers:
+
 ```python
 N_eff = 1 / HHI  # Effective model count
 estimated_changeovers = N_eff - 1
@@ -423,23 +453,24 @@ estimated_changeovers = N_eff - 1
 
 ## Future Phases
 
-| Phase | Description |
-|-------|-------------|
-| 7.5 | Shape Catalog & Polymorphic Objects - see `docs/phases/phase-7.5-shape-catalog.md` |
-| 8 | Project files (.lineopt), scenarios |
-| ~~8.5~~ | ~~Canvas background layout images~~ ✅ Done |
-| ~~8.5b~~ | ~~Layout enhanced controls (rotation, aspect ratio, W/H inputs)~~ ✅ Done |
-| 8.6 | DXF import (AutoCAD floor plans — requires DXF→SVG conversion library) |
-| 8.7 | Scale reference tool (set known distance to calibrate pixel-to-meter) |
-| 9 | PDF/Excel reports |
-| 10 | Progress streaming, TSP sequencing |
-| 11 | Simulation export (ProModel) |
+| Phase    | Description                                                                        |
+| -------- | ---------------------------------------------------------------------------------- |
+| 7.5      | Shape Catalog & Polymorphic Objects - see `docs/phases/phase-7.5-shape-catalog.md` |
+| 8        | Project files (.lineopt), scenarios                                                |
+| ~~8.5~~  | ~~Canvas background layout images~~ ✅ Done                                        |
+| ~~8.5b~~ | ~~Layout enhanced controls (rotation, aspect ratio, W/H inputs)~~ ✅ Done          |
+| 8.6      | DXF import (AutoCAD floor plans — requires DXF→SVG conversion library)             |
+| 8.7      | Scale reference tool (set known distance to calibrate pixel-to-meter)              |
+| 9        | PDF/Excel reports                                                                  |
+| 10       | Progress streaming, TSP sequencing                                                 |
+| 11       | Simulation export (ProModel)                                                       |
 
 ---
 
 ## Git Policy
 
 **NEVER push these folders (in .gitignore):**
+
 - `.marketing/` - Sales decks, pricing
 - `docs/marketing/` - Marketing docs
 - `docs/market-research/` - Competitive analysis
@@ -450,11 +481,12 @@ estimated_changeovers = N_eff - 1
 
 ## UI Standards
 
-| Pattern | Component | Documentation |
-|---------|-----------|---------------|
+| Pattern                | Component                                | Documentation                          |
+| ---------------------- | ---------------------------------------- | -------------------------------------- |
 | SubMenu (nested menus) | `src/renderer/components/ui/SubMenu.tsx` | `docs/standards/ui-submenu-pattern.md` |
 
 **Key UX patterns implemented:**
+
 - Safe triangle pattern for diagonal mouse movement
 - Click-to-toggle with pinned state
 - Delayed open/close for natural interaction

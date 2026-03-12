@@ -49,6 +49,7 @@ export const LayoutPropertiesPanel = memo(({ layoutId }: LayoutPropertiesPanelPr
   const setSelectedNode = useCanvasStore((state) => state.setSelectedNode);
   const cropModeLayoutId = useLayoutStore((state) => state.cropModeLayoutId);
   const setCropMode = useLayoutStore((state) => state.setCropMode);
+  const commitCrop = useLayoutStore((state) => state.commitCrop);
   const resetCrop = useLayoutStore((state) => state.resetCrop);
 
   // Local string state for editable inputs (avoids fighting with store on each keystroke)
@@ -339,7 +340,7 @@ export const LayoutPropertiesPanel = memo(({ layoutId }: LayoutPropertiesPanelPr
           {cropModeLayoutId === layoutId ? (
             // Active crop mode: show "Done Cropping" button
             <button
-              onClick={() => setCropMode(null)}
+              onClick={() => commitCrop(layoutId)}
               className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-green-500 hover:bg-green-600 text-white transition-colors"
             >
               <Check className="w-3.5 h-3.5" />

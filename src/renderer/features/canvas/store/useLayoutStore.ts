@@ -2,16 +2,21 @@
 // LAYOUT STORE - Zustand
 // State management for background layout images
 // Phase 8.5: Canvas Background Layouts
+// Phase 8.5c Phase 2: imageOriginX/Y + imageScale primary fields
 // ============================================
 
 import { create } from 'zustand';
 import type { LayoutImage, UpdateLayoutInput, ImportLayoutResult } from '@shared/types/layout';
 import { LAYOUT_CHANNELS } from '@shared/constants';
 import { useProjectStore } from '../../../store/useProjectStore';
+import { deriveBounds } from '../utils/deriveBounds';
 
 // ============================================
 // TYPES
 // ============================================
+
+/** Image-coordinate crop rectangle (mirrors CropRect in CropOverlay.tsx). */
+type CropRect = { cropX: number; cropY: number; cropW: number; cropH: number };
 
 interface LayoutStore {
   // State
@@ -20,6 +25,10 @@ interface LayoutStore {
   error: string | null;
   /** ID of the layout currently in crop mode (ephemeral UI state, not persisted). */
   cropModeLayoutId: string | null;
+  /** Live crop from the latest CropOverlay drag tick — not yet persisted via mouseup.
+   *  Used by commitCrop as the authoritative source when the user clicks "Done Cropping"
+   *  without releasing the mouse (no mouseup → no handleCropEnd → store still null). */
+  pendingCrop: { layoutId: string; crop: CropRect } | null;
 
   // Actions
   loadLayoutsForPlant: (plantId: string) => Promise<void>;
@@ -31,7 +40,12 @@ interface LayoutStore {
   toggleLock: (id: string) => Promise<void>;
   toggleAspectRatioLock: (id: string) => Promise<void>;
   setCropMode: (layoutId: string | null) => void;
-  resetCrop: (id: string) => Promise<void>;
+  /** Resize the node to fit the stored crop, then exit crop mode. Call on "Done Cropping" / overlay exit. */
+  commitCrop: (id: string) => void;
+  resetCrop: (id: string) => void;
+  /** Write live crop data from CropOverlay drag tick to the store so commitCrop can access it.
+   *  Pass (null, null) to clear. */
+  setPendingCrop: (layoutId: string | null, crop: CropRect | null) => void;
 
   // Helpers
   getLayoutById: (id: string) => LayoutImage | undefined;
@@ -58,6 +72,7 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   isLoading: false,
   error: null,
   cropModeLayoutId: null,
+  pendingCrop: null,
 
   // ============================================
   // LOAD LAYOUTS FOR PLANT
@@ -227,13 +242,143 @@ export const useLayoutStore = create<LayoutStore>((set, get) => ({
   // ============================================
 
   setCropMode: (layoutId: string | null) => {
-    set({ cropModeLayoutId: layoutId });
+    if (layoutId === null) {
+      set({ cropModeLayoutId: null, pendingCrop: null });
+      return;
+    }
+
+    const layout = get().layouts.find((l) => l.id === layoutId);
+    if (!layout) {
+      set({ cropModeLayoutId: layoutId, pendingCrop: null });
+      return;
+    }
+
+    // Expand the node to the FULL uncropped image dimensions.
+    // CropOverlay receives a node that shows the entire image; the existing crop handles
+    // appear on top at their correct image-pixel positions.
+    // activeArea in LayoutImageNode = {0, 0, originalW*imageScale, originalH*imageScale}.
+    const expandedBounds = deriveBounds({
+      imageOriginX: layout.imageOriginX,
+      imageOriginY: layout.imageOriginY,
+      imageScale: layout.imageScale,
+      originalWidth: layout.originalWidth,
+      originalHeight: layout.originalHeight,
+      cropX: null, cropY: null, cropW: null, cropH: null, // full image
+    });
+
+    // Pre-populate pendingCrop with the existing crop (if any) so that "Done Cropping"
+    // without moving any handle re-applies the same crop instead of defaulting to null.
+    // commitCrop reads pendingCrop first, layout.cropX/Y/W/H as fallback — but expandedBounds
+    // doesn't clear cropX/Y/W/H, so the fallback already works. This is defensive:
+    // it makes the intent explicit and guards against any future path that clears cropX/Y/W/H.
+    const preCrop =
+      layout.cropX !== null &&
+      layout.cropY !== null &&
+      layout.cropW !== null &&
+      layout.cropH !== null
+        ? { layoutId, crop: { cropX: layout.cropX, cropY: layout.cropY, cropW: layout.cropW, cropH: layout.cropH } }
+        : null;
+
+    set((state) => ({
+      layouts: state.layouts.map((l) =>
+        l.id === layoutId ? { ...l, ...expandedBounds } : l
+      ),
+      cropModeLayoutId: layoutId,
+      pendingCrop: preCrop,
+    }));
   },
 
-  resetCrop: async (id: string) => {
-    // Clear all 4 crop fields (null = no crop) and exit crop mode
-    await get().updateLayout(id, { cropX: null, cropY: null, cropW: null, cropH: null });
-    set({ cropModeLayoutId: null });
+  commitCrop: (id: string) => {
+    const layout = get().layouts.find((l) => l.id === id);
+    if (!layout) {
+      set({ cropModeLayoutId: null, pendingCrop: null });
+      return;
+    }
+
+    // pendingCrop has priority: it's the latest drag position when the user clicks
+    // "Done Cropping" without releasing the mouse (no mouseup → no handleCropEnd).
+    // layout.cropX/Y/W/H is the last mouseup-persisted position and is used as fallback.
+    const pending = get().pendingCrop;
+    const pendingForThis = pending?.layoutId === id ? pending.crop : null;
+    const cropX = pendingForThis?.cropX ?? layout.cropX;
+    const cropY = pendingForThis?.cropY ?? layout.cropY;
+    const cropW = pendingForThis?.cropW ?? layout.cropW;
+    const cropH = pendingForThis?.cropH ?? layout.cropH;
+
+    if (cropX === null || cropY === null || cropW === null || cropH === null) {
+      // No crop applied — just exit crop mode without changing the layout.
+      set({ cropModeLayoutId: null, pendingCrop: null });
+      return;
+    }
+
+    // ONE-WAY derivation: primary fields (imageOriginX/Y, imageScale) are unchanged.
+    // Only cropX/Y/W/H change; deriveBounds computes the new node position/size.
+    const bounds = deriveBounds({
+      imageOriginX: layout.imageOriginX,
+      imageOriginY: layout.imageOriginY,
+      imageScale: layout.imageScale,
+      originalWidth: layout.originalWidth,
+      originalHeight: layout.originalHeight,
+      cropX, cropY, cropW, cropH,
+    });
+
+    // Single atomic state transition — one user action = one set() call.
+    set((state) => ({
+      layouts: state.layouts.map((l) =>
+        l.id === id
+          ? { ...l, cropX, cropY, cropW, cropH, ...bounds }
+          : l
+      ),
+      cropModeLayoutId: null,
+      pendingCrop: null,
+    }));
+
+    // Async IPC persistence — fire-and-forget, decoupled from UI state update.
+    window.electronAPI.invoke<LayoutImage>(LAYOUT_CHANNELS.UPDATE, {
+      id, cropX, cropY, cropW, cropH, ...bounds,
+    }).then((response) => {
+      if (response.success) markProjectUnsaved();
+      else console.error('[commitCrop] IPC update failed:', response.error);
+    }).catch((err) => console.error('[commitCrop] IPC error:', err));
+  },
+
+  resetCrop: (id: string) => {
+    const layout = get().layouts.find((l) => l.id === id);
+    if (!layout) {
+      set({ cropModeLayoutId: null, pendingCrop: null });
+      return;
+    }
+
+    // Restore to full image: cropX/Y/W/H = null → deriveBounds uses originalWidth/Height.
+    const bounds = deriveBounds({
+      imageOriginX: layout.imageOriginX,
+      imageOriginY: layout.imageOriginY,
+      imageScale: layout.imageScale,
+      originalWidth: layout.originalWidth,
+      originalHeight: layout.originalHeight,
+      cropX: null, cropY: null, cropW: null, cropH: null,
+    });
+
+    set((state) => ({
+      layouts: state.layouts.map((l) =>
+        l.id === id
+          ? { ...l, cropX: null, cropY: null, cropW: null, cropH: null, ...bounds }
+          : l
+      ),
+      cropModeLayoutId: null,
+      pendingCrop: null,
+    }));
+
+    window.electronAPI.invoke<LayoutImage>(LAYOUT_CHANNELS.UPDATE, {
+      id, cropX: null, cropY: null, cropW: null, cropH: null, ...bounds,
+    }).then((response) => {
+      if (response.success) markProjectUnsaved();
+      else console.error('[resetCrop] IPC update failed:', response.error);
+    }).catch((err) => console.error('[resetCrop] IPC error:', err));
+  },
+
+  setPendingCrop: (layoutId: string | null, crop: CropRect | null) => {
+    set({ pendingCrop: layoutId && crop ? { layoutId, crop } : null });
   },
 
   // ============================================

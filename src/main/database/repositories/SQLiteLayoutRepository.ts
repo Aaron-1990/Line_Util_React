@@ -21,12 +21,40 @@ export class SQLiteLayoutRepository {
   // ============================================
 
   private mapRowToEntity(row: LayoutImageRow): LayoutImage {
+    const originalWidth  = row.original_width  ?? row.width;
+    const originalHeight = row.original_height ?? row.height;
+    const cropX = row.crop_x ?? null;
+    const cropY = row.crop_y ?? null;
+    const cropW = row.crop_w ?? null;
+    const cropH = row.crop_h ?? null;
+
+    // Data migration for rows created before migration 022 (imageOriginX/Y/imageScale columns).
+    // Reverse-compute primary fields from stored derived position/size.
+    // This is the ONLY place reverse-computation is allowed — legacy DB migration only.
+    let imageScale: number;
+    let imageOriginX: number;
+    let imageOriginY: number;
+
+    if (row.image_scale != null && row.image_origin_x != null && row.image_origin_y != null) {
+      imageScale   = row.image_scale;
+      imageOriginX = row.image_origin_x;
+      imageOriginY = row.image_origin_y;
+    } else {
+      // Legacy row: derive scale from stored width / effective crop width
+      imageScale   = row.width / (cropW ?? originalWidth);
+      imageOriginX = row.x_position - (cropX ?? 0) * imageScale;
+      imageOriginY = row.y_position - (cropY ?? 0) * imageScale;
+    }
+
     return {
       id: row.id,
       plantId: row.plant_id,
       name: row.name,
       imageData: row.image_data,
       sourceFormat: row.source_format as LayoutImage['sourceFormat'],
+      imageOriginX,
+      imageOriginY,
+      imageScale,
       xPosition: row.x_position,
       yPosition: row.y_position,
       width: row.width,
@@ -37,13 +65,13 @@ export class SQLiteLayoutRepository {
       zIndex: row.z_index,
       active: Boolean(row.active),
       rotation: row.rotation ?? 0,
-      originalWidth: row.original_width ?? row.width,
-      originalHeight: row.original_height ?? row.height,
+      originalWidth,
+      originalHeight,
       aspectRatioLocked: Boolean(row.aspect_ratio_locked ?? 1),
-      cropX: row.crop_x ?? null,
-      cropY: row.crop_y ?? null,
-      cropW: row.crop_w ?? null,
-      cropH: row.crop_h ?? null,
+      cropX,
+      cropY,
+      cropW,
+      cropH,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
     };
@@ -95,12 +123,14 @@ export class SQLiteLayoutRepository {
       .prepare(
         `INSERT INTO project_layouts (
            id, plant_id, name, image_data, source_format,
+           image_origin_x, image_origin_y, image_scale,
            x_position, y_position, width, height,
            opacity, locked, visible, z_index, active,
            rotation, original_width, original_height, aspect_ratio_locked,
            created_at, updated_at
          ) VALUES (
            ?, ?, ?, ?, ?,
+           ?, ?, ?,
            ?, ?, ?, ?,
            ?, 0, 1, 0, 1,
            0, ?, ?, 1,
@@ -113,6 +143,9 @@ export class SQLiteLayoutRepository {
         input.name,
         input.imageData,
         input.sourceFormat,
+        input.imageOriginX,
+        input.imageOriginY,
+        input.imageScale,
         input.xPosition,
         input.yPosition,
         input.width,
@@ -142,6 +175,9 @@ export class SQLiteLayoutRepository {
       .prepare(
         `UPDATE project_layouts SET
            name              = ?,
+           image_origin_x    = ?,
+           image_origin_y    = ?,
+           image_scale       = ?,
            x_position        = ?,
            y_position        = ?,
            width             = ?,
@@ -163,6 +199,9 @@ export class SQLiteLayoutRepository {
       )
       .run(
         input.name            ?? existing.name,
+        input.imageOriginX    ?? existing.imageOriginX,
+        input.imageOriginY    ?? existing.imageOriginY,
+        input.imageScale      ?? existing.imageScale,
         input.xPosition       ?? existing.xPosition,
         input.yPosition       ?? existing.yPosition,
         input.width           ?? existing.width,

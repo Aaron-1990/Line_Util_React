@@ -3,7 +3,7 @@
 // Componente principal del canvas con ReactFlow
 // ============================================
 
-import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useNavigate } from 'react-router-dom';
 import ReactFlow, {
@@ -100,7 +100,7 @@ const CanvasInner = () => {
     }))
   );
 
-  const { fitView, screenToFlowPosition, getNodes } = useReactFlow();
+  const { fitView, screenToFlowPosition, getNodes, setNodes: rfSetNodes } = useReactFlow();
   const lastMiddleClickTime = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -140,12 +140,12 @@ const CanvasInner = () => {
     return layouts
       .filter((l) => l.active)
       .map((l) => {
-        // Pass-through: when locked and not currently selected, set pointerEvents: 'none'
-        // so mousedown on the node area reaches the pane layer and starts box selection.
-        // When selected (user clicked the lock badge), remove pass-through so overlay
-        // buttons (unlock, visibility) become interactive.
-        const isPassThrough = l.locked && selectedNode !== l.id;
-        return {
+        // Pass-through: locked images are ALWAYS transparent to pointer events so the
+        // canvas can pan/select even when the mouse is over a locked image.
+        // The control buttons (lock/visibility) override this with pointerEvents:'auto'
+        // directly in LayoutImageNode, so they remain clickable when selected.
+        const isPassThrough = l.locked;
+        const node = {
           id: l.id,
           type: 'layoutImage',
           position: { x: l.xPosition, y: l.yPosition },
@@ -169,6 +169,7 @@ const CanvasInner = () => {
           // pointerEvents: 'none' lets mousedown pass through to the pane (box selection)
           style: isPassThrough ? { pointerEvents: 'none' as const } : undefined,
         };
+        return node;
       });
   }, [layouts, selectedNode, cropModeLayoutId]);
 
@@ -326,6 +327,23 @@ const CanvasInner = () => {
   // NOTE: Only depends on isLoading, NOT nodes.length
   // This ensures fitView runs once when data loads, not on every node update
 
+  // Force-sync ReactFlow internal node positions when crop mode exits.
+  // ReactFlow's useStoreUpdater syncs the nodes prop to its internal nodeInternals
+  // via useEffect (post-paint). This means there is one frame where the DOM shows
+  // the node at the old position even though Zustand already has the new position.
+  // useLayoutEffect runs before paint so both position and size update atomically
+  // in the first frame — eliminating the visual "desfase" (node position flash).
+  const prevCropModeRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (prevCropModeRef.current !== null && cropModeLayoutId === null) {
+      // Crop mode just exited (commitCrop or resetCrop).
+      // Feed the updated allNodes directly into ReactFlow's internal store
+      // before the browser paints so the node renders at the committed position.
+      rfSetNodes(allNodes);
+    }
+    prevCropModeRef.current = cropModeLayoutId;
+  }, [cropModeLayoutId, allNodes, rfSetNodes]);
+
   // Handlers for empty state actions
   const handleImportClick = useCallback(() => {
     navigate('/excel/import');
@@ -462,9 +480,14 @@ const CanvasInner = () => {
       // Escape key - exit crop mode if active, otherwise clear selection (AutoCAD-style)
       if (event.key === 'Escape') {
         event.preventDefault();
-        // Phase 8.5c: If crop mode is active, exit it (keep layout selected)
-        if (useLayoutStore.getState().cropModeLayoutId !== null) {
-          useLayoutStore.getState().setCropMode(null);
+        // Phase 8.5c: Escape while in crop mode = cancel (discard pending, restore pre-session crop).
+        // CropOverlay's capture listener normally intercepts this first; this is defense-in-depth
+        // for when CropOverlay is not rendered (e.g., crop mode set without overlay).
+        const cropIdOnEsc = useLayoutStore.getState().cropModeLayoutId;
+        if (cropIdOnEsc !== null) {
+          // cancelCrop: clear pending so commitCrop restores the pre-session cropX/Y/W/H
+          useLayoutStore.getState().setPendingCrop(null, null);
+          useLayoutStore.getState().commitCrop(cropIdOnEsc);
           return;
         }
         // Clear our stores
@@ -669,6 +692,13 @@ const CanvasInner = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [copyObject, setPasteTool, setSelectTool, handleDuplicateImmediate]);
 
+  // Tracks layout nodes currently being dragged by the user (dragging===true seen).
+  // Prevents spurious dragging===false echoes that ReactFlow fires after programmatic
+  // position updates (e.g. commitCrop sets xPosition/yPosition in the store →
+  // layoutNodes memo fires → ReactFlow reconciles → fires onNodesChange with
+  // dragging===false carrying the OLD position → overwrites commitCrop's new position).
+  const draggingLayoutIds = useRef<Set<string>>(new Set());
+
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       // STANDARD PATTERN: Read current nodes from store to avoid stale closure
@@ -686,23 +716,69 @@ const CanvasInner = () => {
           const isLayoutNode = layoutNodeIds.has(change.id);
 
           if (isLayoutNode) {
-            // Optimistic in-memory update so layoutNodes memo recomputes on EVERY drag tick.
-            // This keeps the node following the cursor (equivalent to applyNodeChanges for useCanvasStore).
-            useLayoutStore.setState((state) => ({
-              layouts: state.layouts.map((l) =>
-                l.id === change.id
-                  ? { ...l, xPosition: change.position!.x, yPosition: change.position!.y }
-                  : l
-              ),
-            }));
-
-            // Persist to DB only on drag end (dragging === false or undefined)
-            if (!change.dragging) {
+            // SSoT guard: only process USER-INITIATED position changes (drag), not
+            // programmatic echoes from the controlled nodes prop.
+            //
+            // After commitCrop updates xPosition/yPosition in the store, ReactFlow
+            // reconciles the new nodes prop and fires onNodesChange. Depending on the
+            // node's last drag state, ReactFlow may fire dragging===false (not undefined)
+            // in the echo. Without the draggingLayoutIds guard, this false-false event
+            // would overwrite commitCrop's new position with the OLD canvas position,
+            // causing the visual "desfase" (node appears at import position, not crop position).
+            //
+            //   change.dragging === true  → user initiated drag: track + update store
+            //   change.dragging === false AND node was tracked → genuine drag end: persist
+            //   change.dragging === false AND node NOT tracked → spurious echo: SKIP
+            //   change.dragging === undefined → programmatic echo: SKIP
+            if (change.dragging === true) {
+              // Live drag: track + optimistic in-memory update so layoutNodes memo
+              // recomputes each tick → node follows cursor.
+              //
+              // imageOriginX/Y are PRIMARY fields — only recalculated when this is a
+              // CONFIRMED CONTINUING user drag (ID already in draggingLayoutIds before
+              // this tick). The first dragging:true event may be a programmatic echo
+              // from commitCrop/resetCrop/setCropMode; those echoes carry the post-commit
+              // node position which, due to floating-point, diverges slightly from
+              // imageOriginX + cropX*scale, causing cumulative drift on each crop cycle.
+              // Skipping imageOriginX/Y on the first event is safe: the dragging:false
+              // case (genuine drag-end) always writes the final correct origin value.
+              const isTrackedDrag = draggingLayoutIds.current.has(change.id);
+              draggingLayoutIds.current.add(change.id);
+              useLayoutStore.setState((state) => ({
+                layouts: state.layouts.map((l) => {
+                  if (l.id !== change.id) return l;
+                  if (isTrackedDrag) {
+                    // Continuing confirmed user drag: update position + primary origin fields
+                    const imageOriginX = change.position!.x - (l.cropX ?? 0) * l.imageScale;
+                    const imageOriginY = change.position!.y - (l.cropY ?? 0) * l.imageScale;
+                    return { ...l, xPosition: change.position!.x, yPosition: change.position!.y, imageOriginX, imageOriginY };
+                  }
+                  // First dragging:true event (could be echo): update position only, preserve origin
+                  return { ...l, xPosition: change.position!.x, yPosition: change.position!.y };
+                }),
+              }));
+            } else if (change.dragging === false && draggingLayoutIds.current.has(change.id)) {
+              // Genuine drag end (we saw dragging===true first): update store + persist to DB
+              draggingLayoutIds.current.delete(change.id);
+              let newImageOriginX = 0;
+              let newImageOriginY = 0;
+              useLayoutStore.setState((state) => ({
+                layouts: state.layouts.map((l) => {
+                  if (l.id !== change.id) return l;
+                  newImageOriginX = change.position!.x - (l.cropX ?? 0) * l.imageScale;
+                  newImageOriginY = change.position!.y - (l.cropY ?? 0) * l.imageScale;
+                  return { ...l, xPosition: change.position!.x, yPosition: change.position!.y, imageOriginX: newImageOriginX, imageOriginY: newImageOriginY };
+                }),
+              }));
               updateLayoutStore(change.id, {
                 xPosition: change.position.x,
                 yPosition: change.position.y,
+                imageOriginX: newImageOriginX,
+                imageOriginY: newImageOriginY,
               });
             }
+            // dragging===false without prior dragging===true: spurious programmatic echo — skip.
+            // dragging===undefined: programmatic position echo — skip.
           } else if (!change.dragging) {
             // Process/generic canvas object: persist via existing mechanism (drag end only)
             const updatedNode = updatedNodes.find(n => n.id === change.id);
@@ -716,6 +792,14 @@ const CanvasInner = () => {
                 });
             }
           }
+        }
+
+        // Clean up dragging tracker when drag-end fires with undefined position.
+        // ReactFlow v11 sometimes fires {dragging: false, position: undefined} on drag end.
+        // The outer if(change.position) guard above skips it, leaking the ID in draggingLayoutIds.
+        if (change.type === 'position' && change.id && !(change as any).position
+            && (change as any).dragging === false) {
+          draggingLayoutIds.current.delete(change.id);
         }
       });
     },
@@ -772,10 +856,10 @@ const CanvasInner = () => {
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       console.log('[onNodeClick] Clicked node:', node.id, 'selectable:', node.selectable);
-      // Phase 8.5c: Exit crop mode if user clicks a different node
+      // Phase 8.5c: Click on a different node = commit crop (PowerPoint-style)
       const currentCropId = useLayoutStore.getState().cropModeLayoutId;
       if (currentCropId !== null && currentCropId !== node.id) {
-        useLayoutStore.getState().setCropMode(null);
+        useLayoutStore.getState().commitCrop(currentCropId);
       }
       setSelectedNode(node.id);
     },
@@ -814,10 +898,12 @@ const CanvasInner = () => {
     const isClickOnPane = target.classList.contains('react-flow__pane');
 
     if (isClickOnPane) {
-      // Phase 8.5c: Exit crop mode on pane click (keep layout selected)
-      if (useLayoutStore.getState().cropModeLayoutId !== null) {
-        useLayoutStore.getState().setCropMode(null);
+      // Phase 8.5c: Click outside = commit crop (PowerPoint-style)
+      const cropId = useLayoutStore.getState().cropModeLayoutId;
+      if (cropId !== null) {
+        useLayoutStore.getState().commitCrop(cropId);
         // Do NOT clear selectedNode — keep the layout selected so panel stays open
+        return;
       }
 
       // When a locked layout image has pointerEvents: none, clicks on it pass through

@@ -7,6 +7,14 @@
 
 ---
 
+## Phase 8.5c Phase 2: Primary-field crop architecture + position bug fixes (2026-03-11)
+**Status:** Complete | **Commits:** (will be filled by git)
+**Summary:** Migrated crop geometry to primary fields (imageOriginX/Y, imageScale). Fixed 5 position bugs: origin not updated on drag, floating-point echo corruption, re-crop without handle movement, click-outside/Escape behavior, locked image blocking canvas pan.
+**Key files:** `useLayoutStore.ts`, `ProductionCanvas.tsx`, `LayoutImageNode.tsx`, `CropOverlay.tsx`, `deriveBounds.ts`, `SQLiteLayoutRepository.ts`, migration `022_layout_image_origin.sql`
+**Detail:** `docs/fixes/phase-8.5c-phase2-crop-position-bugs.md`
+
+---
+
 ## Phase 4.2: Multi-Window Results
 
 **Status:** Complete
@@ -180,11 +188,19 @@
 
 ---
 
+## Phase 8.5c: Non-Destructive Image Crop (2026-03-08)
+
+**Status:** Complete | **Commits:** `cdd580f`, `7e1ee09`
+**Summary:** PowerPoint-style 8-handle crop UI with live preview. Node border shrinks to crop region on Done. CropOverlay with mask and handles. Bug fix: atomic `commitCrop`/`resetCrop` + `onNodesChange` SSoT guard eliminate image offset after Done Cropping.
+**Key files:** `CropOverlay.tsx`, `LayoutImageNode.tsx`, `useLayoutStore.ts` (commitCrop/resetCrop), `ProductionCanvas.tsx` (onNodesChange guard)
+**Detail:** `docs/fixes/crop-image-offset-after-done.md` | **Principle:** One user action = one Zustand `set()` transaction
+
+---
+
 ## Future Phases
 
 | Phase | Description |
 |-------|-------------|
-| 8.5c | PowerPoint-style non-destructive image crop (in progress) |
 | 8.6 | DXF import (AutoCAD floor plans — requires DXF→SVG library) |
 | 8.7 | Scale reference tool (pixel-to-meter calibration) |
 | 9 | PDF/Excel reports |
