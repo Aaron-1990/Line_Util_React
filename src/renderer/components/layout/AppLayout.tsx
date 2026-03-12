@@ -30,6 +30,8 @@ import { useChangeoverStore } from '../../features/changeover';
 import { useRoutingStore } from '../../features/routings';
 import { useShapeCatalogStore } from '../../features/canvas/store/useShapeCatalogStore';
 import { useLayoutStore } from '../../features/canvas/store/useLayoutStore';
+import { useCanvasStore } from '../../features/canvas/store/useCanvasStore';
+import { useCanvasObjectStore } from '../../features/canvas/store/useCanvasObjectStore';
 
 // ===== Helpers =====
 
@@ -50,6 +52,14 @@ async function refreshAllStores(): Promise<void> {
     // This prevents stale plant IDs from persisting across database switches.
     // Moving this AFTER Promise.all() will break project save/load functionality.
     useNavigationStore.getState().clearPersistedPlantId();
+
+    // Clear canvas state so useLoadLines' hasObjectsForPlant guard always does a
+    // full DB reload after a project switch — even when ProductionCanvas is unmounted
+    // (user on Models/Routings tab) or when the new project shares the same plant ID.
+    // Without this, the guard passes with stale objects from the old project, causing
+    // cascade positions on canvas. Mirrors the resetLoadedPlant() pattern for layouts.
+    useCanvasStore.getState().setNodes([]);
+    useCanvasObjectStore.getState().setObjects([]);
 
     // Refresh all stores in parallel for performance
     // Note: usePlantStore.loadPlants() now handles navigation store plant validation
