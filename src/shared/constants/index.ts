@@ -547,6 +547,11 @@ export const LAYOUT_CHANNELS = {
   DELETE: 'layout:delete',
 } as const;
 
+// Results Export (Phase 9: Excel Export)
+export const EXPORT_CHANNELS = {
+  EXPORT_RESULTS_EXCEL: 'export:results-excel',
+} as const;
+
 // ============================================
 // SHAPE CATALOG CONSTANTS (Phase 7.5)
 // ============================================

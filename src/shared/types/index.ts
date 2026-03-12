@@ -824,6 +824,14 @@ export interface YearOptimizationResult {
 }
 
 /**
+ * Request payload for exporting optimization results to Excel (Phase 9)
+ */
+export interface ExportResultsRequest {
+  results: OptimizationResult;
+  areaSequences: { code: string; sequence: number }[];
+}
+
+/**
  * Complete optimization results (all years)
  */
 export interface OptimizationResult {

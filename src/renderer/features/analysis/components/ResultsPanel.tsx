@@ -4,10 +4,11 @@
 // Similar to Excel format: Resultados_SMT, Resultados_ICT, etc.
 // ============================================
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAnalysisStore } from '../store/useAnalysisStore';
-import { X, BarChart3 } from 'lucide-react';
+import { X, BarChart3, Download } from 'lucide-react';
 import { LineUtilizationResult, OptimizationResult } from '@shared/types';
+import { EXPORT_CHANNELS } from '@shared/constants';
 import { useValidationCalculator } from '../hooks/useValidationCalculator';
 import { ValidationRows } from './ValidationRows';
 
@@ -69,6 +70,30 @@ export const ResultsPanel = ({
   // Use prop area sequences if provided, otherwise use store catalog
   const areaSequences = propAreaSequences || areaCatalog.map(a => ({ code: a.code, sequence: a.sequence }));
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+
+  const handleExportExcel = useCallback(async () => {
+    if (!results) return;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      const response = await window.electronAPI.invoke<{ path: string }>(
+        EXPORT_CHANNELS.EXPORT_RESULTS_EXCEL,
+        { results, areaSequences }
+      );
+      if (response.success) {
+        setExportMsg('Export complete');
+      } else if (response.error !== 'Export cancelled') {
+        setExportMsg('Export failed');
+      }
+    } catch {
+      setExportMsg('Export failed');
+    } finally {
+      setExporting(false);
+      setTimeout(() => setExportMsg(null), 3000);
+    }
+  }, [results, areaSequences]);
 
   // Group results by area, sorted by process sequence
   const areaGroups = useMemo(() => {
@@ -185,6 +210,19 @@ export const ResultsPanel = ({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {exportMsg && (
+              <span className={`text-sm font-medium ${exportMsg === 'Export complete' ? 'text-green-600' : 'text-red-600'}`}>
+                {exportMsg}
+              </span>
+            )}
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? 'Exporting...' : 'Export to Excel'}
+            </button>
             {onViewDashboard && (
               <button
                 onClick={onViewDashboard}

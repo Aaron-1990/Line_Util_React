@@ -5,7 +5,7 @@
 // Enhanced with dedicated line visibility & unfulfilled demand drill-down
 // ============================================
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import {
   X,
   Eye,
@@ -18,9 +18,11 @@ import {
   Lock,
   Unlock,
   Layers,
-  ExternalLink
+  ExternalLink,
+  Download
 } from 'lucide-react';
 import { OptimizationResult, AreaSummary, SystemConstraint, ConstrainedLineDetail } from '@shared/types';
+import { EXPORT_CHANNELS } from '@shared/constants';
 
 // ============================================
 // PROPS
@@ -124,6 +126,29 @@ export const ConstraintTimeline = ({
   // State for expanded constraint detail view
   const [expandedYear, setExpandedYear] = useState<number | null>(null);
   const [expandedUnfulfilled, setExpandedUnfulfilled] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+
+  const handleExportExcel = useCallback(async () => {
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      const response = await window.electronAPI.invoke<{ path: string }>(
+        EXPORT_CHANNELS.EXPORT_RESULTS_EXCEL,
+        { results, areaSequences: areaSequences ?? [] }
+      );
+      if (response.success) {
+        setExportMsg('Export complete');
+      } else if (response.error !== 'Export cancelled') {
+        setExportMsg('Export failed');
+      }
+    } catch {
+      setExportMsg('Export failed');
+    } finally {
+      setExporting(false);
+      setTimeout(() => setExportMsg(null), 3000);
+    }
+  }, [results, areaSequences]);
 
   // Extract years from results
   const years = useMemo(() => {
@@ -394,6 +419,19 @@ export const ConstraintTimeline = ({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {exportMsg && (
+              <span className={`text-sm font-medium ${exportMsg === 'Export complete' ? 'text-green-600' : 'text-red-600'}`}>
+                {exportMsg}
+              </span>
+            )}
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {exporting ? 'Exporting...' : 'Export to Excel'}
+            </button>
             {onViewDetails && (
               <button
                 onClick={onViewDetails}
