@@ -170,6 +170,19 @@ See `~/.claude/CLAUDE.md` for full configuration details. This project uses the 
 
 **See also:** `docs/rules/ARCHITECTURE-RULES.md` Rules 1, 6, 7, 8
 
+### 4c. Canvas Object Position Persistence — `draggingCanvasIds` (2026-03-12)
+
+**Status:** COMPLETE | **Rule:** Rule 9 (`docs/rules/ARCHITECTURE-RULES.md`)
+
+ReactFlow v11 drag-end fires `{dragging: false, position: undefined}`. The `onNodesChange` outer `if (change.position)` guard blocks it — `UPDATE_POSITION` was never called, positions never persisted.
+
+| Rule | Why Critical |
+| ---- | ------------ |
+| `ProductionCanvas.tsx` — use `draggingCanvasIds` ref to persist canvas object positions | Without it, drag-end event has no `position` field — DB never gets updated, positions revert on reopen |
+| DO NOT call `markUnsavedChanges()` after `UPDATE_POSITION` | Drag writes go directly to the live `.lop` DB — no backup needed, no "Edited" state warranted |
+
+**See also:** `docs/rules/ARCHITECTURE-RULES.md` Rule 9
+
 ### 5. Dynamic `getInstance()` in IPC Handlers (2026-02-07)
 
 **Documentation:** `docs/rules/ARCHITECTURE-RULES.md` Rule 4

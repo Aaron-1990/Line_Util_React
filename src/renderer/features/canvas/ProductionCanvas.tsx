@@ -700,6 +700,12 @@ const CanvasInner = () => {
   // layoutNodes memo fires → ReactFlow reconciles → fires onNodesChange with
   // dragging===false carrying the OLD position → overwrites commitCrop's new position).
   const draggingLayoutIds = useRef<Set<string>>(new Set());
+  // Tracks canvas object IDs whose drag we have seen a dragging===true event for.
+  // ReactFlow v11 fires {dragging: false, position: undefined} at drag-end (positionChanged=false
+  // in updateNodePositions). The outer change.position guard blocks it, so UPDATE_POSITION is
+  // never called without this ref. We track genuine drags here and persist on the undefined-
+  // position drag-end event by reading the final position from updatedNodes.
+  const draggingCanvasIds = useRef<Set<string>>(new Set());
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -781,27 +787,37 @@ const CanvasInner = () => {
             }
             // dragging===false without prior dragging===true: spurious programmatic echo — skip.
             // dragging===undefined: programmatic position echo — skip.
-          } else if (!change.dragging) {
-            // Process/generic canvas object: persist via existing mechanism (drag end only)
-            const updatedNode = updatedNodes.find(n => n.id === change.id);
-            if (updatedNode) {
-              updateNodePosition(change.id, updatedNode.position.x, updatedNode.position.y);
-
-              window.electronAPI
-                .invoke(CANVAS_OBJECT_CHANNELS.UPDATE_POSITION, change.id, updatedNode.position.x, updatedNode.position.y)
-                .catch((error) => {
-                  console.error('[ProductionCanvas] Error updating object position:', error);
-                });
-            }
+          } else if (change.dragging === true) {
+            // Canvas object drag tick: track the ID so we can persist on the drag-end event
+            // (which ReactFlow fires with position:undefined — see draggingCanvasIds comment).
+            draggingCanvasIds.current.add(change.id);
           }
         }
 
-        // Clean up dragging tracker when drag-end fires with undefined position.
-        // ReactFlow v11 sometimes fires {dragging: false, position: undefined} on drag end.
-        // The outer if(change.position) guard above skips it, leaking the ID in draggingLayoutIds.
+        // Handle drag-end events that fire with position:undefined.
+        // ReactFlow v11 ALWAYS fires {dragging: false, position: undefined} at drag-end
+        // (updateNodePositions called with positionChanged=false). The outer change.position
+        // guard above skips these events entirely, so this block handles them separately.
         if (change.type === 'position' && change.id && !(change as any).position
             && (change as any).dragging === false) {
+          // Clean up layout tracker (prevents ID leak from commitCrop echoes).
           draggingLayoutIds.current.delete(change.id);
+
+          // Persist canvas object final position.
+          // updatedNodes has the correct final position: applyNodeChanges with position:undefined
+          // leaves the node at its last-known position (set during dragging:true tick events).
+          if (draggingCanvasIds.current.has(change.id)) {
+            draggingCanvasIds.current.delete(change.id);
+            const updatedNode = updatedNodes.find(n => n.id === change.id);
+            if (updatedNode) {
+              updateNodePosition(change.id, updatedNode.position.x, updatedNode.position.y);
+              window.electronAPI
+                .invoke(CANVAS_OBJECT_CHANNELS.UPDATE_POSITION, change.id, updatedNode.position.x, updatedNode.position.y)
+                .catch((err) => {
+                  console.error('[ProductionCanvas] Error persisting canvas object position:', err);
+                });
+            }
+          }
         }
       });
     },

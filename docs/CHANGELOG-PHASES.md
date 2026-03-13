@@ -7,6 +7,14 @@
 
 ---
 
+## Bug Fix: Canvas Object Position Persistence (2026-03-12)
+**Status:** Complete | **Commits:** 1fa3757 + (draggingCanvasIds fix)
+**Summary:** Canvas object drag positions were never written to SQLite. ReactFlow v11 drag-end fires `{dragging: false, position: undefined}` — the outer `change.position` guard in `onNodesChange` blocked it entirely. Fix: `draggingCanvasIds` ref tracks genuine drags; persists on the `position: undefined` drag-end event via `updatedNodes`. Secondary fix: clear canvas stores in `refreshAllStores()` so `hasObjectsForPlant` guard never uses stale objects from a prior project on open.
+**Key files:** `ProductionCanvas.tsx` (`onNodesChange`, `draggingCanvasIds` ref)
+**Rules introduced:** Rule 9 (see `docs/rules/ARCHITECTURE-RULES.md`)
+
+---
+
 ## Phase 9: Export Optimization Results to Excel (2026-03-12)
 **Status:** Complete | **Commits:** ee0e577, bddfb36
 **Summary:** Export analysis results to `.xlsx` from the Results panel. Sheets: Resumen, Utilizacion, Cuellos de Botella, Demanda No Cubierta. Validation rows (DISTRIBUIDO, VOLUMEN BD, COBERTURA, ESTADO) per area. `dialog.showSaveDialog` for file picker.

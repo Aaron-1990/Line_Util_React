@@ -193,6 +193,44 @@ grep "isPassThrough" src/renderer/features/canvas/ProductionCanvas.tsx
 
 ---
 
+## Rule 9: Canvas Object Position Persistence via `draggingCanvasIds` Ref
+
+**Status:** MANDATORY since Bug Fix (2026-03-12)
+**Applies to:** `src/renderer/features/canvas/ProductionCanvas.tsx` — `onNodesChange` callback
+
+**Pattern:**
+```typescript
+// WRONG — outer change.position guard blocks the drag-end event:
+if (change.type === 'position' && change.id && change.position) {
+  else if (!change.dragging) { invoke(UPDATE_POSITION, ...) }  // NEVER reached
+}
+
+// CORRECT — track drag start; persist in the position:undefined cleanup block:
+const draggingCanvasIds = useRef<Set<string>>(new Set());
+
+// In outer guard (dragging:true always has position):
+} else if (change.dragging === true) { draggingCanvasIds.current.add(change.id); }
+
+// In cleanup block (outside outer guard):
+if (dragging === false && !position && draggingCanvasIds.current.has(change.id)) {
+  draggingCanvasIds.current.delete(change.id);
+  const node = updatedNodes.find(n => n.id === change.id);
+  invoke(UPDATE_POSITION, change.id, node.position.x, node.position.y);
+}
+```
+
+**Rationale:** ReactFlow v11 calls `updateNodePositions(items, positionChanged=false, dragging=false)` at drag-stop. With `positionChanged=false`, `change.position` is `undefined` — the outer guard fails and `UPDATE_POSITION` is never called. `updatedNodes` (from `applyNodeChanges`) retains the correct final position from the last `dragging:true` tick.
+
+**Audit:**
+```bash
+grep -n "draggingCanvasIds" src/renderer/features/canvas/ProductionCanvas.tsx
+# Expected: ref declaration + add in dragging:true + delete+invoke in cleanup block
+```
+
+**Origin:** Bug Fix 2026-03-12 — canvas object drag positions never persisted to SQLite; confirmed by querying `.lop` files directly (all had Excel import positions, WAL files 0 bytes).
+
+---
+
 ## Adding New Rules
 
 When a new mandatory architectural rule is established during a phase:
